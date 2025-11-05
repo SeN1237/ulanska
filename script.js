@@ -69,7 +69,6 @@ let currentUserId = null;
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeLeaderboard = null;
-let unsubscribeHistory = null;
 
 let ytPlayer = null;
 let unsubscribePlayer = null;
@@ -110,11 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
         sharesList: document.getElementById("shares-list"),
         ytForm: document.getElementById("yt-form"),
         ytUrlInput: document.getElementById("yt-url-input"),
-        ytPlayerContainer: document.getElementById("yt-player-container"),
-        historyList: document.getElementById("history-list")
+        ytPlayerContainer: document.getElementById("yt-player-container")
+        // historyList został usunięty
     };
 
-    // 2. Podepnij GŁÓWNE listenery (teraz `dom.registerForm` nie jest `null`)
+    // 2. Podepnij GŁÓWNE listenery
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
@@ -141,7 +140,6 @@ function startAuthListener() {
             listenToRumors();
             listenToLeaderboard();
             listenToYouTubePlayer();
-            listenToTransactionHistory(currentUserId);
             
             startPriceTicker();
             if (!chart) initChart();
@@ -163,7 +161,6 @@ function startAuthListener() {
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribePlayer) unsubscribePlayer();
-            if (unsubscribeHistory) unsubscribeHistory();
             
             if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
@@ -175,7 +172,6 @@ function startAuthListener() {
             
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
             updatePortfolioUI();
-            displayTransactionHistory([]);
         }
     });
 }
@@ -353,26 +349,6 @@ function listenToLeaderboard() {
     });
 }
 
-function listenToTransactionHistory(userId) {
-    if (unsubscribeHistory) unsubscribeHistory();
-    
-    const historyQuery = query(
-        collection(db, "uzytkownicy", userId, "transakcje"),
-        orderBy("timestamp", "desc"),
-        limit(10)
-    );
-    
-    unsubscribeHistory = onSnapshot(historyQuery, (querySnapshot) => {
-        const transactions = [];
-        querySnapshot.forEach((doc) => {
-            transactions.push(doc.data());
-        });
-        displayTransactionHistory(transactions);
-    }, (error) => {
-        console.error("Błąd nasłuchu historii transakcji: ", error);
-    });
-}
-
 
 // --- SEKCJA 5: HANDLERY AKCJI UŻYTKOWNIKA ---
 
@@ -420,7 +396,6 @@ function buyShares() {
         totalValue: newTotalValue
     });
     
-    logTransaction('buy', currentCompanyId, amount, currentPrice);
     showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
 }
 
@@ -445,7 +420,6 @@ function sellShares() {
         totalValue: newTotalValue
     });
     
-    logTransaction('sell', currentCompanyId, amount, currentPrice);
     showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
 }
 
@@ -457,24 +431,6 @@ async function updatePortfolioInFirebase(dataToUpdate) {
     } catch (error) {
         console.error("Błąd aktualizacji portfela: ", error);
         showMessage("Błąd zapisu danych!", "error");
-    }
-}
-
-async function logTransaction(type, companyId, amount, pricePerShare) {
-    if (!currentUserId) return;
-    try {
-        const historyCollectionRef = collection(db, "uzytkownicy", currentUserId, "transakcje");
-        await addDoc(historyCollectionRef, {
-            type: type,
-            companyId: companyId,
-            companyName: market[companyId].name,
-            amount: amount,
-            pricePerShare: pricePerShare,
-            totalValue: amount * pricePerShare,
-            timestamp: serverTimestamp()
-        });
-    } catch (error) {
-        console.error("Błąd logowania transakcji: ", error);
     }
 }
 
@@ -563,11 +519,9 @@ window.onYouTubeIframeAPIReady = function() {
 };
 
 function initYouTubePlayer(videoId = '5qap5aO4i9A') {
-    // POPRAWKA: Sprawdź, czy funkcja `loadVideoById` istnieje na `ytPlayer`
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
         ytPlayer.loadVideoById(videoId);
     } 
-    // Jeśli API jest gotowe, ale odtwarzacz nie istnieje
     else if (window.YT && window.YT.Player) {
         if (document.getElementById('yt-player')) {
             ytPlayer = new window.YT.Player('yt-player', {
@@ -600,7 +554,7 @@ function listenToYouTubePlayer() {
                 initYouTubePlayer(data.currentVideoId);
             }
         } else {
-             initYouTubePlayer('5qap5aO4i9A'); // Domyślne wideo
+             initYouTubePlayer('5qap5aO4i9A');
         }
     });
 }
@@ -711,32 +665,8 @@ function displayNewRumor(text, authorName, sentiment, companyId) {
     dom.rumorsFeed.prepend(p);
 }
 
-// NOWA FUNKCJA WYŚWIETLANIA HISTORII TRANSAKCJI
+// Funkcja wyświetlania historii (pusta, bo ją usunęliśmy z UI)
 function displayTransactionHistory(transactions) {
-    if (!dom.historyList) return;
-    
-    if (transactions.length === 0) {
-        dom.historyList.innerHTML = '<li>...brak transakcji...</li>';
-        return;
-    }
-    
-    dom.historyList.innerHTML = transactions.map(tx => {
-        const typeText = tx.type === 'buy' ? 'Kupno' : 'Sprzedaż';
-        const typeClass = tx.type === 'buy' ? 'history-buy' : 'history-sell';
-        const sign = tx.type === 'buy' ? '-' : '+';
-        const date = tx.timestamp ? tx.timestamp.toDate().toLocaleString('pl-PL') : 'chwilę temu';
-        
-        return `
-            <li>
-                <div class="history-details">
-                    <span class="${typeClass}"><strong>${typeText}</strong> (${tx.companyName})</span>
-                    <span>${tx.amount} szt. @ ${tx.pricePerShare.toFixed(2)} zł</span>
-                    <small>${date}</small>
-                </div>
-                <div class="history-amount ${typeClass}">
-                    <strong>${sign}${tx.totalValue.toFixed(2)} zł</strong>
-                </div>
-            </li>
-        `;
-    }).join('');
+    // Celowo puste, ale zostawione, aby uniknąć błędów, jeśli gdzieś zostało wywołanie
+    // W poprzednich kodach usunęliśmy panel i wywołania, więc to jest bezpiecznik.
 }
