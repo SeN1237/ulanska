@@ -69,13 +69,13 @@ let currentUserId = null;
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeLeaderboard = null;
+let unsubscribeHistory = null;
 
 let ytPlayer = null;
 let unsubscribePlayer = null;
 let localPlayerUpdate = false;
 
 // Obiekt DOM będzie wypełniony po załadowaniu skryptu
-// Ponieważ skrypt jest modułem, jest ładowany po sparsowaniu HTML
 const dom = {
     authContainer: document.getElementById("auth-container"),
     simulatorContainer: document.getElementById("simulator-container"),
@@ -102,7 +102,8 @@ const dom = {
     sharesList: document.getElementById("shares-list"),
     ytForm: document.getElementById("yt-form"),
     ytUrlInput: document.getElementById("yt-url-input"),
-    ytPlayerContainer: document.getElementById("yt-player-container")
+    ytPlayerContainer: document.getElementById("yt-player-container"),
+    historyList: document.getElementById("history-list")
 };
 
 
@@ -134,12 +135,12 @@ function startAuthListener() {
             listenToRumors();
             listenToLeaderboard();
             listenToYouTubePlayer();
+            listenToTransactionHistory(currentUserId);
             
             startPriceTicker();
             if (!chart) initChart();
             startChartTicker();
             
-            // Poprawka: Inicjuj YT Player tylko jeśli API jest gotowe
             if (window.YT && window.YT.Player) {
                 initYouTubePlayer();
             } else {
@@ -156,6 +157,7 @@ function startAuthListener() {
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribePlayer) unsubscribePlayer();
+            if (unsubscribeHistory) unsubscribeHistory();
             
             if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
@@ -165,9 +167,9 @@ function startAuthListener() {
                 ytPlayer = null;
             }
             
-            // Poprawka: Pokaż stan początkowy (100zł), a nie 0
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
             updatePortfolioUI();
+            displayTransactionHistory([]);
         }
     });
 }
@@ -183,7 +185,7 @@ async function createInitialUserData(userId, name, email) {
         shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
         startValue: 100.00,
         zysk: 0.00,
-        totalValue: 100.00, // Pole dla rankingu
+        totalValue: 100.00,
         joinDate: Timestamp.fromDate(new Date())
     };
     const userDocRef = doc(db, "uzytkownicy", userId);
@@ -241,11 +243,9 @@ function listenToPortfolioData(userId) {
             portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
             portfolio.startValue = data.startValue;
             
-            // Przelicz zysk i wartość na podstawie danych z bazy LOKALNIE
-            // (polegamy na cenach rynkowych w `market`)
             const totalValue = calculateTotalValue(data.cash, data.shares);
-            portfolio.totalValue = totalValue; // Zapisz lokalnie
-            portfolio.zysk = totalValue - data.startValue; // Zapisz lokalnie
+            portfolio.totalValue = totalValue;
+            portfolio.zysk = totalValue - data.startValue;
             
             updatePortfolioUI();
         } else {
@@ -269,7 +269,7 @@ function listenToRumors() {
             if (index === 0 && rumor.timestamp) {
                 const rumorTime = rumor.timestamp.toDate().getTime();
                 const now = new Date().getTime();
-                if ((now - rumorTime) < 10000) { // Czas reakcji na plotkę: 10 sekund
+                if ((now - rumorTime) < 10000) {
                     applyRumorSentiment(rumor.companyId, rumor.sentiment);
                 }
             }
@@ -329,7 +329,6 @@ function listenToLeaderboard() {
             const valueStrong = document.createElement("strong");
             valueStrong.textContent = `${(user.totalValue || 0).toFixed(2)} zł`;
             
-            // Oblicz zysk/stratę
             const profit = (user.totalValue || 0) - (user.startValue || 100);
             const profitSmall = document.createElement("small");
             profitSmall.textContent = `Zysk: ${profit.toFixed(2)} zł`;
@@ -346,6 +345,27 @@ function listenToLeaderboard() {
         if (error.code === "failed-precondition") {
             dom.leaderboardList.innerHTML = `<li><strong>BŁĄD BAZY DANYCH!</strong> Ranking musi zostać zindeksowany. Otwórz konsolę (F12), znajdź link błędu i kliknij go, aby automatycznie utworzyć indeks dla pola 'totalValue'.</li>`;
         }
+    });
+}
+
+// NOWA FUNKCJA NASŁUCHU HISTORII TRANSAKCJI
+function listenToTransactionHistory(userId) {
+    if (unsubscribeHistory) unsubscribeHistory();
+    
+    const historyQuery = query(
+        collection(db, "uzytkownicy", userId, "transakcje"),
+        orderBy("timestamp", "desc"),
+        limit(10)
+    );
+    
+    unsubscribeHistory = onSnapshot(historyQuery, (querySnapshot) => {
+        const transactions = [];
+        querySnapshot.forEach((doc) => {
+            transactions.push(doc.data());
+        });
+        displayTransactionHistory(transactions);
+    }, (error) => {
+        console.error("Błąd nasłuchu historii transakcji: ", error);
     });
 }
 
@@ -386,7 +406,6 @@ function buyShares() {
     const newShares = { ...portfolio.shares };
     newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
     
-    // Oblicz nowe wartości dla bazy
     const newTotalValue = calculateTotalValue(newCash, newShares);
     const newZysk = newTotalValue - portfolio.startValue;
 
@@ -394,9 +413,10 @@ function buyShares() {
         cash: newCash, 
         shares: newShares,
         zysk: newZysk,
-        totalValue: newTotalValue // Zapisz totalValue dla rankingu
+        totalValue: newTotalValue
     });
     
+    logTransaction('buy', currentCompanyId, amount, currentPrice);
     showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
 }
 
@@ -411,7 +431,6 @@ function sellShares() {
     const newShares = { ...portfolio.shares };
     newShares[currentCompanyId] -= amount;
 
-    // Oblicz nowe wartości dla bazy
     const newTotalValue = calculateTotalValue(newCash, newShares);
     const newZysk = newTotalValue - portfolio.startValue;
     
@@ -419,9 +438,10 @@ function sellShares() {
         cash: newCash, 
         shares: newShares,
         zysk: newZysk,
-        totalValue: newTotalValue // Zapisz totalValue dla rankingu
+        totalValue: newTotalValue
     });
     
+    logTransaction('sell', currentCompanyId, amount, currentPrice);
     showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
 }
 
@@ -436,7 +456,24 @@ async function updatePortfolioInFirebase(dataToUpdate) {
     }
 }
 
-// Funkcja pomocnicza do liczenia CAŁKOWITEJ wartości portfela
+async function logTransaction(type, companyId, amount, pricePerShare) {
+    if (!currentUserId) return;
+    try {
+        const historyCollectionRef = collection(db, "uzytkownicy", currentUserId, "transakcje");
+        await addDoc(historyCollectionRef, {
+            type: type,
+            companyId: companyId,
+            companyName: market[companyId].name,
+            amount: amount,
+            pricePerShare: pricePerShare,
+            totalValue: amount * pricePerShare,
+            timestamp: serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Błąd logowania transakcji: ", error);
+    }
+}
+
 function calculateTotalValue(cash, shares) {
     let sharesValue = 0;
     for (const companyId in shares) {
@@ -460,7 +497,7 @@ function startPriceTicker() {
             const trend = 0.0005 * company.price;
             const change = (Math.random() - 0.5) * 2 * volatility + trend + (sentimentImpact * company.price);
             company.price = Math.max(1.00, company.price + change);
-            marketSentiment[companyId] *= 0.95; // Wpływ plotki maleje
+            marketSentiment[companyId] *= 0.95;
         }
         updatePriceUI();
         updatePortfolioUI();
@@ -494,7 +531,7 @@ function startChartTicker() {
             const lastClose = parseFloat(lastCandle.y[3]);
             
             const open = lastClose;
-            const close = company.price; // Zamknięcie świecy = aktualna cena
+            const close = company.price;
             const high = Math.max(open, close) + Math.random() * (company.price * 0.01);
             const low = Math.min(open, close) - Math.random() * (company.price * 0.01);
 
@@ -521,24 +558,26 @@ window.onYouTubeIframeAPIReady = function() {
     if (currentUserId) { initYouTubePlayer(); }
 };
 
-function initYouTubePlayer(videoId = '5qap5aO4i9A') { // Domyślne wideo
-    if (ytPlayer || !document.getElementById('yt-player')) {
-        if(ytPlayer && videoId) {
-             ytPlayer.loadVideoById(videoId);
+function initYouTubePlayer(videoId = '5qap5aO4i9A') {
+    // POPRAWKA: Sprawdź, czy funkcja `loadVideoById` istnieje na `ytPlayer`
+    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+        ytPlayer.loadVideoById(videoId);
+    } 
+    // Jeśli API jest gotowe, ale odtwarzacz nie istnieje
+    else if (window.YT && window.YT.Player) {
+        if (document.getElementById('yt-player')) {
+            ytPlayer = new window.YT.Player('yt-player', {
+                height: '100%',
+                width: '100%',
+                videoId: videoId,
+                playerVars: {
+                    'playsinline': 1,
+                    'autoplay': 1,
+                    'controls': 1
+                }
+            });
         }
-        return; 
-    }
-    
-    ytPlayer = new window.YT.Player('yt-player', {
-        height: '100%',
-        width: '100%',
-        videoId: videoId,
-        playerVars: {
-            'playsinline': 1,
-            'autoplay': 1,
-            'controls': 1
-        }
-    });
+    } 
 }
 
 function listenToYouTubePlayer() {
@@ -554,11 +593,7 @@ function listenToYouTubePlayer() {
         if (docSnap.exists()) {
             const data = docSnap.data();
             if (data.currentVideoId) {
-                if (ytPlayer) {
-                    ytPlayer.loadVideoById(data.currentVideoId);
-                } else {
-                    initYouTubePlayer(data.currentVideoId);
-                }
+                initYouTubePlayer(data.currentVideoId);
             }
         } else {
              initYouTubePlayer('5qap5aO4i9A'); // Domyślne wideo
@@ -627,11 +662,9 @@ function updatePortfolioUI() {
         <p>BrzozAir: <strong id="shares-brzozair">${portfolio.shares.brzozair || 0}</strong> szt.</p>
     `;
 
-    // Przelicz wartość i zysk na bieżąco w UI (na podstawie cen rynkowych)
     const totalValue = calculateTotalValue(portfolio.cash, portfolio.shares);
     const totalProfit = totalValue - portfolio.startValue;
 
-    // Zapisz do lokalnego portfela (na potrzeby wyświetlania)
     portfolio.totalValue = totalValue;
     portfolio.zysk = totalProfit;
 
@@ -646,30 +679,4 @@ function updatePortfolioUI() {
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
     dom.messageBox.textContent = message;
-    dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
-    dom.amountInput.value = "";
-}
-
-function displayNewRumor(text, authorName, sentiment, companyId) {
-    if (!dom || !dom.rumorsFeed) return;
-    const p = document.createElement("p");
-    
-    let prefix = "";
-    if (companyId && market[companyId]) {
-        prefix = `[${market[companyId].name}] `;
-    }
-    
-    if (sentiment === "positive") {
-        p.style.color = "var(--green)";
-    } else if (sentiment === "negative") {
-        p.style.color = "var(--red)";
-    }
-    
-    p.textContent = prefix + text; 
-    const authorSpan = document.createElement("span");
-    authorSpan.textContent = ` - ${authorName || "Anonim"}`;
-    authorSpan.style.color = "var(--text-muted)";
-    authorSpan.style.fontStyle = "normal";
-    p.appendChild(authorSpan);
-    dom.rumorsFeed.prepend(p);
-}
+    dom.messageBox.style.color = (type === "error") ?
