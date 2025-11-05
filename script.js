@@ -24,7 +24,51 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// === WKLEJ TEN KOD (np. w linii 27 pliku main.js) ===
 
+// 1. Tworzymy "wskaźnik" (referencję) do dokumentu z cenami w bazie
+const cenyDocRef = doc(db, "global", "ceny_akcji");
+
+// 2. Używamy 'onSnapshot', aby "nasłuchiwać" na żywo zmian w tym dokumencie
+onSnapshot(cenyDocRef, (docSnap) => {
+    
+    if (docSnap.exists()) {
+        // Dokument istnieje, więc pobieramy z niego dane (ceny)
+        const aktualneCeny = docSnap.data();
+        
+        // 'aktualneCeny' to teraz obiekt: { ulanska: 100, brzozair: 100, ... }
+        console.log("Pobrano aktualne ceny z bazy:", aktualneCeny);
+
+        // 3. Aktualizujemy treść (ceny) na naszej stronie HTML
+        //    Używamy ID elementów, które masz w pliku index.html
+        
+        if (document.getElementById('ulanska-cena')) {
+            document.getElementById('ulanska-cena').innerText = aktualneCeny.ulanska;
+        }
+        if (document.getElementById('brzozair-cena')) {
+            document.getElementById('brzozair-cena').innerText = aktualneCeny.brzozair;
+        }
+        if (document.getElementById('igicorp-cena')) {
+            document.getElementById('igicorp-cena').innerText = aktualneCeny.igicorp;
+        }
+        if (document.getElementById('rychbud-cena')) {
+            document.getElementById('rychbud-cena').innerText = aktualneCeny.rychbud;
+        }
+
+        // WAŻNE: Jeśli używasz zmiennych w JS do trzymania cen,
+        // (a nie tylko czytasz z HTML), musisz je też tutaj zaktualizować.
+        // Jeśli Twój kod do kupna/sprzedaży pobiera cenę prosto
+        // z 'document.getElementById('ulanska-cena').innerText',
+        // to NIE musisz nic więcej robić.
+
+    } else {
+        // To się stanie, jeśli np. zrobisz literówkę w nazwie
+        // dokumentu 'ceny_akcji' (Krok 1).
+        console.error("KRYTYCZNY BŁĄD: Nie można znaleźć dokumentu 'global/ceny_akcji'!");
+    }
+});
+
+// === KONIEC KODU DO WKLEJENIA ===
 // --- SEKCJA 1: ZMIENNE GLOBALNE I REFERENCJE DOM ---
 
 function generateInitialCandles(count, basePrice) {
