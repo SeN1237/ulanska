@@ -75,52 +75,58 @@ let ytPlayer = null;
 let unsubscribePlayer = null;
 let localPlayerUpdate = false;
 
-// Obiekt DOM będzie wypełniony po załadowaniu skryptu
-const dom = {
-    authContainer: document.getElementById("auth-container"),
-    simulatorContainer: document.getElementById("simulator-container"),
-    loginForm: document.getElementById("login-form"),
-    registerForm: document.getElementById("register-form"),
-    authMessage: document.getElementById("auth-message"),
-    username: document.getElementById("username"),
-    logoutButton: document.getElementById("logout-button"),
-    cash: document.getElementById("cash"),
-    totalValue: document.getElementById("total-value"),
-    totalProfit: document.getElementById("total-profit"),
-    stockPrice: document.getElementById("stock-price"),
-    amountInput: document.getElementById("amount-input"),
-    buyButton: document.getElementById("buy-button"),
-    sellButton: document.getElementById("sell-button"),
-    messageBox: document.getElementById("message-box"),
-    chartContainer: document.getElementById("chart-container"),
-    rumorForm: document.getElementById("rumor-form"),
-    rumorInput: document.getElementById("rumor-input"),
-    rumorsFeed: document.getElementById("rumors-feed"),
-    leaderboardList: document.getElementById("leaderboard-list"),
-    companySelector: document.getElementById("company-selector"),
-    companyName: document.getElementById("company-name"),
-    sharesList: document.getElementById("shares-list"),
-    ytForm: document.getElementById("yt-form"),
-    ytUrlInput: document.getElementById("yt-url-input"),
-    ytPlayerContainer: document.getElementById("yt-player-container"),
-    historyList: document.getElementById("history-list")
-};
-
+// Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
+let dom = {};
 
 // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 
-// Podepnij listenery od razu, DOM jest gotowy (bo to moduł)
-dom.registerForm.addEventListener("submit", onRegister);
-dom.loginForm.addEventListener("submit", onLogin);
-dom.logoutButton.addEventListener("click", onLogout);
-dom.companySelector.addEventListener("click", onSelectCompany);
-dom.buyButton.addEventListener("click", buyShares);
-dom.sellButton.addEventListener("click", sellShares);
-dom.rumorForm.addEventListener("submit", onPostRumor);
-dom.ytForm.addEventListener("submit", onYouTubeLoad);
+// POPRAWKA: Czekamy, aż cały HTML się załaduje, zanim cokolwiek zrobimy
+document.addEventListener("DOMContentLoaded", () => {
+    
+    // 1. Wypełnij referencje DOM (teraz jest to bezpieczne)
+    dom = {
+        authContainer: document.getElementById("auth-container"),
+        simulatorContainer: document.getElementById("simulator-container"),
+        loginForm: document.getElementById("login-form"),
+        registerForm: document.getElementById("register-form"),
+        authMessage: document.getElementById("auth-message"),
+        username: document.getElementById("username"),
+        logoutButton: document.getElementById("logout-button"),
+        cash: document.getElementById("cash"),
+        totalValue: document.getElementById("total-value"),
+        totalProfit: document.getElementById("total-profit"),
+        stockPrice: document.getElementById("stock-price"),
+        amountInput: document.getElementById("amount-input"),
+        buyButton: document.getElementById("buy-button"),
+        sellButton: document.getElementById("sell-button"),
+        messageBox: document.getElementById("message-box"),
+        chartContainer: document.getElementById("chart-container"),
+        rumorForm: document.getElementById("rumor-form"),
+        rumorInput: document.getElementById("rumor-input"),
+        rumorsFeed: document.getElementById("rumors-feed"),
+        leaderboardList: document.getElementById("leaderboard-list"),
+        companySelector: document.getElementById("company-selector"),
+        companyName: document.getElementById("company-name"),
+        sharesList: document.getElementById("shares-list"),
+        ytForm: document.getElementById("yt-form"),
+        ytUrlInput: document.getElementById("yt-url-input"),
+        ytPlayerContainer: document.getElementById("yt-player-container"),
+        historyList: document.getElementById("history-list")
+    };
 
-// Uruchom główną pętlę aplikacji
-startAuthListener();
+    // 2. Podepnij GŁÓWNE listenery (teraz `dom.registerForm` nie jest `null`)
+    dom.registerForm.addEventListener("submit", onRegister);
+    dom.loginForm.addEventListener("submit", onLogin);
+    dom.logoutButton.addEventListener("click", onLogout);
+    dom.companySelector.addEventListener("click", onSelectCompany);
+    dom.buyButton.addEventListener("click", buyShares);
+    dom.sellButton.addEventListener("click", sellShares);
+    dom.rumorForm.addEventListener("submit", onPostRumor);
+    dom.ytForm.addEventListener("submit", onYouTubeLoad);
+
+    // 3. Uruchom główną pętlę aplikacji
+    startAuthListener();
+});
 
 
 function startAuthListener() {
@@ -310,7 +316,6 @@ async function onPostRumor(e) {
     }
 }
 
-// ZAKTUALIZOWANY RANKING (sortuje po 'totalValue')
 function listenToLeaderboard() {
     if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     
@@ -348,7 +353,6 @@ function listenToLeaderboard() {
     });
 }
 
-// NOWA FUNKCJA NASŁUCHU HISTORII TRANSAKCJI
 function listenToTransactionHistory(userId) {
     if (unsubscribeHistory) unsubscribeHistory();
     
@@ -679,4 +683,60 @@ function updatePortfolioUI() {
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
     dom.messageBox.textContent = message;
-    dom.messageBox.style.color = (type === "error") ?
+    dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+    dom.amountInput.value = "";
+}
+
+function displayNewRumor(text, authorName, sentiment, companyId) {
+    if (!dom || !dom.rumorsFeed) return;
+    const p = document.createElement("p");
+    
+    let prefix = "";
+    if (companyId && market[companyId]) {
+        prefix = `[${market[companyId].name}] `;
+    }
+    
+    if (sentiment === "positive") {
+        p.style.color = "var(--green)";
+    } else if (sentiment === "negative") {
+        p.style.color = "var(--red)";
+    }
+    
+    p.textContent = prefix + text; 
+    const authorSpan = document.createElement("span");
+    authorSpan.textContent = ` - ${authorName || "Anonim"}`;
+    authorSpan.style.color = "var(--text-muted)";
+    authorSpan.style.fontStyle = "normal";
+    p.appendChild(authorSpan);
+    dom.rumorsFeed.prepend(p);
+}
+
+// NOWA FUNKCJA WYŚWIETLANIA HISTORII TRANSAKCJI
+function displayTransactionHistory(transactions) {
+    if (!dom.historyList) return;
+    
+    if (transactions.length === 0) {
+        dom.historyList.innerHTML = '<li>...brak transakcji...</li>';
+        return;
+    }
+    
+    dom.historyList.innerHTML = transactions.map(tx => {
+        const typeText = tx.type === 'buy' ? 'Kupno' : 'Sprzedaż';
+        const typeClass = tx.type === 'buy' ? 'history-buy' : 'history-sell';
+        const sign = tx.type === 'buy' ? '-' : '+';
+        const date = tx.timestamp ? tx.timestamp.toDate().toLocaleString('pl-PL') : 'chwilę temu';
+        
+        return `
+            <li>
+                <div class="history-details">
+                    <span class="${typeClass}"><strong>${typeText}</strong> (${tx.companyName})</span>
+                    <span>${tx.amount} szt. @ ${tx.pricePerShare.toFixed(2)} zł</span>
+                    <small>${date}</small>
+                </div>
+                <div class="history-amount ${typeClass}">
+                    <strong>${sign}${tx.totalValue.toFixed(2)} zł</strong>
+                </div>
+            </li>
+        `;
+    }).join('');
+}
