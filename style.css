@@ -1,185 +1,460 @@
-/* Ustawienia globalne i ciemny motyw */
-:root {
-    --bg-color: #1a1e25;
-    --panel-color: #252a34;
-    --border-color: #3b4252;
-    --text-color: #e5e9f0;
-    --text-muted: #a3acb9;
-    --green: #28a745;
-    --red: #dc3545;
-    --blue: #007bff;
-}
+document.addEventListener("DOMContentLoaded", () => {
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    margin: 0;
-    padding: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-}
+    // --- SEKCJA 0: KONFIGURACJA FIREBASE ---
 
-/* --- NOWE STYLE LOGOWANIA --- */
-#auth-container {
-    display: flex;
-    gap: 20px;
-    max-width: 800px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-.auth-panel {
-    flex: 1;
-    min-width: 300px;
-}
-.auth-panel form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.auth-panel label {
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-.auth-panel input {
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border-radius: 4px;
-    font-size: 1em;
-}
-.auth-panel button {
-    padding: 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 1em;
-    background-color: var(--blue);
-    color: white;
-    margin-top: 10px;
-}
-#auth-message {
-    width: 100%;
-    text-align: center;
-    font-size: 1.1em;
-    min-height: 20px;
-}
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
-/* Klasa do ukrywania/pokazywania */
-.hidden {
-    display: none !important;
-}
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
+    authDomain: "symulator-gielda.firebaseapp.com",
+    projectId: "symulator-gielda",
+    storageBucket: "symulator-gielda.firebasestorage.app",
+    messagingSenderId: "407270570707",
+    appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
+    measurementId: "G-BXPWNE261F"
+  };
 
-/* --- ISTNIEJĄCE STYLE SYMULATORA --- */
-#simulator-container {
-    width: 100%;
-    max-width: 1400px;
-}
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+    
+    // Inicjalizacja Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-}
-header h1 { margin: 0; color: var(--blue); }
-#logout-button {
-    background: var(--red); color: white; border: none;
-    padding: 5px 10px; border-radius: 4px; cursor: pointer;
-    font-size: 0.8em; margin-left: 10px;
-}
 
-/* Układ siatki (Grid) */
-.grid-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-template-areas:
-        "market portfolio"
-        "market order"
-        "rumors rumors";
-    gap: 20px;
-}
-#market-panel { grid-area: market; }
-#portfolio-panel { grid-area: portfolio; }
-#order-panel { grid-area: order; }
-#rumors-panel { grid-area: rumors; }
+    // --- SEKCJA 1: ZMIENNE GLOBALNE I REFERENCJE DOM ---
 
-.panel {
-    background-color: var(--panel-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-h2 {
-    margin-top: 0; border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
-}
+    // Obiekt na aktualną cenę (nadal lokalna dla każdego klienta)
+    let company = { price: 50.00 };
+    
+    // Obiekt na dane portfela (będzie ładowany z Firebase)
+    let portfolio = {
+        name: "Gość",
+        cash: 0,
+        shares: 0,
+        startValue: 100 // Bazowa wartość do liczenia zysku
+    };
+    
+    // Zmienne dla wykresu
+    let chart = null;
+    let chartData = generateInitialCandles(30);
 
-/* Panel Rynku i Wykresu */
-#price-container { font-size: 1.5em; margin-bottom: 20px; }
-#stock-price { font-weight: bold; transition: color 0.3s ease; }
-#chart-container { width: 100%; min-height: 300px; }
+    // Zmienna na aktualny ID użytkownika
+    let currentUserId = null;
+    // Zmienna na "odpinanie" nasłuchu bazy danych
+    let unsubscribePortfolio = null;
+    let unsubscribeRumors = null;
 
-/* Panel Portfela */
-#portfolio-panel p {
-    margin: 10px 0; font-size: 1.1em;
-    display: flex; justify-content: space-between;
-}
-#portfolio-panel hr {
-    border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
-}
-#total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
+    // Referencje do elementów HTML
+    const dom = {
+        // Kontenery widoków
+        authContainer: document.getElementById("auth-container"),
+        simulatorContainer: document.getElementById("simulator-container"),
+        
+        // Formularze autentykacji
+        loginForm: document.getElementById("login-form"),
+        registerForm: document.getElementById("register-form"),
+        authMessage: document.getElementById("auth-message"),
+        
+        // Elementy symulatora
+        username: document.getElementById("username"),
+        logoutButton: document.getElementById("logout-button"),
+        cash: document.getElementById("cash"),
+        shares: document.getElementById("shares"),
+        sharesValue: document.getElementById("shares-value"),
+        totalValue: document.getElementById("total-value"),
+        totalProfit: document.getElementById("total-profit"),
+        stockPrice: document.getElementById("stock-price"),
+        amountInput: document.getElementById("amount-input"),
+        buyButton: document.getElementById("buy-button"),
+        sellButton: document.getElementById("sell-button"),
+        messageBox: document.getElementById("message-box"),
+        chartContainer: document.getElementById("chart-container"),
+        
+        // Panel plotek
+        rumorForm: document.getElementById("rumor-form"),
+        rumorInput: document.getElementById("rumor-input"),
+        rumorsFeed: document.getElementById("rumors-feed")
+    };
 
-/* Panel Zleceń */
-.actions {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 10px; align-items: center;
-}
-.actions label {
-    grid-column: 1 / 3; font-size: 0.9em; color: var(--text-muted);
-}
-#amount-input {
-    grid-column: 1 / 3; padding: 10px; border: 1px solid var(--border-color);
-    background-color: var(--bg-color); color: var(--text-color);
-    border-radius: 4px; font-size: 1.1em;
-}
-button {
-    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
-    font-weight: bold; font-size: 1em; transition: transform 0.1s ease;
-}
-button:active { transform: scale(0.98); }
-#buy-button { background-color: var(--green); color: white; }
-#sell-button { background-color: var(--red); color: white; }
-#message-box {
-    margin-top: 15px; font-style: italic; min-height: 20px;
-}
 
-/* Panel Plotek (nowy formularz) */
-#rumor-form {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-#rumor-input {
-    flex: 1; padding: 10px; border: 1px solid var(--border-color);
-    background-color: var(--bg-color); color: var(--text-color);
-    border-radius: 4px; font-size: 1em;
-}
-#rumor-form button {
-    background-color: var(--blue); color: white;
-}
-#rumors-feed p {
-    margin: 5px 0; font-style: italic;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 5px;
-}
-#rumors-feed p:last-child {
-    border-bottom: none;
-}
+    // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA - OBSŁUGA STANU LOGOWANIA ---
+
+    /**
+     * To jest teraz serce aplikacji. Uruchamia się samo, gdy stan logowania się zmienia.
+     * Zastępuje to funkcję `init()` i `loadUserData()`.
+     */
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            // UŻYTKOWNIK JEST ZALOGOWANY
+            currentUserId = user.uid;
+            
+            // Pokaż symulator, ukryj logowanie
+            dom.simulatorContainer.classList.remove("hidden");
+            dom.authContainer.classList.add("hidden");
+            
+            // Rozpocznij nasłuch na zmiany w portfelu tego użytkownika
+            // To jest "magia" - dane będą aktualizować się na żywo!
+            listenToPortfolioData(currentUserId);
+            
+            // Rozpocznij nasłuch na globalne plotki
+            listenToRumors();
+            
+            // Uruchom silniki lokalne (cena, wykres)
+            startPriceTicker();
+            if (!chart) initChart(); // Inicjuj wykres tylko raz
+            startChartTicker();
+
+        } else {
+            // UŻYTKOWNIK JEST WYLOGOWANY
+            currentUserId = null;
+            
+            // Pokaż logowanie, ukryj symulator
+            dom.simulatorContainer.classList.add("hidden");
+            dom.authContainer.classList.remove("hidden");
+            
+            // Zatrzymaj nasłuch (jeśli jakiś był)
+            if (unsubscribePortfolio) unsubscribePortfolio();
+            if (unsubscribeRumors) unsubscribeRumors();
+            
+            // Resetuj dane portfela
+            portfolio = { name: "Gość", cash: 0, shares: 0, startValue: 100 };
+        }
+    });
+
+
+    // --- SEKCJA 3: LOGIKA AUTENTYKACJI (REJESTRACJA, LOGOWANIE) ---
+    
+    dom.registerForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = dom.registerForm.querySelector("#register-name").value;
+        const email = dom.registerForm.querySelector("#register-email").value;
+        const password = dom.registerForm.querySelector("#register-password").value;
+        
+        try {
+            // 1. Stwórz użytkownika w usłudze "Authentication"
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const user = userCredential.user;
+            
+            // 2. Stwórz dla niego dokument w bazie "Firestore" ze 100zł na start
+            await createInitialUserData(user.uid, name, email);
+            
+            // Użytkownik zostanie automatycznie zalogowany (onAuthStateChanged się uruchomi)
+            
+        } catch (error) {
+            showAuthMessage("Błąd rejestracji: " + error.message, "error");
+        }
+    });
+
+    dom.loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = dom.loginForm.querySelector("#login-email").value;
+        const password = dom.loginForm.querySelector("#login-password").value;
+        
+        try {
+            // 1. Zaloguj użytkownika
+            await auth.signInWithEmailAndPassword(email, password);
+            // Użytkownik zostanie zalogowany (onAuthStateChanged się uruchomi)
+            
+        } catch (error) {
+            showAuthMessage("Błąd logowania: " + error.message, "error");
+        }
+    });
+
+    dom.logoutButton.addEventListener("click", () => {
+        auth.signOut(); // To uruchomi onAuthStateChanged -> wylogowanie
+    });
+
+    function showAuthMessage(message, type = "info") {
+        dom.authMessage.textContent = message;
+        dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+    }
+
+
+    // --- SEKCJA 4: LOGIKA BAZY DANYCH (FIRESTORE) ---
+
+    /**
+     * Tworzy startowy dokument dla nowego użytkownika w bazie.
+     */
+    async function createInitialUserData(userId, name, email) {
+        const userPortfolio = {
+            name: name,
+            email: email,
+            cash: 100.00,
+            shares: 0,
+            startValue: 100.00, // Do liczenia zysku
+            joinDate: new Date()
+        };
+        // Użyj .doc(userId).set() aby nadać dokumentowi ID identyczne z ID użytkownika
+        await db.collection("uzytkownicy").doc(userId).set(userPortfolio);
+    }
+
+    /**
+     * Nasłuchuje na zmiany w portfelu użytkownika W CZASIE RZECZYWISTYM.
+     * Zastępuje stare loadUserData() i saveUserData().
+     */
+    function listenToPortfolioData(userId) {
+        // Odpinamy stary nasłuch, jeśli istnieje
+        if (unsubscribePortfolio) unsubscribePortfolio();
+
+        unsubscribePortfolio = db.collection("uzytkownicy").doc(userId)
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    // Mamy dane! Zapisz je do globalnej zmiennej
+                    const data = doc.data();
+                    portfolio.name = data.name;
+                    portfolio.cash = data.cash;
+                    portfolio.shares = data.shares;
+                    portfolio.startValue = data.startValue;
+                    
+                    // Odśwież UI natychmiast
+                    updatePortfolioUI();
+                } else {
+                    // To nie powinno się zdarzyć, jeśli rejestracja działa
+                    console.error("Błąd: Nie znaleziono danych użytkownika!");
+                }
+            }, (error) => {
+                console.error("Błąd nasłuchu portfela: ", error);
+            });
+    }
+
+    /**
+     * Nasłuchuje na nowe plotki W CZASIE RZECZYWISTYM.
+     */
+    function listenToRumors() {
+        if (unsubscribeRumors) unsubscribeRumors();
+        
+        // Pobierz 5 ostatnich plotek, posortowanych po dacie
+        unsubscribeRumors = db.collection("plotki")
+            .orderBy("timestamp", "desc")
+            .limit(5)
+            .onSnapshot((querySnapshot) => {
+                dom.rumorsFeed.innerHTML = ""; // Wyczyść stare plotki
+                querySnapshot.forEach((doc) => {
+                    const rumor = doc.data();
+                    displayNewRumor(rumor.text, rumor.authorName);
+                });
+            }, (error) => {
+                console.error("Błąd nasłuchu plotek: ", error);
+            });
+    }
+
+    /**
+     * Dodaje nową plotkę do bazy danych.
+     */
+    dom.rumorForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const rumorText = dom.rumorInput.value;
+        
+        if (!rumorText.trim() || !currentUserId) return;
+        
+        try {
+            await db.collection("plotki").add({
+                text: rumorText,
+                authorId: currentUserId,
+                authorName: portfolio.name, // Używamy wczytanej nazwy
+                timestamp: new Date()
+            });
+            dom.rumorInput.value = ""; // Wyczyść pole po wysłaniu
+        } catch (error) {
+            console.error("Błąd dodawania plotki: ", error);
+        }
+    });
+
+
+    // --- SEKCJA 5: AKCJE UŻYTKOWNIKA (KUPNO/SPRZEDAŻ) ---
+
+    dom.buyButton.addEventListener("click", () => {
+        const amount = parseInt(dom.amountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+            showMessage("Wpisz poprawną ilość.", "error"); return;
+        }
+        
+        const cost = amount * company.price;
+        if (cost > portfolio.cash) {
+            showMessage("Brak wystarczającej gotówki.", "error"); return;
+        }
+        
+        // Obliczamy nowe wartości
+        const newCash = portfolio.cash - cost;
+        const newShares = portfolio.shares + amount;
+        
+        // Wysyłamy aktualizację do Firebase!
+        updatePortfolioInFirebase({ cash: newCash, shares: newShares });
+        
+        showMessage(`Kupiono ${amount} akcji za ${cost.toFixed(2)} zł`, "success");
+    });
+
+    dom.sellButton.addEventListener("click", () => {
+        const amount = parseInt(dom.amountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+            showMessage("Wpisz poprawną ilość.", "error"); return;
+        }
+        
+        if (amount > portfolio.shares) {
+            showMessage("Nie masz tylu akcji.", "error"); return;
+        }
+        
+        const revenue = amount * company.price;
+        
+        // Obliczamy nowe wartości
+        const newCash = portfolio.cash + revenue;
+        const newShares = portfolio.shares - amount;
+        
+        // Wysyłamy aktualizację do Firebase!
+        updatePortfolioInFirebase({ cash: newCash, shares: newShares });
+        
+        showMessage(`Sprzedano ${amount} akcji za ${revenue.toFixed(2)} zł`, "success");
+    });
+
+    /**
+     * Funkcja-pomocnik do wysyłania zmian portfela do bazy.
+     * Używa .update() zamiast .set(), aby nie nadpisać całego dokumentu.
+     */
+    async function updatePortfolioInFirebase(dataToUpdate) {
+        if (!currentUserId) return;
+        
+        try {
+            const userDocRef = db.collection("uzytkownicy").doc(currentUserId);
+            await userDocRef.update(dataToUpdate);
+            // Nie musimy ręcznie odświeżać UI,
+            // nasłuch onSnapshot() zrobi to za nas!
+        } catch (error) {
+            console.error("Błąd aktualizacji portfela: ", error);
+            showMessage("Błąd zapisu danych!", "error");
+        }
+    }
+
+    
+    // --- SEKCJA 6: SYMULATOR RYNKU (LOKALNIE) I WYKRES ---
+    // Ta logika pozostaje bez zmian - cena jest nadal liczona u klienta.
+    // Prawdziwa synchronizacja ceny wymagałaby Cloud Functions (krok 4).
+
+    function startPriceTicker() {
+        // Upewnij się, że nie uruchamiamy wielu tickerów
+        if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
+        
+        window.priceTickerInterval = setInterval(() => {
+            const volatility = 0.5;
+            const trend = 0.01;
+            const change = (Math.random() - 0.5) * 2 * volatility + trend;
+            company.price = Math.max(1.00, company.price + change);
+            
+            updatePriceUI();
+            updatePortfolioUI(); // Musimy też przeliczać wartość portfela na bieżąco
+        }, 2000);
+    }
+    
+    // Funkcje wykresu (bez zmian)
+    function generateInitialCandles(count) {
+        let data = []; let lastClose = 50;
+        let timestamp = new Date().getTime() - (count * 5000);
+        for (let i = 0; i < count; i++) {
+            let open = lastClose; let close = open + (Math.random() - 0.5) * 4;
+            let high = Math.max(open, close) + Math.random() * 2;
+            let low = Math.min(open, close) - Math.random() * 2;
+            close = Math.max(1, close);
+            data.push({
+                x: new Date(timestamp),
+                y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+            });
+            lastClose = close; timestamp += 5000;
+        }
+        return data;
+    }
+
+    function initChart() {
+        const options = {
+            series: [{ data: chartData }],
+            chart: { type: 'candlestick', height: 350, toolbar: { show: false }, animations: { enabled: true, dynamicAnimation: { enabled: true, speed: 350 } } },
+            theme: { mode: 'dark' },
+            title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
+            xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
+            yaxis: { tooltip: { enabled: true }, labels: { formatter: (val) => val.toFixed(2) + " zł", style: { colors: '#a3acb9' } } },
+            plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
+        };
+        chart = new ApexCharts(dom.chartContainer, options);
+        chart.render();
+    }
+
+    function startChartTicker() {
+        if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
+
+        window.chartTickerInterval = setInterval(() => {
+            if (!chartData.length) return; // Zabezpieczenie
+            const lastCandle = chartData[chartData.length - 1];
+            const lastClose = parseFloat(lastCandle.y[3]);
+            let open = lastClose; let close = open + (Math.random() - 0.5) * 4;
+            let high = Math.max(open, close) + Math.random() * 2;
+            let low = Math.min(open, close) - Math.random() * 2;
+            close = Math.max(1, close);
+            const newCandle = {
+                x: new Date(lastCandle.x.getTime() + 5000),
+                y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+            };
+            chartData.push(newCandle);
+            if (chartData.length > 50) chartData.shift();
+            if (chart) chart.updateSeries([{ data: chartData }]);
+        }, 5000);
+    }
+
+
+    // --- SEKCJA 7: AKTUALIZACJA INTERFEJSU (UI) ---
+
+    function updatePriceUI() {
+        const oldPrice = parseFloat(dom.stockPrice.textContent);
+        dom.stockPrice.textContent = `${company.price.toFixed(2)} zł`;
+        if (company.price > oldPrice) dom.stockPrice.style.color = "var(--green)";
+        else if (company.price < oldPrice) dom.stockPrice.style.color = "var(--red)";
+    }
+
+    function updatePortfolioUI() {
+        // Używamy danych z globalnego obiektu 'portfolio'
+        dom.username.textContent = portfolio.name;
+        dom.cash.textContent = `${portfolio.cash.toFixed(2)} zł`;
+        dom.shares.textContent = `${portfolio.shares} szt.`;
+        
+        const sharesValue = portfolio.shares * company.price;
+        const totalValue = portfolio.cash + sharesValue;
+        const totalProfit = totalValue - portfolio.startValue;
+
+        dom.sharesValue.textContent = `${sharesValue.toFixed(2)} zł`;
+        dom.totalValue.textContent = `${totalValue.toFixed(2)} zł`;
+        dom.totalProfit.textContent = `${totalProfit.toFixed(2)} zł`;
+        
+        if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
+        else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
+        else dom.totalProfit.style.color = "var(--text-muted)";
+    }
+
+    function showMessage(message, type) {
+        dom.messageBox.textContent = message;
+        dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+        dom.amountInput.value = "";
+    }
+
+    function displayNewRumor(text, authorName) {
+        const p = document.createElement("p");
+        // Używamy textContent, aby uniknąć problemów z bezpieczeństwem (np. wstrzyknięcia HTML)
+        p.textContent = text; 
+        
+        const authorSpan = document.createElement("span");
+        authorSpan.textContent = ` - ${authorName || "Anonim"}`;
+        authorSpan.style.color = "var(--text-muted)";
+        authorSpan.style.fontStyle = "normal";
+        p.appendChild(authorSpan);
+        
+        dom.rumorsFeed.prepend(p);
+    }
+
+}); // Koniec DOMContentLoaded
