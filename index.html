@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symulator Giełdy - ułańska.by</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Symulator Giełdy</h1>
+        <div id="user-info">
+            Witaj, <span id="username">Graczu</span>!
+            <button id="reset-button">Resetuj konto</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="panel" id="portfolio">
+            <h2>Mój Portfel</h2>
+            <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
+            <p>Akcje "ułańska.by": <strong id="shares">0</strong></p>
+            <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
+        </div>
+
+        <div class="panel" id="market">
+            <h2>Rynek</h2>
+            <h3>ułańska.by</h3>
+            <p>Aktualna cena: <strong id="stock-price">50.00</strong> zł</p>
+            <div class="actions">
+                <input type="number" id="amount-input" placeholder="Ilość" min="1">
+                <button id="buy-button">Kup</button>
+                <button id="sell-button">Sprzedaj</button>
+            </div>
+            <p id="message-box"></p>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
