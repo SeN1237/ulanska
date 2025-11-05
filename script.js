@@ -90,10 +90,10 @@ function generateInitialCandles(count, basePrice) {
 }
 
 let market = {
-    ulanska: { name: "Ułańska Dev", price: 75.00, history: generateInitialCandles(30, 75) },
-    rychbud: { name: "RychBud", price: 50.00, history: generateInitialCandles(30, 50) },
-    igicorp: { name: "IgiCorp", price: 120.00, history: generateInitialCandles(30, 120) },
-    brzozair: { name: "BrzozAir", price: 25.00, history: generateInitialCandles(30, 25) }
+document.getElementById('ulanska-cena').innerText = ulanskaPrice;
+document.getElementById('brzozair-cena').innerText = brzozairPrice;
+document.getElementById('igicorp-cena').innerText = igicorpPrice;
+document.getElementById('rychbud-cena').innerText = rychbudPrice;
 };
 let currentCompanyId = "ulanska";
 
