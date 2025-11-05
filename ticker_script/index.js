@@ -1,23 +1,23 @@
-// Używamy 'require' (CommonJS), co jest prostsze dla GitHub Actions
 const admin = require('firebase-admin');
 
 // Pobieramy klucz (w formie stringa) z sekretów GitHub
-// Zmienna 'FIREBASE_SERVICE_ACCOUNT' zostanie ustawiona w Kroku 4
 const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 try {
-  // Inicjalizujemy Firebase Admin SDK z kluczem
+  // Inicjalizujemy Firebase Admin SDK
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccountKey),
-    // Pamiętaj, aby URL pasował do Twojego projektu!
     databaseURL: 'https://symulator-gielda.firebaseio.com' 
   });
 
   const db = admin.firestore();
-  const cenyDocRef = db.doc("global/ceny_akcji");
+  const cenyDocRef = db.doc("global/ceny_gieldy"); // Upewnij się, że nazwa jest poprawna! (u Ciebie było: ceny_akcji)
+  // Jeśli w bazie masz 'ceny_akcji', zmień linię wyżej na:
+  // const cenyDocRef = db.doc("global/ceny_akcji");
 
-  console.log("Połączono z Firebase. Rozpoczynam aktualizację cen...");
 
+  // === FUNKCJA TICKERA (serce) ===
+  // Ta funkcja robi JEDNĄ aktualizację cen
   const runTicker = async () => {
     // 1. Pobierz aktualne ceny
     const docSnap = await cenyDocRef.get();
@@ -30,10 +30,9 @@ try {
     const newPrices = {};
     const companies = ["ulanska", "brzozair", "igicorp", "rychbud"];
 
-    console.log("Aktualne ceny:", currentPrices);
-    console.log("Obliczam nowe ceny...");
+    console.log("Pobrano ceny:", currentPrices);
 
-    // 2. Wygeneruj nowe ceny (ta sama logika co w starym tickerze)
+    // 2. Wygeneruj nowe ceny
     companies.forEach((companyId) => {
       if (currentPrices[companyId] === undefined) return;
 
@@ -50,15 +49,44 @@ try {
 
     // 3. ZAPISZ nowe ceny z powrotem do bazy
     await cenyDocRef.update(newPrices);
-    
-    console.log("Sukces! Zaktualizowano ceny w bazie:", newPrices);
+    console.log("Sukces! Zaktualizowano ceny:", newPrices);
   };
 
-  // Uruchom główną logikę
-  runTicker();
+  // === FUNKCJA PAUZY ===
+  // Potrzebujemy jej, aby czekać 30 sekund
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // === GŁÓWNA PĘTLA (NOWA LOGIKA) ===
+  const mainLoop = async () => {
+    const updatesPerRun = 10;       // 10 aktualizacji...
+    const intervalSeconds = 30;     // ...co 30 sekund
+    // (10 * 30s = 300s = 5 minut)
+
+    console.log(`Rozpoczynam pętlę: ${updatesPerRun} aktualizacji co ${intervalSeconds} sekund.`);
+
+    for (let i = 1; i <= updatesPerRun; i++) {
+      console.log(`--- Aktualizacja ${i}/${updatesPerRun} ---`);
+      
+      try {
+        await runTicker(); // Uruchom właściwą aktualizację cen
+      } catch (e) {
+        console.error("Błąd w trakcie 'runTicker':", e);
+      }
+      
+      // Czekaj (jeśli to nie jest ostatnia pętla)
+      if (i < updatesPerRun) {
+        console.log(`Czekam ${intervalSeconds} sekund...`);
+        await sleep(intervalSeconds * 1000);
+      }
+    }
+    console.log("Pętla zakończona. Zamykam zadanie (GitHub uruchomi mnie ponownie).");
+  };
+
+  // Uruchom główną pętlę
+  mainLoop();
 
 } catch (e) {
-  console.error("Wystąpił błąd podczas inicjalizacji lub uruchamiania skryptu:");
+  console.error("Wystąpił krytyczny błąd podczas inicjalizacji skryptu:");
   console.error(e);
-  process.exit(1); // Zakończ z błędem, aby GitHub Action pokazał "failed"
+  process.exit(1); // Zakończ z błędem
 }
