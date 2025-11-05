@@ -11,7 +11,7 @@ try {
   });
 
   const db = admin.firestore();
-  const cenyDocRef = db.doc("global/ceny_gieldy"); // Upewnij się, że nazwa jest poprawna! (u Ciebie było: ceny_akcji)
+  const cenyDocRef = db.doc("global/ceny_akcji"); // Upewnij się, że nazwa jest poprawna! (u Ciebie było: ceny_akcji)
   // Jeśli w bazie masz 'ceny_akcji', zmień linię wyżej na:
   // const cenyDocRef = db.doc("global/ceny_akcji");
 
