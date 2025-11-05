@@ -1,3 +1,4 @@
+import { getFirestore, collection, addDoc, getDocs, updateDoc } from "firebase/firestore";
 // --- SEKCJA 0: IMPORTY I KONFIGURACJA FIREBASE ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
