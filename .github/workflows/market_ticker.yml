@@ -1,0 +1,33 @@
+name: Aktualizacja Cen Giełdy
+
+on:
+  schedule:
+    # Uruchamiaj co 5 minut (możesz zmienić na '*/1 * * * *' dla 1 minuty)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # Dodaje przycisk "Run workflow" w zakładce Actions
+    # do ręcznego uruchamiania
+
+jobs:
+  update-prices:
+    # Uruchom na serwerze Linux (standard)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobranie kodu repozytorium
+        uses: actions/checkout@v3
+
+      - name: Użycie Node.js w wersji 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Instalacja zależności skryptu
+        # Przechodzimy do folderu ze skryptem i instalujemy 'firebase-admin'
+        run: cd ticker_script && npm install
+
+      - name: Uruchomienie skryptu aktualizacji cen
+        # Uruchamiamy skrypt i przekazujemy mu nasz klucz z sekretów
+        run: node ticker_script/index.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
