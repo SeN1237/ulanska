@@ -24,51 +24,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// === WKLEJ TEN KOD (np. w linii 27 pliku main.js) ===
-
-// 1. Tworzymy "wskaźnik" (referencję) do dokumentu z cenami w bazie
-const cenyDocRef = doc(db, "global", "ceny_akcji");
-
-// 2. Używamy 'onSnapshot', aby "nasłuchiwać" na żywo zmian w tym dokumencie
-onSnapshot(cenyDocRef, (docSnap) => {
-    
-    if (docSnap.exists()) {
-        // Dokument istnieje, więc pobieramy z niego dane (ceny)
-        const aktualneCeny = docSnap.data();
-        
-        // 'aktualneCeny' to teraz obiekt: { ulanska: 100, brzozair: 100, ... }
-        console.log("Pobrano aktualne ceny z bazy:", aktualneCeny);
-
-        // 3. Aktualizujemy treść (ceny) na naszej stronie HTML
-        //    Używamy ID elementów, które masz w pliku index.html
-        
-        if (document.getElementById('ulanska-cena')) {
-            document.getElementById('ulanska-cena').innerText = aktualneCeny.ulanska;
-        }
-        if (document.getElementById('brzozair-cena')) {
-            document.getElementById('brzozair-cena').innerText = aktualneCeny.brzozair;
-        }
-        if (document.getElementById('igicorp-cena')) {
-            document.getElementById('igicorp-cena').innerText = aktualneCeny.igicorp;
-        }
-        if (document.getElementById('rychbud-cena')) {
-            document.getElementById('rychbud-cena').innerText = aktualneCeny.rychbud;
-        }
-
-        // WAŻNE: Jeśli używasz zmiennych w JS do trzymania cen,
-        // (a nie tylko czytasz z HTML), musisz je też tutaj zaktualizować.
-        // Jeśli Twój kod do kupna/sprzedaży pobiera cenę prosto
-        // z 'document.getElementById('ulanska-cena').innerText',
-        // to NIE musisz nic więcej robić.
-
-    } else {
-        // To się stanie, jeśli np. zrobisz literówkę w nazwie
-        // dokumentu 'ceny_akcji' (Krok 1).
-        console.error("KRYTYCZNY BŁĄD: Nie można znaleźć dokumentu 'global/ceny_akcji'!");
-    }
-});
-
-// === KONIEC KODU DO WKLEJENIA ===
 // --- SEKCJA 1: ZMIENNE GLOBALNE I REFERENCJE DOM ---
 
 function generateInitialCandles(count, basePrice) {
@@ -89,11 +44,17 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
+// ====================================================================
+// POPRAWKA #1: Prawidłowa definicja obiektu 'market'
+// Definiujemy tutaj strukturę rynku. Ceny ('price') zostaną
+// natychmiast nadpisane przez wartości z Firebase, gdy tylko się połączymy.
+// Używamy '1' jako ceny startowej, aby uniknąć błędów.
+// ====================================================================
 let market = {
-document.getElementById('ulanska-cena').innerText = ulanskaPrice;
-document.getElementById('brzozair-cena').innerText = brzozairPrice;
-document.getElementById('igicorp-cena').innerText = igicorpPrice;
-document.getElementById('rychbud-cena').innerText = rychbudPrice;
+    ulanska:  { name: "Ułańska Dev", price: 1, history: generateInitialCandles(50, 1) },
+    brzozair: { name: "BrzozAir",     price: 1, history: generateInitialCandles(50, 1) },
+    igicorp:  { name: "IgiCorp",      price: 1, history: generateInitialCandles(50, 1) },
+    rychbud:  { name: "RychBud",      price: 1, history: generateInitialCandles(50, 1) }
 };
 let currentCompanyId = "ulanska";
 
@@ -121,9 +82,51 @@ let localPlayerUpdate = false;
 // Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
 let dom = {};
 
-// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 
-// POPRAWKA: Czekamy, aż cały HTML się załaduje, zanim cokolwiek zrobimy
+// ====================================================================
+// POPRAWKA #2: Zmodyfikowany 'onSnapshot'
+// Teraz aktualizuje on ZARÓWNO logikę gry (obiekt 'market'),
+// JAK I wyświetlany HTML.
+// ====================================================================
+const cenyDocRef = doc(db, "global", "ceny_akcji");
+onSnapshot(cenyDocRef, (docSnap) => {
+    
+    if (docSnap.exists()) {
+        const aktualneCeny = docSnap.data();
+        console.log("Pobrano aktualne ceny z bazy:", aktualneCeny);
+
+        // KROK 1: Aktualizuj logikę gry (obiekt 'market')
+        // Dzięki temu kupno/sprzedaż będzie używać cen z bazy.
+        if (market.ulanska)  market.ulanska.price  = aktualneCeny.ulanska;
+        if (market.brzozair) market.brzozair.price = aktualneCeny.brzozair;
+        if (market.igicorp)  market.igicorp.price  = aktualneCeny.igicorp;
+        if (market.rychbud)  market.rychbud.price  = aktualneCeny.rychbud;
+
+        // KROK 2: Aktualizuj wyświetlany HTML (interfejs)
+        if (document.getElementById('ulanska-cena')) {
+            document.getElementById('ulanska-cena').innerText = aktualneCeny.ulanska;
+        }
+        if (document.getElementById('brzozair-cena')) {
+            document.getElementById('brzozair-cena').innerText = aktualneCeny.brzozair;
+        }
+        if (document.getElementById('igicorp-cena')) {
+            document.getElementById('igicorp-cena').innerText = aktualneCeny.igicorp;
+        }
+        if (document.getElementById('rychbud-cena')) {
+            document.getElementById('rychbud-cena').innerText = aktualneCeny.rychbud;
+        }
+        
+        // KROK 3: Wywołaj funkcje odświeżające UI
+        updatePriceUI(); // Aktualizuje cenę na głównym panelu
+        updatePortfolioUI(); // Przelicza wartość portfela na nowo
+
+    } else {
+        console.error("KRYTYCZNY BŁĄD: Nie można znaleźć dokumentu 'global/ceny_akcji'!");
+    }
+});
+
+
+// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 document.addEventListener("DOMContentLoaded", () => {
     
     // 1. Wypełnij referencje DOM (teraz jest to bezpieczne)
@@ -154,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ytForm: document.getElementById("yt-form"),
         ytUrlInput: document.getElementById("yt-url-input"),
         ytPlayerContainer: document.getElementById("yt-player-container")
-        // historyList został usunięty
     };
 
     // 2. Podepnij GŁÓWNE listenery
@@ -185,7 +187,12 @@ function startAuthListener() {
             listenToLeaderboard();
             listenToYouTubePlayer();
             
-            startPriceTicker();
+            // ====================================================================
+            // POPRAWKA #3: Usunięto wywołanie startPriceTicker()
+            // Nie chcemy już lokalnie symulować cen.
+            // ====================================================================
+            // startPriceTicker(); // USUNIĘTE
+            
             if (!chart) initChart();
             startChartTicker();
             
@@ -206,7 +213,7 @@ function startAuthListener() {
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribePlayer) unsubscribePlayer();
             
-            if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
+            //if (window.priceTickerInterval) clearInterval(window.priceTickerInterval); // Usunięte, bo nie ma już tej funkcji
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
             if (ytPlayer) {
@@ -325,7 +332,7 @@ function listenToRumors() {
 
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
-    const impact = 0.05;
+    const impact = 0.05; // Ten kod i tak nie będzie nic robił, bo ceny są z bazy
     if (sentiment === "positive") {
         marketSentiment[companyId] = impact;
     } else if (sentiment === "negative") {
@@ -421,7 +428,8 @@ function changeCompany(companyId) {
 
 function buyShares() {
     const amount = parseInt(dom.amountInput.value);
-    const currentPrice = market[currentCompanyId].price;
+    // CENA JEST POBIERANA Z 'market', który jest aktualizowany przez 'onSnapshot'
+    const currentPrice = market[currentCompanyId].price; 
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     const cost = amount * currentPrice;
     if (cost > portfolio.cash) { showMessage("Brak wystarczającej gotówki.", "error"); return; }
@@ -445,6 +453,7 @@ function buyShares() {
 
 function sellShares() {
     const amount = parseInt(dom.amountInput.value);
+    // CENA JEST POBIERANA Z 'market', który jest aktualizowany przez 'onSnapshot'
     const currentPrice = market[currentCompanyId].price;
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     if (amount > (portfolio.shares[currentCompanyId] || 0)) { showMessage("Nie masz tylu akcji tej spółki.", "error"); return; }
@@ -482,6 +491,7 @@ function calculateTotalValue(cash, shares) {
     let sharesValue = 0;
     for (const companyId in shares) {
         if (market[companyId]) {
+            // Używa aktualnej ceny z obiektu 'market'
             sharesValue += (shares[companyId] || 0) * market[companyId].price;
         }
     }
@@ -490,6 +500,14 @@ function calculateTotalValue(cash, shares) {
 
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
+
+// ====================================================================
+// POPRAWKA #4: Usunięcie `startPriceTicker`
+// Ta funkcja generowała losowe ceny lokalnie,
+// co powodowało nadpisywanie cen pobranych z bazy.
+// Usunęliśmy ją, aby JEDYNYM źródłem cen była baza danych.
+// ====================================================================
+/*
 function startPriceTicker() {
     if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
     
@@ -500,13 +518,14 @@ function startPriceTicker() {
             const volatility = 0.01 * company.price;
             const trend = 0.0005 * company.price;
             const change = (Math.random() - 0.5) * 2 * volatility + trend + (sentimentImpact * company.price);
-            company.price = Math.max(1.00, company.price + change);
+            company.price = Math.max(1.00, company.price + change); // <--- TO BYŁ PROBLEM
             marketSentiment[companyId] *= 0.95;
         }
         updatePriceUI();
         updatePortfolioUI();
     }, 2000);
 }
+*/
 
 function initChart() {
     const options = {
@@ -534,8 +553,10 @@ function startChartTicker() {
             const lastCandle = history[history.length - 1];
             const lastClose = parseFloat(lastCandle.y[3]);
             
+            // Wykres świecowy używa teraz ceny z 'market' (ustawianej przez Firebase)
+            // jako nowej ceny zamknięcia.
             const open = lastClose;
-            const close = company.price;
+            const close = company.price; 
             const high = Math.max(open, close) + Math.random() * (company.price * 0.01);
             const low = Math.min(open, close) - Math.random() * (company.price * 0.01);
 
@@ -709,8 +730,6 @@ function displayNewRumor(text, authorName, sentiment, companyId) {
     dom.rumorsFeed.prepend(p);
 }
 
-// Funkcja wyświetlania historii (pusta, bo ją usunęliśmy z UI)
 function displayTransactionHistory(transactions) {
-    // Celowo puste, ale zostawione, aby uniknąć błędów, jeśli gdzieś zostało wywołanie
-    // W poprzednich kodach usunęliśmy panel i wywołania, więc to jest bezpiecznik.
+    // puste
 }
