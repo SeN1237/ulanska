@@ -6,62 +6,76 @@ document.addEventListener("DOMContentLoaded", () => {
     let user = {
         name: "Gracz",
         cash: 100.00,
-        shares: 0
+        shares: 0,
+        startValue: 100.00 // Do liczenia zysku
     };
 
     let company = {
         name: "ułańska.by",
-        price: 50.00,
-        history: [50.00]
+        price: 50.00
     };
 
-    // Zmienne globalne dla wykresu
+    // Zmienne dla wykresu
     let chart = null;
-    let chartData = generateInitialCandles(30); // Generujemy 30 startowych świec
+    let chartData = generateInitialCandles(30);
 
-    // Referencje do elementów HTML dla szybszego dostępu
+    // NOWOŚĆ: Zmienne dla plotek
+    let currentSentimentTrend = 0.0; // Wpływ plotek na cenę
+    const marketRumors = [
+        { text: "CEO 'ułańska.by' ogłasza przełomową innowację!", sentiment: "positive" },
+        { text: "Spółka wchodzi na nowy, lukratywny rynek azjatycki.", sentiment: "positive" },
+        { text: "Słyszałem, że ich nowy produkt to hit. Kupować!", sentiment: "positive" },
+        { text: "Duży fundusz inwestycyjny zainteresowany 'ułańska.by'.", sentiment: "positive" },
+        { text: "KNF ma pewne wątpliwości co do sprawozdań finansowych...", sentiment: "negative" },
+        { text: "Pożar w głównej fabryce! Produkcja wstrzymana.", sentiment: "negative" },
+        { text: "Konkurencja wypuściła lepszy produkt za połowę ceny.", sentiment: "negative" },
+        { text: "Prezes widziany, jak sprzedaje swoje akcje... Słabo to wygląda.", sentiment: "negative" },
+    ];
+
+    // Referencje do elementów HTML
     const dom = {
         username: document.getElementById("username"),
         cash: document.getElementById("cash"),
         shares: document.getElementById("shares"),
+        sharesValue: document.getElementById("shares-value"),
         totalValue: document.getElementById("total-value"),
+        totalProfit: document.getElementById("total-profit"),
         stockPrice: document.getElementById("stock-price"),
         amountInput: document.getElementById("amount-input"),
         buyButton: document.getElementById("buy-button"),
         sellButton: document.getElementById("sell-button"),
         resetButton: document.getElementById("reset-button"),
-        messageBox: document.getElementById("message-box")
+        messageBox: document.getElementById("message-box"),
+        chartContainer: document.getElementById("chart-container"),
+        rumorsFeed: document.getElementById("rumors-feed")
     };
 
     // --- SEKCJA 2: GŁÓWNA LOGIKA APLIKACJI ---
 
-    // Funkcja inicjująca (uruchamia się na starcie)
     function init() {
         loadUserData();
         setupEventListeners();
-        initChart(); // Inicjalizacja wykresu
-        startPriceTicker(); // Istniejący ticker (cena co 2s)
-        startChartTicker(); // Ticker dla wykresu (świece co 5s)
-        updateUI();
+        initChart();          // Uruchom wykres
+        startPriceTicker();   // Uruchom silnik ceny (co 2s)
+        startChartTicker();   // Uruchom silnik wykresu (co 5s)
+        startRumorTicker();   // Uruchom silnik plotek (co 15s)
+        updatePortfolioUI();  // Zaktualizuj UI na starcie
     }
 
-    // Ładowanie danych użytkownika z localStorage
+    // Ładowanie/Zapisywanie danych (bez zmian)
     function loadUserData() {
-        const savedData = localStorage.getItem("stockSimUser");
-        
+        const savedData = localStorage.getItem("stockSimUser_v2"); // Nowy klucz, by uniknąć konfliktu
         if (savedData) {
             user = JSON.parse(savedData);
         } else {
-            // Jeśli nie ma danych, poproś o nazwę i zapisz stan początkowy
-            const newName = prompt("Witaj w symulatorze! Jak się nazywasz?", "Gracz");
-            user.name = newName || "Gracz"; // Ustaw domyślną nazwę, jeśli ktoś anuluje
+            const newName = prompt("Witaj! Jak się nazywasz?", "Gracz");
+            user.name = newName || "Gracz";
             saveUserData();
         }
     }
 
-    // Zapisywanie danych użytkownika w localStorage
     function saveUserData() {
-        localStorage.setItem("stockSimUser", JSON.stringify(user));
+        localStorage.setItem("stockSimUser_v2", JSON.stringify(user));
     }
 
     // Ustawienie "nasłuchu" na przyciski
@@ -71,215 +85,225 @@ document.addEventListener("DOMContentLoaded", () => {
         dom.resetButton.addEventListener("click", resetAccount);
     }
 
-    // --- SEKCJA 3: AKCJE UŻYTKOWNIKA ---
+    // --- SEKCJA 3: AKCJE UŻYTKOWNIKA (Kupno/Sprzedaż/Reset) ---
 
     function buyShares() {
         const amount = parseInt(dom.amountInput.value);
         if (isNaN(amount) || amount <= 0) {
-            showMessage("Wpisz poprawną ilość akcji.", "error");
-            return;
+            showMessage("Wpisz poprawną ilość.", "error"); return;
         }
-
         const cost = amount * company.price;
         if (cost > user.cash) {
-            showMessage("Nie masz wystarczająco gotówki!", "error");
-            return;
+            showMessage("Brak wystarczającej gotówki.", "error"); return;
         }
-
         user.cash -= cost;
         user.shares += amount;
-
-        showMessage(`Kupiono ${amount} akcji "ułańska.by" za ${cost.toFixed(2)} zł.`, "success");
+        showMessage(`Kupiono ${amount} akcji za ${cost.toFixed(2)} zł`, "success");
         updateAndSave();
     }
 
     function sellShares() {
         const amount = parseInt(dom.amountInput.value);
         if (isNaN(amount) || amount <= 0) {
-            showMessage("Wpisz poprawną ilość akcji.", "error");
-            return;
+            showMessage("Wpisz poprawną ilość.", "error"); return;
         }
-
         if (amount > user.shares) {
-            showMessage("Nie masz tylu akcji na sprzedaż!", "error");
-            return;
+            showMessage("Nie masz tylu akcji.", "error"); return;
         }
-
         const revenue = amount * company.price;
         user.cash += revenue;
         user.shares -= amount;
-
-        showMessage(`Sprzedano ${amount} akcji za ${revenue.toFixed(2)} zł.`, "success");
+        showMessage(`Sprzedano ${amount} akcji za ${revenue.toFixed(2)} zł`, "success");
         updateAndSave();
     }
 
     function resetAccount() {
-        if (confirm("Czy na pewno chcesz zresetować konto? Utracisz wszystkie postępy.")) {
-            localStorage.removeItem("stockSimUser");
-            // Przeładuj stronę, aby zacząć od nowa
+        if (confirm("Zresetować konto i zacząć od 100 zł?")) {
+            localStorage.removeItem("stockSimUser_v2");
             location.reload(); 
         }
     }
 
-    // --- SEKCJA 4: SYMULATOR RYNKU I AKTUALIZACJA UI ---
+    // --- SEKCJA 4: SYMULATOR RYNKU ---
 
-    // Istniejący ticker - on odpowiada za CENĘ AKTUALNĄ (do kupna/sprzedaży)
+    // Silnik 1: Główna cena (do transakcji), co 2 sekundy
     function startPriceTicker() {
         setInterval(() => {
-            const volatility = 0.5;
-            const trend = 0.05;
-            const change = (Math.random() - 0.5) * 2 * volatility + trend;
-            let newPrice = company.price + change;
-            company.price = Math.max(1.00, newPrice);
+            const volatility = 0.5; // Zwykła zmienność
+            const baseTrend = 0.01;  // Lekki trend wzrostowy
             
-            // Aktualizuj tylko cenę i portfel, wykres ma swój ticker
+            // Zmniejszaj wpływ plotki z czasem
+            currentSentimentTrend *= 0.95; 
+
+            // Sumuj trendy
+            const totalTrend = baseTrend + currentSentimentTrend;
+            
+            const change = (Math.random() - 0.5) * 2 * volatility + totalTrend;
+            let newPrice = company.price + change;
+            
+            company.price = Math.max(1.00, newPrice); // Cena nie spadnie poniżej 1 zł
+            
             updatePriceUI();
             updatePortfolioUI();
-        }, 2000); // Zmieniaj cenę co 2 sekundy
+        }, 2000);
     }
 
-    // Funkcja do generowania startowych danych do wykresu
+    // Silnik 2: Plotki rynkowe, co 15 sekund
+    function startRumorTicker() {
+        setInterval(() => {
+            // Wybierz losową plotkę
+            const rumor = marketRumors[Math.floor(Math.random() * marketRumors.length)];
+            
+            // Ustaw wpływ plotki na cenę
+            if (rumor.sentiment === "positive") {
+                currentSentimentTrend = 0.2; // Mocny, chwilowy "skok" w górę
+            } else {
+                currentSentimentTrend = -0.2; // Mocny, chwilowy "skok" w dół
+            }
+
+            // Wyświetl plotkę
+            displayNewRumor(rumor.text, rumor.sentiment);
+
+        }, 15000); // Nowa plotka co 15 sekund
+    }
+
+    // --- SEKCJA 5: WYKRES ŚWIECOWY (Logika bez zmian) ---
+
+    // Generuje dane startowe dla wykresu
     function generateInitialCandles(count) {
         let data = [];
         let lastClose = 50;
-        let timestamp = new Date().getTime() - (count * 5000); // Zaczynamy w przeszłości
-
+        let timestamp = new Date().getTime() - (count * 5000);
         for (let i = 0; i < count; i++) {
             let open = lastClose;
             let close = open + (Math.random() - 0.5) * 4;
             let high = Math.max(open, close) + Math.random() * 2;
             let low = Math.min(open, close) - Math.random() * 2;
-            close = Math.max(1, close); // Nie pozwól cenie spaść poniżej 1
-            
+            close = Math.max(1, close);
             data.push({
                 x: new Date(timestamp),
                 y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
             });
-            
             lastClose = close;
-            timestamp += 5000; // Każda świeca to 5 sekund
+            timestamp += 5000;
         }
         return data;
     }
 
-    // Funkcja inicjalizująca wykres (uruchamiana raz w init())
+    // Inicjalizuje i rysuje wykres
     function initChart() {
         const options = {
-            series: [{
-                data: chartData
-            }],
+            series: [{ data: chartData }],
             chart: {
                 type: 'candlestick',
-                height: 250,
-                toolbar: { show: false } // Ukrywamy domyślne menu
+                height: 350,
+                toolbar: { show: false },
+                animations: { enabled: true, dynamicAnimation: { enabled: true, speed: 350 } }
             },
-            title: {
-                text: 'Historia cen "ułańska.by" (świece 5-sekundowe)',
-                align: 'left'
-            },
-            xaxis: {
-                type: 'datetime' // Oś X to daty
-            },
+            theme: { mode: 'dark' }, // NOWOŚĆ: Dopasuj do ciemnego tła
+            title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
+            xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
             yaxis: {
                 tooltip: { enabled: true },
                 labels: {
-                    formatter: function (val) {
-                        return val.toFixed(2) + " zł"; // Formatowanie osi Y
-                    }
+                    formatter: (val) => val.toFixed(2) + " zł",
+                    style: { colors: '#a3acb9' }
                 }
             },
             plotOptions: {
                 candlestick: {
-                    colors: {
-                        upward: '#28a745', // Kolor świecy wzrostowej
-                        downward: '#dc3545' // Kolor świecy spadkowej
-                    }
+                    colors: { upward: '#28a745', downward: '#dc3545' }
                 }
             }
         };
-
-        chart = new ApexCharts(document.querySelector("#chart-container"), options);
+        chart = new ApexCharts(dom.chartContainer, options);
         chart.render();
     }
 
-    // Ticker dla wykresu - on generuje NOWE ŚWIECE co 5 sekund
+    // Silnik 3: Aktualizacja wykresu, co 5 sekund
     function startChartTicker() {
         setInterval(() => {
-            // Bierzemy ostatnią świecę jako punkt odniesienia
             const lastCandle = chartData[chartData.length - 1];
-            const lastClose = parseFloat(lastCandle.y[3]); // Cena zamknięcia ostatniej świecy
-            
+            const lastClose = parseFloat(lastCandle.y[3]);
             let open = lastClose;
-            let close = open + (Math.random() - 0.5) * 4; // Nowa cena zamknięcia
+            let close = open + (Math.random() - 0.5) * 4 + (currentSentimentTrend * 10); // Plotki też lekko wpływają na kształt świecy
             let high = Math.max(open, close) + Math.random() * 2;
             let low = Math.min(open, close) - Math.random() * 2;
             close = Math.max(1, close);
 
             const newCandle = {
-                x: new Date(lastCandle.x.getTime() + 5000), // 5 sekund później
+                x: new Date(lastCandle.x.getTime() + 5000),
                 y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
             };
 
-            // Dodaj nową świecę do danych
             chartData.push(newCandle);
-
-            // Opcjonalnie: usuń stare dane, żeby wykres się nie zapchał
-            if (chartData.length > 50) {
-                chartData.shift(); // Usuwa pierwszą (najstarszą) świecę
-            }
-
-            // Aktualizuj wykres (serię danych)
-            chart.updateSeries([{
-                data: chartData
-            }]);
-
-        }, 5000); // Generuj nową świecę co 5 sekund
+            if (chartData.length > 50) chartData.shift();
+            
+            chart.updateSeries([{ data: chartData }]);
+        }, 5000);
     }
 
-    // Rozdzieliliśmy funkcję updateUI na dwie mniejsze
-    function updateUI() {
-        updatePriceUI();
-        updatePortfolioUI();
-    }
+    // --- SEKCJA 6: AKTUALIZACJA INTERFEJSU (UI) ---
 
-    // Aktualizuje tylko cenę akcji
+    // Odświeża tylko cenę
     function updatePriceUI() {
         const oldPrice = parseFloat(dom.stockPrice.textContent);
-        dom.stockPrice.textContent = company.price.toFixed(2);
-        
+        dom.stockPrice.textContent = `${company.price.toFixed(2)} zł`;
         if (company.price > oldPrice) {
-            dom.stockPrice.style.color = "#28a745"; // Zielony
+            dom.stockPrice.style.color = "var(--green)";
         } else if (company.price < oldPrice) {
-            dom.stockPrice.style.color = "#dc3545"; // Czerwony
+            dom.stockPrice.style.color = "var(--red)";
         }
     }
 
-    // Aktualizuje tylko dane portfela
+    // Odświeża dane portfela
     function updatePortfolioUI() {
         dom.username.textContent = user.name;
-        dom.cash.textContent = user.cash.toFixed(2);
-        dom.shares.textContent = user.shares;
+        dom.cash.textContent = `${user.cash.toFixed(2)} zł`;
+        dom.shares.textContent = `${user.shares} szt.`;
         
-        const totalValue = user.cash + (user.shares * company.price);
-        dom.totalValue.textContent = totalValue.toFixed(2);
+        const sharesValue = user.shares * company.price;
+        const totalValue = user.cash + sharesValue;
+        const totalProfit = totalValue - user.startValue;
+
+        dom.sharesValue.textContent = `${sharesValue.toFixed(2)} zł`;
+        dom.totalValue.textContent = `${totalValue.toFixed(2)} zł`;
+        dom.totalProfit.textContent = `${totalProfit.toFixed(2)} zł`;
+
+        // Zmiana koloru zysku
+        if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
+        else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
+        else dom.totalProfit.style.color = "var(--text-muted)";
     }
-    
-    // Ta funkcja teraz łączy aktualizację UI i zapis danych
+
+    // Łączy aktualizację UI i zapis
     function updateAndSave() {
         updatePortfolioUI();
         saveUserData();
     }
 
-    // Mała funkcja do pokazywania powiadomień
+    // Wyświetla komunikaty (o kupnie/błędach)
     function showMessage(message, type) {
         dom.messageBox.textContent = message;
-        dom.messageBox.style.color = (type === "error") ? "#dc3545" : "#28a745";
+        dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+        dom.amountInput.value = ""; // Czyść input
+    }
+
+    // Wyświetla nową plotkę
+    function displayNewRumor(text, sentiment) {
+        const p = document.createElement("p");
+        p.textContent = text;
+        p.style.color = (sentiment === "positive") ? "var(--green)" : "var(--red)";
         
-        // Wyczyść input po akcji
-        dom.amountInput.value = "";
+        // Wstaw na górze listy
+        dom.rumorsFeed.prepend(p);
+
+        // Usuń stare plotki (zostaw tylko 5 ostatnich)
+        if (dom.rumorsFeed.children.length > 5) {
+            dom.rumorsFeed.removeChild(dom.rumorsFeed.lastChild);
+        }
     }
     
-    // Na koniec - uruchom funkcję inicjującą!
+    // --- START APLIKACJI ---
     init();
-
 });
