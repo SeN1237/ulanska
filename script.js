@@ -74,57 +74,53 @@ let ytPlayer = null;
 let unsubscribePlayer = null;
 let localPlayerUpdate = false;
 
-let dom; // Globalna referencja do DOM
+// Obiekt DOM będzie wypełniony po załadowaniu skryptu
+// Ponieważ skrypt jest modułem, jest ładowany po sparsowaniu HTML
+const dom = {
+    authContainer: document.getElementById("auth-container"),
+    simulatorContainer: document.getElementById("simulator-container"),
+    loginForm: document.getElementById("login-form"),
+    registerForm: document.getElementById("register-form"),
+    authMessage: document.getElementById("auth-message"),
+    username: document.getElementById("username"),
+    logoutButton: document.getElementById("logout-button"),
+    cash: document.getElementById("cash"),
+    totalValue: document.getElementById("total-value"),
+    totalProfit: document.getElementById("total-profit"),
+    stockPrice: document.getElementById("stock-price"),
+    amountInput: document.getElementById("amount-input"),
+    buyButton: document.getElementById("buy-button"),
+    sellButton: document.getElementById("sell-button"),
+    messageBox: document.getElementById("message-box"),
+    chartContainer: document.getElementById("chart-container"),
+    rumorForm: document.getElementById("rumor-form"),
+    rumorInput: document.getElementById("rumor-input"),
+    rumorsFeed: document.getElementById("rumors-feed"),
+    leaderboardList: document.getElementById("leaderboard-list"),
+    companySelector: document.getElementById("company-selector"),
+    companyName: document.getElementById("company-name"),
+    sharesList: document.getElementById("shares-list"),
+    ytForm: document.getElementById("yt-form"),
+    ytUrlInput: document.getElementById("yt-url-input"),
+    ytPlayerContainer: document.getElementById("yt-player-container")
+};
+
 
 // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 
-// Czekamy na załadowanie DOM, aby bezpiecznie pobrać elementy
-document.addEventListener("DOMContentLoaded", () => {
-    
-    // 1. Wypełnij referencje DOM
-    dom = {
-        authContainer: document.getElementById("auth-container"),
-        simulatorContainer: document.getElementById("simulator-container"),
-        loginForm: document.getElementById("login-form"),
-        registerForm: document.getElementById("register-form"),
-        authMessage: document.getElementById("auth-message"),
-        username: document.getElementById("username"),
-        logoutButton: document.getElementById("logout-button"),
-        cash: document.getElementById("cash"),
-        totalValue: document.getElementById("total-value"),
-        totalProfit: document.getElementById("total-profit"),
-        stockPrice: document.getElementById("stock-price"),
-        amountInput: document.getElementById("amount-input"),
-        buyButton: document.getElementById("buy-button"),
-        sellButton: document.getElementById("sell-button"),
-        messageBox: document.getElementById("message-box"),
-        chartContainer: document.getElementById("chart-container"),
-        rumorForm: document.getElementById("rumor-form"),
-        rumorInput: document.getElementById("rumor-input"),
-        rumorsFeed: document.getElementById("rumors-feed"),
-        leaderboardList: document.getElementById("leaderboard-list"),
-        companySelector: document.getElementById("company-selector"),
-        companyName: document.getElementById("company-name"),
-        sharesList: document.getElementById("shares-list"),
-        ytForm: document.getElementById("yt-form"),
-        ytUrlInput: document.getElementById("yt-url-input"),
-        ytPlayerContainer: document.getElementById("yt-player-container")
-    };
-    
-    // 2. Podepnij GŁÓWNE listenery
-    // (Ta linijka była brakująca lub w złym miejscu, teraz jest poprawnie)
-    dom.registerForm.addEventListener("submit", onRegister);
-    dom.loginForm.addEventListener("submit", onLogin);
-    dom.logoutButton.addEventListener("click", onLogout);
-    dom.companySelector.addEventListener("click", onSelectCompany);
-    dom.buyButton.addEventListener("click", buyShares);
-    dom.sellButton.addEventListener("click", sellShares);
-    dom.rumorForm.addEventListener("submit", onPostRumor);
-    dom.ytForm.addEventListener("submit", onYouTubeLoad);
+// Podepnij listenery od razu, DOM jest gotowy (bo to moduł)
+dom.registerForm.addEventListener("submit", onRegister);
+dom.loginForm.addEventListener("submit", onLogin);
+dom.logoutButton.addEventListener("click", onLogout);
+dom.companySelector.addEventListener("click", onSelectCompany);
+dom.buyButton.addEventListener("click", buyShares);
+dom.sellButton.addEventListener("click", sellShares);
+dom.rumorForm.addEventListener("submit", onPostRumor);
+dom.ytForm.addEventListener("submit", onYouTubeLoad);
 
-    // 3. Uruchom logikę sprawdzania stanu logowania
-    startAuthListener();
-});
+// Uruchom główną pętlę aplikacji
+startAuthListener();
+
 
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
@@ -179,7 +175,6 @@ function startAuthListener() {
 
 // --- SEKCJA 3: HANDLERY AUTENTYKACJI ---
 
-// ZAKTUALIZOWANA BAZA PORTFELA
 async function createInitialUserData(userId, name, email) {
     const userPortfolio = {
         name: name,
@@ -202,7 +197,6 @@ async function onRegister(e) {
     const password = dom.registerForm.querySelector("#register-password").value;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        // Stwórz dane użytkownika TYLKO jeśli konto zostało pomyślnie utworzone
         if (userCredential.user) {
             await createInitialUserData(userCredential.user.uid, name, email);
         }
@@ -246,10 +240,12 @@ function listenToPortfolioData(userId) {
             portfolio.cash = data.cash;
             portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
             portfolio.startValue = data.startValue;
-            // Przelicz zysk i wartość na podstawie danych z bazy
+            
+            // Przelicz zysk i wartość na podstawie danych z bazy LOKALNIE
+            // (polegamy na cenach rynkowych w `market`)
             const totalValue = calculateTotalValue(data.cash, data.shares);
-            portfolio.totalValue = totalValue;
-            portfolio.zysk = totalValue - data.startValue;
+            portfolio.totalValue = totalValue; // Zapisz lokalnie
+            portfolio.zysk = totalValue - data.startValue; // Zapisz lokalnie
             
             updatePortfolioUI();
         } else {
@@ -283,7 +279,7 @@ function listenToRumors() {
 
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
-    const impact = 0.05; // 5% chwilowego skoku/spadku
+    const impact = 0.05;
     if (sentiment === "positive") {
         marketSentiment[companyId] = impact;
     } else if (sentiment === "negative") {
@@ -539,7 +535,7 @@ function initYouTubePlayer(videoId = '5qap5aO4i9A') { // Domyślne wideo
         videoId: videoId,
         playerVars: {
             'playsinline': 1,
-            'autoplay': 1, // Autoplay włączony
+            'autoplay': 1,
             'controls': 1
         }
     });
@@ -565,7 +561,7 @@ function listenToYouTubePlayer() {
                 }
             }
         } else {
-             initYouTubePlayer('5qap5aO4i9A'); // Domyślne wideo, jeśli nic nie ma w bazie
+             initYouTubePlayer('5qap5aO4i9A'); // Domyślne wideo
         }
     });
 }
@@ -650,7 +646,7 @@ function updatePortfolioUI() {
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
     dom.messageBox.textContent = message;
-    dom.messageBox.style.color = (type === "error")S ? "var(--red)" : "var(--green)";
+    dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     dom.amountInput.value = "";
 }
 
