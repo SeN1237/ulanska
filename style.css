@@ -86,3 +86,10 @@ button {
     font-style: italic;
     color: #555;
 }
+
+/* NOWE STYLE DLA WYKRESU */
+#chart-container {
+    width: 100%;
+    min-height: 250px; /* Wysokość wykresu */
+    margin-bottom: 20px;
+}
