@@ -12,8 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
     let company = {
         name: "ułańska.by",
         price: 50.00,
-        history: [50.00] // Na przyszłość pod wykresy
+        history: [50.00]
     };
+
+    // Zmienne globalne dla wykresu
+    let chart = null;
+    let chartData = generateInitialCandles(30); // Generujemy 30 startowych świec
 
     // Referencje do elementów HTML dla szybszego dostępu
     const dom = {
@@ -35,7 +39,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function init() {
         loadUserData();
         setupEventListeners();
-        startPriceTicker();
+        initChart(); // Inicjalizacja wykresu
+        startPriceTicker(); // Istniejący ticker (cena co 2s)
+        startChartTicker(); // Ticker dla wykresu (świece co 5s)
         updateUI();
     }
 
@@ -117,28 +123,127 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- SEKCJA 4: SYMULATOR RYNKU I AKTUALIZACJA UI ---
 
-    // Główny "silnik" symulacji - zmienia cenę co 2 sekundy
+    // Istniejący ticker - on odpowiada za CENĘ AKTUALNĄ (do kupna/sprzedaży)
     function startPriceTicker() {
         setInterval(() => {
-            // Prosty algorytm zmiany ceny (losowość)
-            const volatility = 0.5; // Jak bardzo cena może się wahać
-            const trend = 0.05;     // Lekki trend wzrostowy, żeby było "weselej" :)
-            
-            // Losowa zmiana od -volatility do +volatility, plus lekki trend
+            const volatility = 0.5;
+            const trend = 0.05;
             const change = (Math.random() - 0.5) * 2 * volatility + trend;
             let newPrice = company.price + change;
-
-            // Nie pozwól, by cena spadła poniżej 1 zł
-            company.price = Math.max(1.00, newPrice); 
+            company.price = Math.max(1.00, newPrice);
             
-            // Aktualizuj UI po zmianie ceny
-            updateUI();
-        }, 2000); // Zmieniaj cenę co 2 sekundy (2000ms)
+            // Aktualizuj tylko cenę i portfel, wykres ma swój ticker
+            updatePriceUI();
+            updatePortfolioUI();
+        }, 2000); // Zmieniaj cenę co 2 sekundy
     }
 
-    // Funkcja odświeżająca wszystkie dane na stronie
+    // Funkcja do generowania startowych danych do wykresu
+    function generateInitialCandles(count) {
+        let data = [];
+        let lastClose = 50;
+        let timestamp = new Date().getTime() - (count * 5000); // Zaczynamy w przeszłości
+
+        for (let i = 0; i < count; i++) {
+            let open = lastClose;
+            let close = open + (Math.random() - 0.5) * 4;
+            let high = Math.max(open, close) + Math.random() * 2;
+            let low = Math.min(open, close) - Math.random() * 2;
+            close = Math.max(1, close); // Nie pozwól cenie spaść poniżej 1
+            
+            data.push({
+                x: new Date(timestamp),
+                y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+            });
+            
+            lastClose = close;
+            timestamp += 5000; // Każda świeca to 5 sekund
+        }
+        return data;
+    }
+
+    // Funkcja inicjalizująca wykres (uruchamiana raz w init())
+    function initChart() {
+        const options = {
+            series: [{
+                data: chartData
+            }],
+            chart: {
+                type: 'candlestick',
+                height: 250,
+                toolbar: { show: false } // Ukrywamy domyślne menu
+            },
+            title: {
+                text: 'Historia cen "ułańska.by" (świece 5-sekundowe)',
+                align: 'left'
+            },
+            xaxis: {
+                type: 'datetime' // Oś X to daty
+            },
+            yaxis: {
+                tooltip: { enabled: true },
+                labels: {
+                    formatter: function (val) {
+                        return val.toFixed(2) + " zł"; // Formatowanie osi Y
+                    }
+                }
+            },
+            plotOptions: {
+                candlestick: {
+                    colors: {
+                        upward: '#28a745', // Kolor świecy wzrostowej
+                        downward: '#dc3545' // Kolor świecy spadkowej
+                    }
+                }
+            }
+        };
+
+        chart = new ApexCharts(document.querySelector("#chart-container"), options);
+        chart.render();
+    }
+
+    // Ticker dla wykresu - on generuje NOWE ŚWIECE co 5 sekund
+    function startChartTicker() {
+        setInterval(() => {
+            // Bierzemy ostatnią świecę jako punkt odniesienia
+            const lastCandle = chartData[chartData.length - 1];
+            const lastClose = parseFloat(lastCandle.y[3]); // Cena zamknięcia ostatniej świecy
+            
+            let open = lastClose;
+            let close = open + (Math.random() - 0.5) * 4; // Nowa cena zamknięcia
+            let high = Math.max(open, close) + Math.random() * 2;
+            let low = Math.min(open, close) - Math.random() * 2;
+            close = Math.max(1, close);
+
+            const newCandle = {
+                x: new Date(lastCandle.x.getTime() + 5000), // 5 sekund później
+                y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+            };
+
+            // Dodaj nową świecę do danych
+            chartData.push(newCandle);
+
+            // Opcjonalnie: usuń stare dane, żeby wykres się nie zapchał
+            if (chartData.length > 50) {
+                chartData.shift(); // Usuwa pierwszą (najstarszą) świecę
+            }
+
+            // Aktualizuj wykres (serię danych)
+            chart.updateSeries([{
+                data: chartData
+            }]);
+
+        }, 5000); // Generuj nową świecę co 5 sekund
+    }
+
+    // Rozdzieliliśmy funkcję updateUI na dwie mniejsze
     function updateUI() {
-        // Aktualizuj cenę i jej kolor
+        updatePriceUI();
+        updatePortfolioUI();
+    }
+
+    // Aktualizuje tylko cenę akcji
+    function updatePriceUI() {
         const oldPrice = parseFloat(dom.stockPrice.textContent);
         dom.stockPrice.textContent = company.price.toFixed(2);
         
@@ -147,15 +252,22 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (company.price < oldPrice) {
             dom.stockPrice.style.color = "#dc3545"; // Czerwony
         }
+    }
 
-        // Aktualizuj dane użytkownika
+    // Aktualizuje tylko dane portfela
+    function updatePortfolioUI() {
         dom.username.textContent = user.name;
         dom.cash.textContent = user.cash.toFixed(2);
         dom.shares.textContent = user.shares;
         
-        // Oblicz i pokaż całkowitą wartość portfela
         const totalValue = user.cash + (user.shares * company.price);
         dom.totalValue.textContent = totalValue.toFixed(2);
+    }
+    
+    // Ta funkcja teraz łączy aktualizację UI i zapis danych
+    function updateAndSave() {
+        updatePortfolioUI();
+        saveUserData();
     }
 
     // Mała funkcja do pokazywania powiadomień
