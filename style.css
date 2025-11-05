@@ -115,7 +115,7 @@ header h1 { margin: 0; color: var(--blue); }
         "market portfolio"
         "market order"
         "rumors leaderboard"
-        "player player"; /* NOWY OBSZAR DLA ODTWARZACZA */
+        "player player";
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -123,7 +123,7 @@ header h1 { margin: 0; color: var(--blue); }
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
-#player-panel { grid-area: player; } /* PRZYPISANIE PANELU */
+#player-panel { grid-area: player; }
 
 .panel {
     background-color: var(--panel-color);
@@ -179,7 +179,7 @@ button:active { transform: scale(0.98); }
 /* Panel Plotek (zaktualizowany formularz) */
 #rumor-form {
     display: flex;
-    flex-direction: column; /* Zmienione na kolumnę */
+    flex-direction: column;
     gap: 10px;
     margin-bottom: 15px;
 }
@@ -192,7 +192,7 @@ button:active { transform: scale(0.98); }
     display: flex;
     gap: 15px;
     align-items: center;
-    flex-wrap: wrap; /* Zawijanie na mniejszych ekranach */
+    flex-wrap: wrap;
 }
 #rumor-company-select {
     padding: 8px;
@@ -200,7 +200,7 @@ button:active { transform: scale(0.98); }
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    flex-grow: 1; /* Rozciągnij na małym ekranie */
+    flex-grow: 1;
 }
 #rumor-sentiment {
     display: flex;
@@ -219,11 +219,11 @@ button:active { transform: scale(0.98); }
     margin: 5px 0; font-style: italic;
     border-bottom: 1px dashed var(--border-color);
     padding-bottom: 5px;
-    word-break: break-word; /* Łamanie długich słów w plotkach */
+    word-break: break-word;
 }
 #rumors-feed p:last-child { border-bottom: none; }
 
-/* Panel Rankingu */
+/* Panel Rankingu (Zaktualizowane style) */
 #leaderboard-list {
     padding-left: 20px;
     margin: 0;
@@ -234,13 +234,24 @@ button:active { transform: scale(0.98); }
     font-size: 1.1em;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
 #leaderboard-list li:last-child {
     border-bottom: none;
 }
 #leaderboard-list li strong {
     font-weight: bold;
-    color: var(--text-color); /* Zmienione z zielonego na domyślny */
+    color: var(--text-color); /* Wartość portfela */
+}
+#leaderboard-list li span {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+/* Styl dla zysku/straty w rankingu */
+#leaderboard-list li span small {
+    font-size: 0.85em;
+    margin-top: 2px;
 }
 
 /* STYLE DLA ZAKŁADEK SPÓŁEK */
@@ -279,7 +290,7 @@ button:active { transform: scale(0.98); }
     color: var(--text-muted);
 }
 
-/* NOWE STYLE DLA PANELU YOUTUBE */
+/* STYLE DLA PANELU YOUTUBE */
 #yt-form {
     display: flex;
     gap: 10px;
