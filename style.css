@@ -1,26 +1,221 @@
-/* ... (cały dotychczasowy kod CSS zostaje) ... */
+/* Ustawienia globalne i ciemny motyw */
+:root {
+    --bg-color: #1a1e25;
+    --panel-color: #252a34;
+    --border-color: #3b4252;
+    --text-color: #e5e9f0;
+    --text-muted: #a3acb9;
+    --green: #28a745;
+    --red: #dc3545;
+    --blue: #007bff;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+/* --- STYLE LOGOWANIA --- */
+#auth-container {
+    display: flex;
+    gap: 20px;
+    max-width: 800px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 50px;
+}
+.auth-panel {
+    flex: 1;
+    min-width: 300px;
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.auth-panel h2 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    color: var(--text-muted);
+}
+.auth-panel form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.auth-panel label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+.auth-panel input {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1em;
+}
+.auth-panel button {
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    background-color: var(--blue);
+    color: white;
+    margin-top: 10px;
+}
+#auth-message {
+    width: 100%;
+    text-align: center;
+    font-size: 1.1em;
+    min-height: 20px;
+}
+
+/* Klasa do ukrywania/pokazywania */
+.hidden {
+    display: none !important;
+}
+
+/* --- STYLE SYMULATORA --- */
+#simulator-container {
+    width: 100%;
+    max-width: 1400px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+header h1 { margin: 0; color: var(--blue); }
+#logout-button {
+    background: var(--red); color: white; border: none;
+    padding: 5px 10px; border-radius: 4px; cursor: pointer;
+    font-size: 0.8em; margin-left: 10px;
+}
+
+/* Układ siatki (Grid) */
+.grid-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+        "market portfolio"
+        "market order"
+        "rumors leaderboard";
+    gap: 20px;
+}
+#market-panel { grid-area: market; }
+#portfolio-panel { grid-area: portfolio; }
+#order-panel { grid-area: order; }
+#rumors-panel { grid-area: rumors; }
+#leaderboard-panel { grid-area: leaderboard; }
+
+.panel {
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+h2 {
+    margin-top: 0; border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
+}
+
+/* Panel Rynku i Wykresu */
+#price-container { font-size: 1.5em; margin-bottom: 20px; }
+#stock-price { font-weight: bold; transition: color 0.3s ease; }
+#chart-container { width: 100%; min-height: 300px; }
+
+/* Panel Portfela */
+#portfolio-panel p {
+    margin: 10px 0; font-size: 1.1em;
+    display: flex; justify-content: space-between;
+}
+#portfolio-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
+}
+#total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
+
+/* Panel Zleceń */
+.actions {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; align-items: center;
+}
+.actions label {
+    grid-column: 1 / 3; font-size: 0.9em; color: var(--text-muted);
+}
+#amount-input {
+    grid-column: 1 / 3; padding: 10px; border: 1px solid var(--border-color);
+    background-color: var(--bg-color); color: var(--text-color);
+    border-radius: 4px; font-size: 1.1em;
+}
+button {
+    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
+    font-weight: bold; font-size: 1em; transition: transform 0.1s ease;
+}
+button:active { transform: scale(0.98); }
+#buy-button { background-color: var(--green); color: white; }
+#sell-button { background-color: var(--red); color: white; }
+#message-box {
+    margin-top: 15px; font-style: italic; min-height: 20px;
+}
 
 /* Panel Plotek (nowy formularz) */
 #rumor-form {
-/* ... (style bez zmian) ... */
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+#rumor-input {
+    flex: 1; padding: 10px; border: 1px solid var(--border-color);
+    background-color: var(--bg-color); color: var(--text-color);
+    border-radius: 4px; font-size: 1em;
+}
+#rumor-form button {
+    background-color: var(--blue); color: white;
 }
 #rumors-feed p {
-/* ... (style bez zmian) ... */
+    margin: 5px 0; font-style: italic;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 5px;
 }
+#rumors-feed p:last-child { border-bottom: none; }
 
 /* Panel Rankingu */
 #leaderboard-list {
-/* ... (style bez zmian) ... */
+    padding-left: 20px;
+    margin: 0;
 }
 #leaderboard-list li {
-/* ... (style bez zmian) ... */
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+}
+#leaderboard-list li:last-child {
+    border-bottom: none;
 }
 #leaderboard-list li strong {
-/* ... (style bez zmian) ... */
+    color: var(--green);
+    font-weight: bold;
 }
 
-
-/* ⭐ NOWE STYLE DLA ZAKŁADEK SPÓŁEK ⭐ */
+/* NOWE STYLE DLA ZAKŁADEK SPÓŁEK */
 #company-selector {
     display: flex;
     border-bottom: 1px solid var(--border-color);
