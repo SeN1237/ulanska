@@ -22,7 +22,7 @@ body {
     min-height: 100vh;
 }
 
-/* --- NOWE STYLE LOGOWANIA --- */
+/* --- STYLE LOGOWANIA --- */
 #auth-container {
     display: flex;
     gap: 20px;
@@ -86,7 +86,7 @@ body {
     display: none !important;
 }
 
-/* --- ISTNIEJĄCE STYLE SYMULATORA --- */
+/* --- STYLE SYMULATORA --- */
 #simulator-container {
     width: 100%;
     max-width: 1400px;
@@ -107,20 +107,21 @@ header h1 { margin: 0; color: var(--blue); }
     font-size: 0.8em; margin-left: 10px;
 }
 
-/* Układ siatki (Grid) */
+/* ⭐ ZAKTUALIZOWANA SIATKA (GRID) ⭐ */
 .grid-container {
     display: grid;
     grid-template-columns: 2fr 1fr;
     grid-template-areas:
         "market portfolio"
         "market order"
-        "rumors rumors";
+        "rumors leaderboard"; /* Zmieniliśmy plotki, by były obok rankingu */
     gap: 20px;
 }
 #market-panel { grid-area: market; }
 #portfolio-panel { grid-area: portfolio; }
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
+#leaderboard-panel { grid-area: leaderboard; } /* Nowy obszar */
 
 .panel {
     background-color: var(--panel-color);
@@ -134,12 +135,10 @@ h2 {
     padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
 }
 
-/* Panel Rynku i Wykresu */
+/* ... (Style dla Market, Portfolio, Order - bez zmian) ... */
 #price-container { font-size: 1.5em; margin-bottom: 20px; }
 #stock-price { font-weight: bold; transition: color 0.3s ease; }
 #chart-container { width: 100%; min-height: 300px; }
-
-/* Panel Portfela */
 #portfolio-panel p {
     margin: 10px 0; font-size: 1.1em;
     display: flex; justify-content: space-between;
@@ -148,8 +147,6 @@ h2 {
     border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
 }
 #total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
-
-/* Panel Zleceń */
 .actions {
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 10px; align-items: center;
@@ -173,7 +170,7 @@ button:active { transform: scale(0.98); }
     margin-top: 15px; font-style: italic; min-height: 20px;
 }
 
-/* Panel Plotek (nowy formularz) */
+/* ... (Style dla Plotek - bez zmian) ... */
 #rumor-form {
     display: flex;
     gap: 10px;
@@ -192,6 +189,24 @@ button:active { transform: scale(0.98); }
     border-bottom: 1px dashed var(--border-color);
     padding-bottom: 5px;
 }
-#rumors-feed p:last-child {
+#rumors-feed p:last-child { border-bottom: none; }
+
+/* ⭐ NOWE STYLE DLA RANKINGU ⭐ */
+#leaderboard-list {
+    padding-left: 20px;
+    margin: 0;
+}
+#leaderboard-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+}
+#leaderboard-list li:last-child {
     border-bottom: none;
+}
+#leaderboard-list li strong {
+    color: var(--green);
+    font-weight: bold;
 }
