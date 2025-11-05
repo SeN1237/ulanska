@@ -215,11 +215,12 @@ button:active { transform: scale(0.98); }
     font-weight: bold;
 }
 
-/* NOWE STYLE DLA ZAKŁADEK SPÓŁEK */
+/* STYLE DLA ZAKŁADEK SPÓŁEK */
 #company-selector {
     display: flex;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 15px;
+    flex-wrap: wrap; /* Pozwala zakładkom zawijać się na mniejszych ekranach */
 }
 .company-tab {
     background: none;
@@ -239,7 +240,7 @@ button:active { transform: scale(0.98); }
     border-bottom-color: var(--blue);
 }
 
-/* Nowe style dla panelu portfela */
+/* Style dla panelu portfela */
 #shares-list p {
     margin: 10px 0;
     font-size: 1.1em;
