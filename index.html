@@ -3,18 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Symulator Giełdy - ułańska.by (Multiplayer)</title>
-    
+    <title>Symulator Giełdy - Multiplayer</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body>
-
     <div id="auth-container">
         <div class="panel auth-panel">
             <h2>Logowanie</h2>
@@ -26,7 +22,6 @@
                 <button type="submit">Zaloguj</button>
             </form>
         </div>
-
         <div class="panel auth-panel">
             <h2>Rejestracja (Start 100 zł)</h2>
             <form id="register-form">
@@ -42,12 +37,10 @@
         <p id="auth-message"></p>
     </div>
 
-
     <div id="simulator-container" class="hidden">
         
         <header>
-            <h1>Giełda "ułańska.by"</h1>
-            <div id="user-info">
+            <h1>Giełda Multiplayer</h1> <div id="user-info">
                 Witaj, <span id="username">Gracz</span>!
                 <button id="logout-button">Wyloguj</button>
             </div>
@@ -56,8 +49,14 @@
         <div class="grid-container">
 
             <main id="market-panel" class="panel">
-                <h2>ułańska.by</h2>
-                <div id="price-container">
+                
+                <div id="company-selector">
+                    <button class="company-tab active" data-company="rychbud">RychBud</button>
+                    <button class="company-tab" data-company="igicorp">IgiCorp</button>
+                    <button class="company-tab" data-company="brzozair">BrzozAir</button>
+                </div>
+
+                <h2 id="company-name">RychBud</h2> <div id="price-container">
                     Aktualna cena: <strong id="stock-price">50.00 zł</strong>
                 </div>
                 <div id="chart-container"></div>
@@ -66,8 +65,12 @@
             <aside id="portfolio-panel" class="panel">
                 <h2>Mój Portfel (Live)</h2>
                 <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
-                <p>Akcje: <strong id="shares">0</strong> szt.</p>
-                <p>Wartość akcji: <strong id="shares-value">0.00</strong> zł</p>
+                <hr>
+                <div id="shares-list">
+                    <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
+                    <p>IgiCorp: <strong id="shares-igicorp">0</strong> szt.</p>
+                    <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
+                </div>
                 <hr>
                 <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
                 <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
@@ -94,7 +97,6 @@
                     <p>...ładowanie plotek z serwera...</p>
                 </div>
             </section>
-            
             <section id="leaderboard-panel" class="panel">
                 <h2>Ranking Graczy (TOP 10)</h2>
                 <ol id="leaderboard-list">
@@ -102,7 +104,8 @@
                 </ol>
             </section>
 
-        </div> </div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>
