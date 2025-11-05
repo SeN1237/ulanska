@@ -5,42 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Symulator Giełdy - ułańska.by</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body>
 
     <header>
-        <h1>Symulator Giełdy</h1>
+        <h1>Giełda "ułańska.by"</h1>
         <div id="user-info">
-            Witaj, <span id="username">Graczu</span>!
-            <button id="reset-button">Resetuj konto</button>
+            Witaj, <span id="username">Gracz</span>!
+            <button id="reset-button" title="Zacznij od nowa">Resetuj</button>
         </div>
     </header>
 
-    <main>
-        <div class="panel" id="portfolio">
+    <div class="grid-container">
+
+        <main id="market-panel" class="panel">
+            <h2>ułańska.by</h2>
+            <div id="price-container">
+                Aktualna cena: <strong id="stock-price">50.00 zł</strong>
+            </div>
+            <div id="chart-container"></div>
+        </main>
+
+        <aside id="portfolio-panel" class="panel">
             <h2>Mój Portfel</h2>
             <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
-            <p>Akcje "ułańska.by": <strong id="shares">0</strong></p>
+            <p>Akcje: <strong id="shares">0</strong> szt.</p>
+            <p>Wartość akcji: <strong id="shares-value">0.00</strong> zł</p>
+            <hr>
             <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
-        </div>
+            <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
+        </aside>
 
-        <div class="panel" id="market">
-            <h2>Rynek</h2>
-            <h3>ułańska.by</h3>
-
-            <div id="chart-container"></div>
-            <p>Aktualna cena: <strong id="stock-price">50.00</strong> zł</p>
+        <aside id="order-panel" class="panel">
+            <h2>Panel Zleceń</h2>
             <div class="actions">
-                <input type="number" id="amount-input" placeholder="Ilość" min="1">
-                <button id="buy-button">Kup</button>
-                <button id="sell-button">Sprzedaj</button>
+                <label for="amount-input">Ilość:</label>
+                <input type="number" id="amount-input" placeholder="0" min="1">
+                <button id="buy-button">KUP</button>
+                <button id="sell-button">SPRZEDAJ</button>
             </div>
             <p id="message-box"></p>
-        </div>
-    </main>
+        </aside>
 
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    
-    <script src="script.js"></script>
+        <section id="rumors-panel" class="panel">
+            <h2>Plotki rynkowe</h2>
+            <div id="rumors-feed">
+                <p>...czekam na newsy...</p>
+            </div>
+        </section>
+
+    </div> <script src="script.js"></script>
 </body>
 </html>
