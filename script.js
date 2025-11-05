@@ -53,7 +53,6 @@ let market = {
 };
 let currentCompanyId = "ulanska";
 
-// Obiekt przechowujący chwilowy wpływ plotek
 let marketSentiment = { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
 
 let portfolio = {
@@ -61,7 +60,8 @@ let portfolio = {
     cash: 0,
     shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
     startValue: 100,
-    zysk: 0
+    zysk: 0,
+    totalValue: 0
 };
 
 let chart = null;
@@ -70,15 +70,15 @@ let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeLeaderboard = null;
 
-// Zmienne dla Odtwarzacza YT
 let ytPlayer = null;
 let unsubscribePlayer = null;
-let localPlayerUpdate = false; // Zapobiega pętli
+let localPlayerUpdate = false;
 
-let dom;
+let dom; // Globalna referencja do DOM
 
-// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA ---
+// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 
+// Czekamy na załadowanie DOM, aby bezpiecznie pobrać elementy
 document.addEventListener("DOMContentLoaded", () => {
     
     // 1. Wypełnij referencje DOM
@@ -112,6 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     
     // 2. Podepnij GŁÓWNE listenery
+    // (Ta linijka była brakująca lub w złym miejscu, teraz jest poprawnie)
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
@@ -136,14 +137,14 @@ function startAuthListener() {
             listenToPortfolioData(currentUserId);
             listenToRumors();
             listenToLeaderboard();
-            listenToYouTubePlayer(); // Uruchom nasłuch YT
+            listenToYouTubePlayer();
             
             startPriceTicker();
             if (!chart) initChart();
             startChartTicker();
             
-            // Inicjalizuj odtwarzacz YT (zostanie wywołany przez API lub onSnapshot)
-            if (window.YT) {
+            // Poprawka: Inicjuj YT Player tylko jeśli API jest gotowe
+            if (window.YT && window.YT.Player) {
                 initYouTubePlayer();
             } else {
                 window.onYouTubeIframeAPIReady = initYouTubePlayer;
@@ -158,7 +159,7 @@ function startAuthListener() {
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-            if (unsubscribePlayer) unsubscribePlayer(); // Zatrzymaj nasłuch YT
+            if (unsubscribePlayer) unsubscribePlayer();
             
             if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
@@ -168,7 +169,8 @@ function startAuthListener() {
                 ytPlayer = null;
             }
             
-            portfolio = { name: "Gość", cash: 0, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0 };
+            // Poprawka: Pokaż stan początkowy (100zł), a nie 0
+            portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
             updatePortfolioUI();
         }
     });
@@ -177,6 +179,7 @@ function startAuthListener() {
 
 // --- SEKCJA 3: HANDLERY AUTENTYKACJI ---
 
+// ZAKTUALIZOWANA BAZA PORTFELA
 async function createInitialUserData(userId, name, email) {
     const userPortfolio = {
         name: name,
@@ -185,6 +188,7 @@ async function createInitialUserData(userId, name, email) {
         shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
         startValue: 100.00,
         zysk: 0.00,
+        totalValue: 100.00, // Pole dla rankingu
         joinDate: Timestamp.fromDate(new Date())
     };
     const userDocRef = doc(db, "uzytkownicy", userId);
@@ -198,7 +202,10 @@ async function onRegister(e) {
     const password = dom.registerForm.querySelector("#register-password").value;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await createInitialUserData(userCredential.user.uid, name, email);
+        // Stwórz dane użytkownika TYLKO jeśli konto zostało pomyślnie utworzone
+        if (userCredential.user) {
+            await createInitialUserData(userCredential.user.uid, name, email);
+        }
     } catch (error) {
         if (error.code === 'auth/email-already-in-use') {
             showAuthMessage("Ten e-mail jest już zajęty. Spróbuj się zalogować.", "error");
@@ -220,31 +227,53 @@ async function onLogin(e) {
 }
 
 function onLogout() { signOut(auth); }
-function showAuthMessage(message, type = "info") { /* ... (bez zmian) ... */ }
+
+function showAuthMessage(message, type = "info") {
+    dom.authMessage.textContent = message;
+    dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+}
 
 
 // --- SEKCJA 4: LOGIKA BAZY DANYCH ---
 
-function listenToPortfolioData(userId) { /* ... (bez zmian, z 4 spółkami) ... */ }
+function listenToPortfolioData(userId) {
+    if (unsubscribePortfolio) unsubscribePortfolio();
+    const userDocRef = doc(db, "uzytkownicy", userId);
+    unsubscribePortfolio = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            portfolio.name = data.name;
+            portfolio.cash = data.cash;
+            portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
+            portfolio.startValue = data.startValue;
+            // Przelicz zysk i wartość na podstawie danych z bazy
+            const totalValue = calculateTotalValue(data.cash, data.shares);
+            portfolio.totalValue = totalValue;
+            portfolio.zysk = totalValue - data.startValue;
+            
+            updatePortfolioUI();
+        } else {
+            console.error("Błąd: Nie znaleziono danych użytkownika!");
+        }
+    }, (error) => {
+        console.error("Błąd nasłuchu portfela: ", error);
+    });
+}
 
-// ZAKTUALIZOWANY NASŁUCH PLOTEK (reaguje na plotki)
 function listenToRumors() {
     if (unsubscribeRumors) unsubscribeRumors();
-    // Pobierz 5 najnowszych plotek
     const rumorsQuery = query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeRumors = onSnapshot(rumorsQuery, (querySnapshot) => {
         dom.rumorsFeed.innerHTML = "";
         querySnapshot.forEach((doc, index) => {
             const rumor = doc.data();
-            displayNewRumor(rumor.text, rumor.authorName, rumor.sentiment); // Przekaż sentyment
+            displayNewRumor(rumor.text, rumor.authorName, rumor.sentiment, rumor.companyId);
 
-            // Reaguj tylko na najnowszą plotkę (index 0)
             if (index === 0 && rumor.timestamp) {
-                // Sprawdź czy plotka jest nowa (np. w ciągu ostatnich 10 sekund)
                 const rumorTime = rumor.timestamp.toDate().getTime();
                 const now = new Date().getTime();
-                if ((now - rumorTime) < 10000) { // 10 sekund
+                if ((now - rumorTime) < 10000) { // Czas reakcji na plotkę: 10 sekund
                     applyRumorSentiment(rumor.companyId, rumor.sentiment);
                 }
             }
@@ -252,10 +281,8 @@ function listenToRumors() {
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
 
-// NOWA FUNKCJA - APLIKUJ WPŁYW PLOTKI
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
-    
     const impact = 0.05; // 5% chwilowego skoku/spadku
     if (sentiment === "positive") {
         marketSentiment[companyId] = impact;
@@ -264,7 +291,6 @@ function applyRumorSentiment(companyId, sentiment) {
     }
 }
 
-// ZAKTUALIZOWANY FORMULARZ PLOTKI (wysyła spółkę i sentyment)
 async function onPostRumor(e) {
     e.preventDefault();
     const rumorText = dom.rumorInput.value;
@@ -288,12 +314,11 @@ async function onPostRumor(e) {
     }
 }
 
-// ZAKTUALIZOWANY RANKING (sortuje po 'cash')
+// ZAKTUALIZOWANY RANKING (sortuje po 'totalValue')
 function listenToLeaderboard() {
     if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     
-    // ZMIANA: orderBy("cash", "desc")
-    const leaderboardQuery = query(collection(db, "uzytkownicy"), orderBy("cash", "desc"), limit(10));
+    const leaderboardQuery = query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10));
     
     unsubscribeLeaderboard = onSnapshot(leaderboardQuery, (querySnapshot) => {
         dom.leaderboardList.innerHTML = "";
@@ -301,40 +326,133 @@ function listenToLeaderboard() {
         querySnapshot.forEach((doc) => {
             const user = doc.data();
             const li = document.createElement("li");
+            
             const nameSpan = document.createElement("span");
             nameSpan.textContent = `${rank}. ${user.name}`;
             
-            // ZMIANA: wyświetl user.cash
-            const zyskStrong = document.createElement("strong");
-            zyskStrong.textContent = `${user.cash.toFixed(2)} zł`;
-            zyskStrong.style.color = "var(--text-color)"; // Saldo nie jest kolorowane
+            const valueStrong = document.createElement("strong");
+            valueStrong.textContent = `${(user.totalValue || 0).toFixed(2)} zł`;
             
+            // Oblicz zysk/stratę
+            const profit = (user.totalValue || 0) - (user.startValue || 100);
+            const profitSmall = document.createElement("small");
+            profitSmall.textContent = `Zysk: ${profit.toFixed(2)} zł`;
+            profitSmall.style.color = profit > 0 ? "var(--green)" : (profit < 0 ? "var(--red)" : "var(--text-muted)");
+            
+            nameSpan.appendChild(profitSmall);
             li.appendChild(nameSpan);
-            li.appendChild(zyskStrong);
+            li.appendChild(valueStrong);
             dom.leaderboardList.appendChild(li);
             rank++;
         });
     }, (error) => {
         console.error("Błąd nasłuchu rankingu: ", error);
         if (error.code === "failed-precondition") {
-            dom.leaderboardList.innerHTML = `<li><strong>BŁĄD BAZY DANYCH!</strong> Ranking musi zostać zindeksowany. Otwórz konsolę (F12), znajdź link błędu i kliknij go, aby automatycznie utworzyć indeks dla pola 'cash'.</li>`;
+            dom.leaderboardList.innerHTML = `<li><strong>BŁĄD BAZY DANYCH!</strong> Ranking musi zostać zindeksowany. Otwórz konsolę (F12), znajdź link błędu i kliknij go, aby automatycznie utworzyć indeks dla pola 'totalValue'.</li>`;
         }
     });
 }
 
 
 // --- SEKCJA 5: HANDLERY AKCJI UŻYTKOWNIKA ---
-function onSelectCompany(e) { /* ... (bez zmian) ... */ }
-function changeCompany(companyId) { /* ... (bez zmian) ... */ }
-function buyShares() { /* ... (bez zmian) ... */ }
-function sellShares() { /* ... (bez zmian) ... */ }
-async function updatePortfolioInFirebase(dataToUpdate) { /* ... (bez zmian) ... */ }
-function calculateProfit(cash, shares) { /* ... (bez zmian) ... */ }
+
+function onSelectCompany(e) {
+    if (e.target.classList.contains("company-tab")) {
+        changeCompany(e.target.dataset.company);
+    }
+}
+
+function changeCompany(companyId) {
+    if (!market[companyId]) return;
+    currentCompanyId = companyId;
+    
+    document.querySelectorAll(".company-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.company === companyId);
+    });
+    
+    const companyData = market[currentCompanyId];
+    dom.companyName.textContent = companyData.name;
+    
+    if (chart) {
+        chart.updateSeries([{ data: companyData.history }]);
+    }
+    updatePriceUI();
+}
+
+function buyShares() {
+    const amount = parseInt(dom.amountInput.value);
+    const currentPrice = market[currentCompanyId].price;
+    if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
+    const cost = amount * currentPrice;
+    if (cost > portfolio.cash) { showMessage("Brak wystarczającej gotówki.", "error"); return; }
+    
+    const newCash = portfolio.cash - cost;
+    const newShares = { ...portfolio.shares };
+    newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
+    
+    // Oblicz nowe wartości dla bazy
+    const newTotalValue = calculateTotalValue(newCash, newShares);
+    const newZysk = newTotalValue - portfolio.startValue;
+
+    updatePortfolioInFirebase({ 
+        cash: newCash, 
+        shares: newShares,
+        zysk: newZysk,
+        totalValue: newTotalValue // Zapisz totalValue dla rankingu
+    });
+    
+    showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
+}
+
+function sellShares() {
+    const amount = parseInt(dom.amountInput.value);
+    const currentPrice = market[currentCompanyId].price;
+    if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
+    if (amount > (portfolio.shares[currentCompanyId] || 0)) { showMessage("Nie masz tylu akcji tej spółki.", "error"); return; }
+    
+    const revenue = amount * currentPrice;
+    const newCash = portfolio.cash + revenue;
+    const newShares = { ...portfolio.shares };
+    newShares[currentCompanyId] -= amount;
+
+    // Oblicz nowe wartości dla bazy
+    const newTotalValue = calculateTotalValue(newCash, newShares);
+    const newZysk = newTotalValue - portfolio.startValue;
+    
+    updatePortfolioInFirebase({ 
+        cash: newCash, 
+        shares: newShares,
+        zysk: newZysk,
+        totalValue: newTotalValue // Zapisz totalValue dla rankingu
+    });
+    
+    showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
+}
+
+async function updatePortfolioInFirebase(dataToUpdate) {
+    if (!currentUserId) return;
+    try {
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+        await updateDoc(userDocRef, dataToUpdate);
+    } catch (error) {
+        console.error("Błąd aktualizacji portfela: ", error);
+        showMessage("Błąd zapisu danych!", "error");
+    }
+}
+
+// Funkcja pomocnicza do liczenia CAŁKOWITEJ wartości portfela
+function calculateTotalValue(cash, shares) {
+    let sharesValue = 0;
+    for (const companyId in shares) {
+        if (market[companyId]) {
+            sharesValue += (shares[companyId] || 0) * market[companyId].price;
+        }
+    }
+    return cash + sharesValue;
+}
 
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
-
-// ZAKTUALIZOWANY SILNIK CENY (uwzględnia plotki)
 function startPriceTicker() {
     if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
     
@@ -344,21 +462,15 @@ function startPriceTicker() {
             const sentimentImpact = marketSentiment[companyId];
             const volatility = 0.01 * company.price;
             const trend = 0.0005 * company.price;
-            
-            // Dodaj wpływ plotki do zmiany ceny
             const change = (Math.random() - 0.5) * 2 * volatility + trend + (sentimentImpact * company.price);
-            
             company.price = Math.max(1.00, company.price + change);
-            
-            // Zmniejsz wpływ plotki (powrót do normalności)
-            marketSentiment[companyId] *= 0.95; // Wpływ maleje o 5% co 2 sekundy
+            marketSentiment[companyId] *= 0.95; // Wpływ plotki maleje
         }
         updatePriceUI();
         updatePortfolioUI();
     }, 2000);
 }
 
-// ... (initChart i startChartTicker bez zmian, z 4 spółkami) ...
 function initChart() {
     const options = {
         series: [{ data: market[currentCompanyId].history }],
@@ -386,7 +498,7 @@ function startChartTicker() {
             const lastClose = parseFloat(lastCandle.y[3]);
             
             const open = lastClose;
-            const close = company.price;
+            const close = company.price; // Zamknięcie świecy = aktualna cena
             const high = Math.max(open, close) + Math.random() * (company.price * 0.01);
             const low = Math.min(open, close) - Math.random() * (company.price * 0.01);
 
@@ -409,31 +521,25 @@ function startChartTicker() {
 
 
 // --- SEKCJA 7: LOGIKA ODTWARZACZA YOUTUBE ---
-
-// Ta funkcja jest wywoływana globalnie przez API YT
 window.onYouTubeIframeAPIReady = function() {
-    if (currentUserId) { // Jeśli użytkownik jest już zalogowany
-        initYouTubePlayer();
-    }
+    if (currentUserId) { initYouTubePlayer(); }
 };
 
 function initYouTubePlayer(videoId = '5qap5aO4i9A') { // Domyślne wideo
     if (ytPlayer || !document.getElementById('yt-player')) {
-        // Jeśli odtwarzacz już istnieje LUB kontener nie jest gotowy (np. wylogowany)
         if(ytPlayer && videoId) {
-             ytPlayer.loadVideoById(videoId); // Po prostu załaduj nowe wideo
+             ytPlayer.loadVideoById(videoId);
         }
         return; 
     }
     
-    // Utwórz nowy odtwarzacz
     ytPlayer = new window.YT.Player('yt-player', {
         height: '100%',
         width: '100%',
         videoId: videoId,
         playerVars: {
             'playsinline': 1,
-            'autoplay': 1, // AUTOPLAY WŁĄCZONY
+            'autoplay': 1, // Autoplay włączony
             'controls': 1
         }
     });
@@ -441,7 +547,6 @@ function initYouTubePlayer(videoId = '5qap5aO4i9A') { // Domyślne wideo
 
 function listenToYouTubePlayer() {
     if (unsubscribePlayer) unsubscribePlayer();
-    
     const playerDocRef = doc(db, "global", "youtube");
     
     unsubscribePlayer = onSnapshot(playerDocRef, (docSnap) => {
@@ -456,14 +561,11 @@ function listenToYouTubePlayer() {
                 if (ytPlayer) {
                     ytPlayer.loadVideoById(data.currentVideoId);
                 } else {
-                    // Odtwarzacz nie jest jeszcze gotowy, API go zainicjalizuje
-                    // lub onAuthStateChanged go zainicjalizuje
                     initYouTubePlayer(data.currentVideoId);
                 }
             }
         } else {
-            // Brak wideo w bazie, załaduj domyślne
-             initYouTubePlayer('5qap5aO4i9A');
+             initYouTubePlayer('5qap5aO4i9A'); // Domyślne wideo, jeśli nic nie ma w bazie
         }
     });
 }
@@ -484,7 +586,7 @@ function onYouTubeLoad(e) {
     setDoc(playerDocRef, {
         currentVideoId: videoId,
         updatedBy: portfolio.name,
-        timestamp: serverTimestamp() // Użyj serverTimestamp dla spójności
+        timestamp: serverTimestamp()
     }).catch(err => {
         console.error("Błąd zapisu wideo: ", err);
         localPlayerUpdate = false;
@@ -499,20 +601,67 @@ function parseYouTubeVideoId(url) {
         return url;
     }
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regEq);
+    const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
-function updatePriceUI() { /* ... (bez zmian) ... */ }
-function updatePortfolioUI() { /* ... (bez zmian, z 4 spółkami) ... */ }
-function showMessage(message, type) { /* ... (bez zmian) ... */ }
+function updatePriceUI() {
+    if (!dom || !dom.stockPrice) return;
+    const company = market[currentCompanyId];
+    if (!company) return;
+    
+    const oldPrice = parseFloat(dom.stockPrice.textContent);
+    dom.stockPrice.textContent = `${company.price.toFixed(2)} zł`;
+    
+    if (company.price > oldPrice) dom.stockPrice.style.color = "var(--green)";
+    else if (company.price < oldPrice) dom.stockPrice.style.color = "var(--red)";
+}
 
-// ZAKTUALIZOWANE WYŚWIETLANIE PLOTKI (pokazuje sentyment)
-function displayNewRumor(text, authorName, sentiment) {
+function updatePortfolioUI() {
+    if (!dom || !dom.username) return;
+    dom.username.textContent = portfolio.name;
+    dom.cash.textContent = `${portfolio.cash.toFixed(2)} zł`;
+    
+    dom.sharesList.innerHTML = `
+        <p>Ułańska Dev: <strong id="shares-ulanska">${portfolio.shares.ulanska || 0}</strong> szt.</p>
+        <p>RychBud: <strong id="shares-rychbud">${portfolio.shares.rychbud || 0}</strong> szt.</p>
+        <p>IgiCorp: <strong id="shares-igicorp">${portfolio.shares.igicorp || 0}</strong> szt.</p>
+        <p>BrzozAir: <strong id="shares-brzozair">${portfolio.shares.brzozair || 0}</strong> szt.</p>
+    `;
+
+    // Przelicz wartość i zysk na bieżąco w UI (na podstawie cen rynkowych)
+    const totalValue = calculateTotalValue(portfolio.cash, portfolio.shares);
+    const totalProfit = totalValue - portfolio.startValue;
+
+    // Zapisz do lokalnego portfela (na potrzeby wyświetlania)
+    portfolio.totalValue = totalValue;
+    portfolio.zysk = totalProfit;
+
+    dom.totalValue.textContent = `${totalValue.toFixed(2)} zł`;
+    dom.totalProfit.textContent = `${totalProfit.toFixed(2)} zł`;
+    
+    if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
+    else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
+    else dom.totalProfit.style.color = "var(--text-muted)";
+}
+
+function showMessage(message, type) {
+    if (!dom || !dom.messageBox) return;
+    dom.messageBox.textContent = message;
+    dom.messageBox.style.color = (type === "error")S ? "var(--red)" : "var(--green)";
+    dom.amountInput.value = "";
+}
+
+function displayNewRumor(text, authorName, sentiment, companyId) {
     if (!dom || !dom.rumorsFeed) return;
     const p = document.createElement("p");
+    
+    let prefix = "";
+    if (companyId && market[companyId]) {
+        prefix = `[${market[companyId].name}] `;
+    }
     
     if (sentiment === "positive") {
         p.style.color = "var(--green)";
@@ -520,7 +669,7 @@ function displayNewRumor(text, authorName, sentiment) {
         p.style.color = "var(--red)";
     }
     
-    p.textContent = text; 
+    p.textContent = prefix + text; 
     const authorSpan = document.createElement("span");
     authorSpan.textContent = ` - ${authorName || "Anonim"}`;
     authorSpan.style.color = "var(--text-muted)";
