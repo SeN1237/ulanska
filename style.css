@@ -114,7 +114,8 @@ header h1 { margin: 0; color: var(--blue); }
     grid-template-areas:
         "market portfolio"
         "market order"
-        "rumors leaderboard";
+        "rumors leaderboard"
+        "player player"; /* NOWY OBSZAR DLA ODTWARZACZA */
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -122,6 +123,7 @@ header h1 { margin: 0; color: var(--blue); }
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
+#player-panel { grid-area: player; } /* PRZYPISANIE PANELU */
 
 .panel {
     background-color: var(--panel-color);
@@ -174,9 +176,10 @@ button:active { transform: scale(0.98); }
     margin-top: 15px; font-style: italic; min-height: 20px;
 }
 
-/* Panel Plotek (nowy formularz) */
+/* Panel Plotek (zaktualizowany formularz) */
 #rumor-form {
     display: flex;
+    flex-direction: column; /* Zmienione na kolumnę */
     gap: 10px;
     margin-bottom: 15px;
 }
@@ -185,6 +188,30 @@ button:active { transform: scale(0.98); }
     background-color: var(--bg-color); color: var(--text-color);
     border-radius: 4px; font-size: 1em;
 }
+#rumor-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap; /* Zawijanie na mniejszych ekranach */
+}
+#rumor-company-select {
+    padding: 8px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    flex-grow: 1; /* Rozciągnij na małym ekranie */
+}
+#rumor-sentiment {
+    display: flex;
+    gap: 10px;
+    flex-grow: 1;
+}
+#rumor-sentiment label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 #rumor-form button {
     background-color: var(--blue); color: white;
 }
@@ -192,6 +219,7 @@ button:active { transform: scale(0.98); }
     margin: 5px 0; font-style: italic;
     border-bottom: 1px dashed var(--border-color);
     padding-bottom: 5px;
+    word-break: break-word; /* Łamanie długich słów w plotkach */
 }
 #rumors-feed p:last-child { border-bottom: none; }
 
@@ -211,8 +239,8 @@ button:active { transform: scale(0.98); }
     border-bottom: none;
 }
 #leaderboard-list li strong {
-    color: var(--green);
     font-weight: bold;
+    color: var(--text-color); /* Zmienione z zielonego na domyślny */
 }
 
 /* STYLE DLA ZAKŁADEK SPÓŁEK */
@@ -220,7 +248,7 @@ button:active { transform: scale(0.98); }
     display: flex;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 15px;
-    flex-wrap: wrap; /* Pozwala zakładkom zawijać się na mniejszych ekranach */
+    flex-wrap: wrap;
 }
 .company-tab {
     background: none;
@@ -249,4 +277,41 @@ button:active { transform: scale(0.98); }
 }
 #shares-list p strong {
     color: var(--text-muted);
+}
+
+/* NOWE STYLE DLA PANELU YOUTUBE */
+#yt-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+#yt-url-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1em;
+}
+#yt-form button {
+    background-color: var(--red);
+    color: white;
+}
+#yt-player-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* Proporcje 16:9 */
+    height: 0;
+    overflow: hidden;
+    background-color: #000;
+    border-radius: 8px;
+}
+#yt-player-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
 }
