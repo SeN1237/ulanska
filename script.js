@@ -1,8 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     // --- SEKCJA 0: KONFIGURACJA FIREBASE ---
-
-    // POPRAWKA: Ten obiekt zawiera już TWOJE klucze.
     const firebaseConfig = {
       apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
       authDomain: "symulator-gielda.firebaseapp.com",
@@ -13,21 +11,18 @@ document.addEventListener("DOMContentLoaded", () => {
       measurementId: "G-BXPWNE261F"
     };
     
-    // Inicjalizacja Firebase (używa skryptów "compat" z index.html)
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-
     // --- SEKCJA 1: ZMIENNE GLOBALNE I REFERENCJE DOM ---
-
     let company = { price: 50.00 };
-    
     let portfolio = {
         name: "Gość",
         cash: 0,
         shares: 0,
-        startValue: 100
+        startValue: 100,
+        zysk: 0 // ⭐ NOWA ZMIENNA
     };
     
     let chart = null;
@@ -36,19 +31,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentUserId = null;
     let unsubscribePortfolio = null;
     let unsubscribeRumors = null;
+    let unsubscribeLeaderboard = null; // ⭐ NOWA ZMIENNA
 
     // Referencje do elementów HTML
     const dom = {
-        // Kontenery widoków
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
-        
-        // Formularze autentykacji
         loginForm: document.getElementById("login-form"),
         registerForm: document.getElementById("register-form"),
         authMessage: document.getElementById("auth-message"),
-        
-        // Elementy symulatora
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         cash: document.getElementById("cash"),
@@ -62,16 +53,14 @@ document.addEventListener("DOMContentLoaded", () => {
         sellButton: document.getElementById("sell-button"),
         messageBox: document.getElementById("message-box"),
         chartContainer: document.getElementById("chart-container"),
-        
-        // Panel plotek
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
-        rumorsFeed: document.getElementById("rumors-feed")
+        rumorsFeed: document.getElementById("rumors-feed"),
+        leaderboardList: document.getElementById("leaderboard-list") // ⭐ NOWA REFERENCJA
     };
 
 
     // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA - OBSŁUGA STANU LOGOWANIA ---
-
     auth.onAuthStateChanged(user => {
         if (user) {
             // UŻYTKOWNIK JEST ZALOGOWANY
@@ -82,6 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             listenToPortfolioData(currentUserId);
             listenToRumors();
+            listenToLeaderboard(); // ⭐ URUCHAMIAMY NASŁUCH RANKINGU
             
             startPriceTicker();
             if (!chart) initChart();
@@ -96,47 +86,41 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
+            if (unsubscribeLeaderboard) unsubscribeLeaderboard(); // ⭐ ZATRZYMUJEMY NASŁUCH
             
-            portfolio = { name: "Gość", cash: 0, shares: 0, startValue: 100 };
+            portfolio = { name: "Gość", cash: 0, shares: 0, startValue: 100, zysk: 0 };
         }
     });
 
 
     // --- SEKCJA 3: LOGIKA AUTENTYKACJI (REJESTRACJA, LOGOWANIE) ---
-    
+    // ... (Bez zmian)
     dom.registerForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const name = dom.registerForm.querySelector("#register-name").value;
         const email = dom.registerForm.querySelector("#register-email").value;
         const password = dom.registerForm.querySelector("#register-password").value;
-        
         try {
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
             await createInitialUserData(user.uid, name, email);
-            
         } catch (error) {
             showAuthMessage("Błąd rejestracji: " + error.message, "error");
         }
     });
-
     dom.loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const email = dom.loginForm.querySelector("#login-email").value;
         const password = dom.loginForm.querySelector("#login-password").value;
-        
         try {
             await auth.signInWithEmailAndPassword(email, password);
-            
         } catch (error) {
             showAuthMessage("Błąd logowania: " + error.message, "error");
         }
     });
-
     dom.logoutButton.addEventListener("click", () => {
         auth.signOut();
     });
-
     function showAuthMessage(message, type = "info") {
         dom.authMessage.textContent = message;
         dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
@@ -145,6 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- SEKCJA 4: LOGIKA BAZY DANYCH (FIRESTORE) ---
 
+    // ⭐ ZAKTUALIZOWANA FUNKCJA TWORZENIA UŻYTKOWNIKA (dodaje pole zysk)
     async function createInitialUserData(userId, name, email) {
         const userPortfolio = {
             name: name,
@@ -152,14 +137,15 @@ document.addEventListener("DOMContentLoaded", () => {
             cash: 100.00,
             shares: 0,
             startValue: 100.00,
+            zysk: 0.00, // Nowe pole do sortowania
             joinDate: new Date()
         };
         await db.collection("uzytkownicy").doc(userId).set(userPortfolio);
     }
 
+    // ⭐ ZAKTUALIZOWANA FUNKCJA NASŁUCHU (pobiera też zysk)
     function listenToPortfolioData(userId) {
         if (unsubscribePortfolio) unsubscribePortfolio();
-
         unsubscribePortfolio = db.collection("uzytkownicy").doc(userId)
             .onSnapshot((doc) => {
                 if (doc.exists) {
@@ -168,6 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     portfolio.cash = data.cash;
                     portfolio.shares = data.shares;
                     portfolio.startValue = data.startValue;
+                    portfolio.zysk = data.zysk || 0; // Pobierz zysk (lub 0, jeśli nie istnieje)
                     
                     updatePortfolioUI();
                 } else {
@@ -178,9 +165,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
     }
 
+    // ... (listenToRumors i rumorForm - bez zmian) ...
     function listenToRumors() {
         if (unsubscribeRumors) unsubscribeRumors();
-        
         unsubscribeRumors = db.collection("plotki")
             .orderBy("timestamp", "desc")
             .limit(5)
@@ -194,13 +181,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.error("Błąd nasłuchu plotek: ", error);
             });
     }
-
     dom.rumorForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const rumorText = dom.rumorInput.value;
-        
         if (!rumorText.trim() || !currentUserId) return;
-        
         try {
             await db.collection("plotki").add({
                 text: rumorText,
@@ -214,24 +198,71 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // ⭐ NOWA FUNKCJA DO POBIERANIA RANKINGU
+    function listenToLeaderboard() {
+        if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+        
+        // Pytamy bazę o 10 użytkowników, sortując po polu "zysk" malejąco
+        unsubscribeLeaderboard = db.collection("uzytkownicy")
+            .orderBy("zysk", "desc")
+            .limit(10)
+            .onSnapshot((querySnapshot) => {
+                dom.leaderboardList.innerHTML = ""; // Czyścimy listę
+                let rank = 1;
+                querySnapshot.forEach((doc) => {
+                    const user = doc.data();
+                    const li = document.createElement("li");
+                    
+                    const nameSpan = document.createElement("span");
+                    nameSpan.textContent = `${rank}. ${user.name}`;
+                    
+                    const zyskStrong = document.createElement("strong");
+                    zyskStrong.textContent = `${user.zysk.toFixed(2)} zł`;
+                    zyskStrong.style.color = user.zysk > 0 ? "var(--green)" : (user.zysk < 0 ? "var(--red)" : "var(--text-muted)");
+                    
+                    li.appendChild(nameSpan);
+                    li.appendChild(zyskStrong);
+                    dom.leaderboardList.appendChild(li);
+                    
+                    rank++;
+                });
+            }, (error) => {
+                console.error("Błąd nasłuchu rankingu: ", error);
+                // WAŻNE: Obsługa błędu indeksu
+                if (error.code === "failed-precondition") {
+                    dom.leaderboardList.innerHTML = `<li><strong>Błąd bazy!</strong> Ranking wymaga stworzenia indeksu. Sprawdź konsolę (F12) po stronie dewelopera, aby znaleźć link do jego utworzenia.</li>`;
+                }
+            });
+    }
+
 
     // --- SEKCJA 5: AKCJE UŻYTKOWNIKA (KUPNO/SPRZEDAŻ) ---
+    // ⭐ ZAKTUALIZOWANE o liczenie i zapisywanie zysku
 
     dom.buyButton.addEventListener("click", () => {
         const amount = parseInt(dom.amountInput.value);
         if (isNaN(amount) || amount <= 0) {
             showMessage("Wpisz poprawną ilość.", "error"); return;
         }
-        
         const cost = amount * company.price;
         if (cost > portfolio.cash) {
             showMessage("Brak wystarczającej gotówki.", "error"); return;
         }
         
+        // Obliczamy nowe wartości
         const newCash = portfolio.cash - cost;
         const newShares = portfolio.shares + amount;
         
-        updatePortfolioInFirebase({ cash: newCash, shares: newShares });
+        // Obliczamy nowy zysk
+        const newTotalValue = newCash + (newShares * company.price);
+        const newZysk = newTotalValue - portfolio.startValue;
+
+        // Wysyłamy aktualizację do Firebase!
+        updatePortfolioInFirebase({ 
+            cash: newCash, 
+            shares: newShares,
+            zysk: newZysk // Zapisujemy zysk
+        });
         
         showMessage(`Kupiono ${amount} akcji za ${cost.toFixed(2)} zł`, "success");
     });
@@ -241,7 +272,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isNaN(amount) || amount <= 0) {
             showMessage("Wpisz poprawną ilość.", "error"); return;
         }
-        
         if (amount > portfolio.shares) {
             showMessage("Nie masz tylu akcji.", "error"); return;
         }
@@ -249,15 +279,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const revenue = amount * company.price;
         const newCash = portfolio.cash + revenue;
         const newShares = portfolio.shares - amount;
+
+        // Obliczamy nowy zysk
+        const newTotalValue = newCash + (newShares * company.price);
+        const newZysk = newTotalValue - portfolio.startValue;
         
-        updatePortfolioInFirebase({ cash: newCash, shares: newShares });
+        // Wysyłamy aktualizację do Firebase!
+        updatePortfolioInFirebase({ 
+            cash: newCash, 
+            shares: newShares,
+            zysk: newZysk // Zapisujemy zysk
+        });
         
         showMessage(`Sprzedano ${amount} akcji za ${revenue.toFixed(2)} zł`, "success");
     });
 
     async function updatePortfolioInFirebase(dataToUpdate) {
         if (!currentUserId) return;
-        
         try {
             const userDocRef = db.collection("uzytkownicy").doc(currentUserId);
             await userDocRef.update(dataToUpdate);
@@ -269,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     
     // --- SEKCJA 6: SYMULATOR RYNKU (LOKALNIE) I WYKRES ---
-
+    // ... (Bez zmian) ...
     function startPriceTicker() {
         if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
         
@@ -338,7 +376,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // --- SEKCJA 7: AKTUALIZACJA INTERFEJSU (UI) ---
-
+    // ⭐ ZAKTUALIZOWANA o liczenie zysku na żywo
+    
     function updatePriceUI() {
         const oldPrice = parseFloat(dom.stockPrice.textContent);
         dom.stockPrice.textContent = `${company.price.toFixed(2)} zł`;
@@ -353,7 +392,10 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const sharesValue = portfolio.shares * company.price;
         const totalValue = portfolio.cash + sharesValue;
-        const totalProfit = totalValue - portfolio.startValue;
+        
+        // Zysk jest teraz liczony na bieżąco w UI (na podstawie danych z bazy LUB przeliczony)
+        // ale do sortowania używamy pola "zysk" z bazy
+        const totalProfit = totalValue - portfolio.startValue; 
 
         dom.sharesValue.textContent = `${sharesValue.toFixed(2)} zł`;
         dom.totalValue.textContent = `${totalValue.toFixed(2)} zł`;
@@ -373,13 +415,11 @@ document.addEventListener("DOMContentLoaded", () => {
     function displayNewRumor(text, authorName) {
         const p = document.createElement("p");
         p.textContent = text; 
-        
         const authorSpan = document.createElement("span");
         authorSpan.textContent = ` - ${authorName || "Anonim"}`;
         authorSpan.style.color = "var(--text-muted)";
         authorSpan.style.fontStyle = "normal";
         p.appendChild(authorSpan);
-        
         dom.rumorsFeed.prepend(p);
     }
 
