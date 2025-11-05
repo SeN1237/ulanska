@@ -107,13 +107,14 @@ header h1 { margin: 0; color: var(--blue); }
     font-size: 0.8em; margin-left: 10px;
 }
 
-/* Układ siatki (Grid) */
+/* ZAKTUALIZOWANY Układ siatki (Grid) */
 .grid-container {
     display: grid;
     grid-template-columns: 2fr 1fr;
     grid-template-areas:
         "market portfolio"
         "market order"
+        "market history" /* NOWY OBSZAR */
         "rumors leaderboard"
         "player player";
     gap: 20px;
@@ -121,6 +122,7 @@ header h1 { margin: 0; color: var(--blue); }
 #market-panel { grid-area: market; }
 #portfolio-panel { grid-area: portfolio; }
 #order-panel { grid-area: order; }
+#history-panel { grid-area: history; } /* PRZYPISANIE PANELU */
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
 #player-panel { grid-area: player; }
@@ -325,4 +327,42 @@ button:active { transform: scale(0.98); }
     width: 100%;
     height: 100%;
     border: none;
+}
+
+/* NOWE STYLE: Panel Historii Transakcji */
+#history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 250px; /* Ogranicz wysokość, dodaj przewijanie */
+    overflow-y: auto;
+    font-size: 0.9em;
+}
+#history-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+#history-list li:last-child {
+    border-bottom: none;
+}
+#history-list .history-details {
+    display: flex;
+    flex-direction: column;
+}
+#history-list .history-details small {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+#history-list .history-amount {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+}
+#history-list .history-buy {
+    color: var(--green);
+}
+#history-list .history-sell {
+    color: var(--red);
 }
