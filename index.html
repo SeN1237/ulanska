@@ -1,22 +1,33 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>WIG UŁAŃSKA</title>
-    
+
+    <!-- Nowa czcionka -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="style.css">
-    
+
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
     <script type="module" src="script.js"></script>
 
     <link rel="icon" type="image/png" href="favicon.png">
-    
-    <script src="https://www.youtube.com/iframe_api"></script> 
+
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
+    <!-- Pasek nastroju rynku -->
+    <div id="market-sentiment-bar" class="panel sentiment-panel">
+        <span id="sentiment-label">Neutralny rynek</span>
+        <div id="sentiment-meter">
+            <div id="sentiment-fill"></div>
+        </div>
+    </div>
 
+    <!-- Auth -->
     <div id="auth-container">
         <div class="panel auth-panel">
             <h2>Logowanie</h2>
@@ -25,9 +36,11 @@
                 <input type="email" id="login-email" required>
                 <label for="login-password">Hasło:</label>
                 <input type="password" id="login-password" required>
-                <button type="submit">Zaloguj</button>
+                <div class="auth-actions">
+                    <button type="submit">Zaloguj</button>
+                    <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
+                </div>
             </form>
-            <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
         </div>
         <div class="panel auth-panel">
             <h2>Rejestracja (Start 1000 zł)</h2>
@@ -44,14 +57,24 @@
         <p id="auth-message"></p>
     </div>
 
-
+    <!-- Symulator -->
     <div id="simulator-container" class="hidden">
-        
-        <header>
-            <h1>STOCK INDEX WIG UŁAŃSKA</h1>
-            <div id="user-info">
-                Witaj, <span id="username">Gracz</span>!
-                <button id="logout-button">Wyloguj</button>
+        <header class="panel header-panel">
+            <div class="header-left">
+                <h1>STOCK INDEX WIG UŁAŃSKA</h1>
+            </div>
+            <div class="header-right">
+                <div id="user-profile">
+                    <img id="user-avatar" src="https://api.dicebear.com/9.x/identicon/svg?seed=guest" alt="avatar">
+                    <div>
+                        <div id="user-info">Witaj, <span id="username">Gracz</span>!</div>
+                        <div id="join-date" class="muted">Dołączył: -</div>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <button id="theme-toggle" title="Przełącz tryb">🌙</button>
+                    <button id="logout-button">Wyloguj</button>
+                </div>
             </div>
         </header>
 
@@ -90,13 +113,12 @@
                 <h2>Panel Zleceń</h2>
                 <div class="actions">
                     <div class="label-with-max">
-    <label for="amount-input">Ilość:</label>
-
-    <span class="max-buttons-group">
-        <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
-        <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
-    </span>
-</div>
+                        <label for="amount-input">Ilość:</label>
+                        <span class="max-buttons-group">
+                            <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
+                            <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
+                        </span>
+                    </div>
                     <input type="number" id="amount-input" placeholder="0" min="1">
                     <button id="buy-button">KUP</button>
                     <button id="sell-button">SPRZEDAJ</button>
@@ -105,12 +127,10 @@
             </aside>
 
             <section id="rumors-panel" class="panel">
-
                 <h3>Wiadomości Rynkowe</h3>
-                <div id="news-feed" class="feed-box">
-                    </div>
+                <div id="news-feed" class="feed-box"></div>
 
-                <hr> 
+                <hr>
 
                 <h3>Globalne Plotki z Wpływem</h3>
                 <form id="rumor-form">
@@ -132,33 +152,38 @@
                 <div id="rumors-feed">
                     <p>...ładowanie plotek z serwera...</p>
                 </div>
-                
             </section>
-                
+
             <section id="leaderboard-panel" class="panel">
                 <h2>Ranking Graczy (TOP 10 Wartość)</h2>
                 <ol id="leaderboard-list">
                     <li>...ładowanie rankingu...</li>
                 </ol>
             </section>
-                
+
+            <section id="history-panel" class="panel">
+                <h2>Historia Transakcji</h2>
+                <div id="history-feed" class="feed-box">
+                    <p>Brak transakcji...</p>
+                </div>
+            </section>
+
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
-                
                 <div id="chat-feed" class="feed-box">
                     <p>...ładowanie czatu...</p>
                 </div>
-                
+
                 <form id="chat-form">
                     <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
                     <button type="submit">Wyślij</button>
                 </form>
             </section>
-            </div> 
+        </div>
     </div>
-    
+
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
     <audio id="audio-error" src="error.mp3" preload="auto"></audio>
-    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio> 
+    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio>
 </body>
 </html>
