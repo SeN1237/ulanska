@@ -8,7 +8,7 @@ import {
 import { 
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, Timestamp, 
-    serverTimestamp // <-- Upewnij się, że serverTimestamp jest importowany
+    serverTimestamp, where // <-- TA ZMIANA NAPRAWIA BŁĄD
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -20,6 +20,8 @@ const firebaseConfig = {
   appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
   measurementId: "G-BXPWNE261F"
 };
+
+// Reszta pliku script.js pozostaje DOKŁADNIE TAKA SAMA jak w mojej poprzedniej odpowiedzi...
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -67,7 +69,6 @@ let currentUserId = null;
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
 
-// NOWE ZMIENNE UNSUBSCRIBE
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
@@ -177,7 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         themeSelect: document.getElementById("theme-select"),
 
-        // NOWE REFERENCJE DO FEEDÓW HISTORII
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
 
@@ -191,7 +191,6 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
     dom.companySelector.addEventListener("click", onSelectCompany);
-    // ZMIANA: Event listenery dla buy/sell - teraz obsługują funkcje async
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
     dom.buyMaxButton.addEventListener("click", onBuyMax); 
@@ -221,7 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
         if (user) {
-            // UŻYTKOWNIK ZALOGOWANY
             currentUserId = user.uid;
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
@@ -231,25 +229,22 @@ function startAuthListener() {
             listenToMarketNews(); 
             listenToLeaderboard();
             listenToChat(); 
-            // NOWE LISTENERY HISTORII
             listenToGlobalHistory();
             listenToPersonalHistory(currentUserId);
             
         } else {
-            // UŻYTKOWNIK WYLOGOWANY
             currentUserId = null;
             dom.simulatorContainer.classList.add("hidden");
             dom.authContainer.classList.remove("hidden");
             if (dom.authContainer) dom.authContainer.classList.remove("show-register");
             
-            // ANULOWANIE WSZYSTKICH SUBSKRYPCJI
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribeChat) unsubscribeChat(); 
-            if (unsubscribeGlobalHistory) unsubscribeGlobalHistory(); // <-- Nowe
-            if (unsubscribePersonalHistory) unsubscribePersonalHistory(); // <-- Nowe
+            if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
+            if (unsubscribePersonalHistory) unsubscribePersonalHistory();
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
@@ -372,14 +367,13 @@ function listenToPortfolioData(userId) {
 
 function listenToRumors() {
     if (unsubscribeRumors) unsubscribeRumors();
-    const rumorsQuery = query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)); // Zwiększono limit
+    const rumorsQuery = query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10));
     
     unsubscribeRumors = onSnapshot(rumorsQuery, (querySnapshot) => {
         dom.rumorsFeed.innerHTML = "";
         querySnapshot.forEach((doc, index) => {
             const rumor = doc.data();
             displayNewRumor(rumor.text, rumor.authorName, rumor.sentiment, rumor.companyId);
-            // ... (reszta logiki plotek)
         });
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
@@ -389,7 +383,6 @@ function listenToMarketNews() {
     const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
-        // ... (logika newsów) ...
         dom.newsFeed.innerHTML = ""; 
         querySnapshot.docs.forEach((doc) => {
             const news = doc.data();
@@ -505,11 +498,8 @@ function listenToLeaderboard() {
     });
 }
 
-// --- NOWA SEKCJA 4.5: LOGIKA HISTORII TRANSAKCJI ---
+// --- SEKCJA 4.5: LOGIKA HISTORII TRANSAKCJI ---
 
-/**
- * Zapisuje transakcję do bazy danych
- */
 async function logTransaction(type, companyId, amount, pricePerShare) {
     if (!currentUserId || !portfolio.name || !market[companyId]) {
         console.error("Nie można zalogować transakcji: brak danych.");
@@ -519,7 +509,7 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
     const transactionData = {
         userId: currentUserId,
         userName: portfolio.name,
-        type: type, // "KUPNO" lub "SPRZEDAŻ"
+        type: type,
         companyId: companyId,
         companyName: market[companyId].name,
         amount: amount,
@@ -535,9 +525,6 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
     }
 }
 
-/**
- * Nasłuchuje globalnej historii transakcji (15 ostatnich)
- */
 function listenToGlobalHistory() {
     if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
     
@@ -545,45 +532,39 @@ function listenToGlobalHistory() {
     
     unsubscribeGlobalHistory = onSnapshot(historyQuery, (querySnapshot) => {
         if (!dom.globalHistoryFeed) return;
-        dom.globalHistoryFeed.innerHTML = ""; // Wyczyść feed
+        dom.globalHistoryFeed.innerHTML = "";
         querySnapshot.forEach((doc) => {
-            displayHistoryItem(dom.globalHistoryFeed, doc.data(), true); // true = jest globalny
+            displayHistoryItem(dom.globalHistoryFeed, doc.data(), true);
         });
     }, (error) => { console.error("Błąd nasłuchu historii globalnej: ", error); });
 }
 
-/**
- * Nasłuchuje osobistej historii transakcji (15 ostatnich)
- */
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
+    // Ta linia powodowała błąd - teraz `where` jest zaimportowane
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
-        where("userId", "==", userId), // Tylko tego użytkownika
+        where("userId", "==", userId), 
         orderBy("timestamp", "desc"), 
         limit(15)
     );
     
     unsubscribePersonalHistory = onSnapshot(historyQuery, (querySnapshot) => {
         if (!dom.personalHistoryFeed) return;
-        dom.personalHistoryFeed.innerHTML = ""; // Wyczyść feed
+        dom.personalHistoryFeed.innerHTML = "";
         if (querySnapshot.empty) {
             dom.personalHistoryFeed.innerHTML = "<p>Brak transakcji.</p>";
         }
         querySnapshot.forEach((doc) => {
-            displayHistoryItem(dom.personalHistoryFeed, doc.data(), false); // false = nie jest globalny
+            displayHistoryItem(dom.personalHistoryFeed, doc.data(), false);
         });
     }, (error) => { console.error("Błąd nasłuchu historii osobistej: ", error); });
 }
 
-/**
- * Wyświetla pojedynczy wpis w feedzie historii
- */
 function displayHistoryItem(feedElement, item, isGlobal) {
     const p = document.createElement("p");
     
-    // 1. Nazwa użytkownika (tylko dla global)
     if (isGlobal) {
         const userSpan = document.createElement("span");
         userSpan.className = "h-user";
@@ -591,25 +572,22 @@ function displayHistoryItem(feedElement, item, isGlobal) {
         p.appendChild(userSpan);
     }
     
-    // 2. Akcja (Kupno/Sprzedaż)
     const actionSpan = document.createElement("span");
     actionSpan.textContent = item.type;
     actionSpan.className = (item.type === "KUPNO") ? "h-action-buy" : "h-action-sell";
     p.appendChild(actionSpan);
     
-    // 3. Szczegóły (ile, co, po ile)
     const detailsSpan = document.createElement("span");
     detailsSpan.className = "h-details";
     detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(item.pricePerShare)}`;
     p.appendChild(detailsSpan);
     
-    // 4. Wartość całkowita
     const totalSpan = document.createElement("span");
     totalSpan.className = "h-total";
     totalSpan.textContent = `Wartość: ${formatujWalute(item.totalValue)}`;
     p.appendChild(totalSpan);
 
-    feedElement.prepend(p); // Dodaj na górze
+    feedElement.prepend(p);
 }
 
 
@@ -653,7 +631,6 @@ function onSellMax(e) {
     if (dom.amountInput) dom.amountInput.value = maxShares;
 }
 
-// === ZAKTUALIZOWANA FUNKCJA (ASYNC) ===
 async function buyShares() {
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price; 
@@ -669,7 +646,6 @@ async function buyShares() {
     const newZysk = newTotalValue - portfolio.startValue;
 
     try {
-        // 1. Zaktualizuj portfel
         await updatePortfolioInFirebase({ 
             cash: newCash, 
             shares: newShares,
@@ -677,10 +653,8 @@ async function buyShares() {
             totalValue: newTotalValue
         });
         
-        // 2. Zaloguj transakcję (dopiero po sukcesie portfela)
         await logTransaction("KUPNO", currentCompanyId, amount, currentPrice);
         
-        // 3. Pokaż komunikat
         showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
 
     } catch (error) {
@@ -689,7 +663,6 @@ async function buyShares() {
     }
 }
 
-// === ZAKTUALIZOWANA FUNKCJA (ASYNC) ===
 async function sellShares() {
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price;
@@ -705,7 +678,6 @@ async function sellShares() {
     const newZysk = newTotalValue - portfolio.startValue;
     
     try {
-        // 1. Zaktualizuj portfel
         await updatePortfolioInFirebase({ 
             cash: newCash, 
             shares: newShares,
@@ -713,10 +685,8 @@ async function sellShares() {
             totalValue: newTotalValue
         });
         
-        // 2. Zaloguj transakcję
         await logTransaction("SPRZEDAŻ", currentCompanyId, amount, currentPrice);
         
-        // 3. Pokaż komunikat
         showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
         
     } catch (error) {
@@ -728,7 +698,6 @@ async function sellShares() {
 async function updatePortfolioInFirebase(dataToUpdate) {
     if (!currentUserId) return;
     const userDocRef = doc(db, "uzytkownicy", currentUserId);
-    // Ta funkcja już jest 'async' i zwraca Promise, więc 'await' w buy/sell zadziała
     await updateDoc(userDocRef, dataToUpdate);
 }
 
