@@ -108,10 +108,43 @@ onSnapshot(cenyDocRef, (docSnap) => {
     }
 });
 
+// --- SEKCJA 1.5: LOGIKA MOTYWÓW ---
+
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem('simulatorTheme') || 'dark'; // 'dark' jako domyślny
+    document.body.setAttribute('data-theme', savedTheme);
+    
+    // Zaktualizuj select, aby pokazywał zapisany motyw
+    const themeSelect = document.getElementById("theme-select");
+    if (themeSelect) {
+        themeSelect.value = savedTheme;
+    }
+}
+
+function onChangeTheme(e) {
+    const theme = e.target.value;
+    document.body.setAttribute('data-theme', theme);
+    // Zapisz wybór użytkownika w localStorage, aby go pamiętał
+    localStorage.setItem('simulatorTheme', theme);
+    
+    // Zaktualizuj motyw wykresu, jeśli istnieje
+    if (chart) {
+        const newChartTheme = (theme === 'light') ? 'light' : 'dark';
+        chart.updateOptions({
+            theme: {
+                mode: newChartTheme
+            }
+        });
+    }
+}
+
 
 // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 document.addEventListener("DOMContentLoaded", () => {
     
+    // 1. Zastosuj zapisany motyw PRZED resztą
+    applySavedTheme();
+
     dom = {
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
@@ -145,6 +178,8 @@ document.addEventListener("DOMContentLoaded", () => {
         chatInput: document.getElementById("chat-input"),
         chatFeed: document.getElementById("chat-feed"),
         
+        themeSelect: document.getElementById("theme-select"), // <-- DODANO PRZEŁĄCZNIK MOTYWU
+
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
         audioNews: document.getElementById("audio-news")
@@ -162,6 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
+    dom.themeSelect.addEventListener("change", onChangeTheme); // <-- DODANO LISTENER DLA MOTYWU
 
     // 3. Uruchom główną pętlę aplikacji
     startAuthListener();
@@ -189,7 +225,7 @@ function startAuthListener() {
             dom.authContainer.classList.remove("hidden");
             
             if (unsubscribePortfolio) unsubscribePortfolio();
-            if (unsubscribeRumors) unsubscribeRumors(); // Zmieniono 'unsubscribeRumibreak' na 'unsubscribeRumors'
+            if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribeChat) unsubscribeChat(); 
@@ -200,7 +236,6 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            // Zmieniono wartość startową na 1000 dla Gościa
             portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
             updatePortfolioUI();
         }
@@ -214,11 +249,11 @@ async function createInitialUserData(userId, name, email) {
     const userPortfolio = {
         name: name,
         email: email,
-        cash: 1000.00, // <-- ZMIANA: Gotówka początkowa
+        cash: 1000.00,
         shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
-        startValue: 1000.00, // <-- ZMIANA: Wartość początkowa portfela
+        startValue: 1000.00,
         zysk: 0.00,
-        totalValue: 1000.00, // <-- ZMIANA: Całkowita wartość początkowa
+        totalValue: 1000.00,
         joinDate: Timestamp.fromDate(new Date())
     };
     const userDocRef = doc(db, "uzytkownicy", userId);
@@ -244,11 +279,9 @@ async function onRegister(e) {
     }
 }
 
-// === FUNKCJA LOGOWANIA (WERSJA Z ODBLOKOWANIEM DŹWIĘKU I NAPRAWĄ PRZEŁĄCZANIA) ===
 async function onLogin(e) {
     e.preventDefault();
     
-    // --- NOWA LOGIKA "ODBLOKOWANIA" DŹWIĘKU ---
     try {
         if (dom.audioKaching) dom.audioKaching.play();
         if (dom.audioKaching) dom.audioKaching.pause();
@@ -261,18 +294,13 @@ async function onLogin(e) {
     } catch (err) {
         console.log("Nie udało się odblokować audio (być może już odblokowane).");
     }
-    // --- KONIEC NOWEJ LOGIKI ---
 
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
     
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        
-        // --- KLUCZ DO NAPRAWY PRZEŁĄCZANIA ---
-        // Ponowne wywołanie, które natychmiast upewnia się, że widok się przełączy
         startAuthListener(); 
-        // -------------------------------------
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
@@ -285,7 +313,6 @@ function showAuthMessage(message, type = "info") {
     dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
 }
 
-// --- NOWA FUNKCJA DO RESETOWANIA HASŁA ---
 async function onResetPassword(e) {
     e.preventDefault();
     
@@ -349,7 +376,6 @@ function listenToRumors() {
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
 
-// === FUNKCJA NASŁUCHUJĄCA NEWSÓW (WERSJA Z DŹWIĘKIEM) ===
 function listenToMarketNews() {
     if (unsubscribeNews) unsubscribeNews();
     
@@ -382,7 +408,6 @@ function listenToMarketNews() {
     }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
 }
 
-// === FUNKCJA WYŚWIETLAJĄCA NEWSY ===
 function displayMarketNews(text, impactType) {
     if (!dom.newsFeed) return;
     
@@ -398,7 +423,6 @@ function displayMarketNews(text, impactType) {
     dom.newsFeed.prepend(p); 
 }
 
-// === NOWE FUNKCJE CZATU (Wklejone tutaj) ===
 async function onSendMessage(e) {
     e.preventDefault();
     const text = dom.chatInput.value.trim();
@@ -443,6 +467,7 @@ function listenToChat() {
     }, (error) => { console.error("Błąd nasłuchu czatu: ", error); });
 }
 
+// === ZAKTUALIZOWANA FUNKCJA CZATU (UŻYWA KLASY CSS) ===
 function displayChatMessage(msg) {
     if (!dom.chatFeed) return;
     
@@ -454,8 +479,9 @@ function displayChatMessage(msg) {
     p.appendChild(strong);
     p.appendChild(document.createTextNode(msg.text));
     
+    // Użyj klasy 'my-message' (zdefiniowanej w nowym CSS)
     if (msg.authorId === currentUserId) {
-        p.style.backgroundColor = "rgba(0, 123, 255, 0.1)";
+        p.classList.add("my-message");
     }
     
     dom.chatFeed.appendChild(p); 
@@ -495,7 +521,6 @@ async function onPostRumor(e) {
     }
 }
 
-// === FUNKCJA RANKINGU (WERSJA Z PODŚWIETLENIEM I FORMATOWANIEM) ===
 function listenToLeaderboard() {
     if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     
@@ -564,7 +589,6 @@ function changeCompany(companyId) {
     updatePriceUI();
 }
 
-// === NOWA FUNKCJA DLA PRZYCISKU KUP MAX ===
 function onBuyMax(e) {
     if (!currentCompanyId || !market[currentCompanyId]) {
         return; 
@@ -585,16 +609,13 @@ function onBuyMax(e) {
     }
 }
 
-// === NOWA FUNKCJA DLA PRZYCISKU SPRZEDAJ MAX ===
 function onSellMax(e) {
     if (!currentCompanyId || !portfolio.shares[currentCompanyId]) {
         return; 
     }
     
-    // Pobierz ilość posiadanych akcji wybranej spółki
     const maxShares = portfolio.shares[currentCompanyId];
     
-    // Wstaw obliczoną wartość do pola "Ilość"
     if (dom.amountInput) {
         dom.amountInput.value = maxShares;
     }
@@ -672,16 +693,20 @@ function calculateTotalValue(cash, shares) {
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
 
+// === ZAKTUALIZOWANA FUNKCJA WYKRESU (CZYTA MOTYW PRZY STARCIE) ===
 function initChart() {
+    // Odczytaj motyw ustawiony na body, aby poprawnie uruchomić wykres
+    const currentTheme = document.body.getAttribute('data-theme') || 'dark';
+    const chartTheme = (currentTheme === 'light') ? 'light' : 'dark';
+
     const options = {
         series: [{ data: market[currentCompanyId].history }],
         chart: { type: 'candlestick', height: 350, toolbar: { show: false }, animations: { enabled: false } },
-        theme: { mode: 'dark' },
+        theme: { mode: chartTheme }, // <-- Użyj dynamicznego motywu
         title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
         xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
         yaxis: { tooltip: { enabled: true }, labels: { formatter: (val) => val.toFixed(2) + " zł", style: { colors: '#a3acb9' } } },
         plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } },
-        // --- USUNIĘTO origin z playerVars, bo usunięto YT ---
     };
     chart = new ApexCharts(dom.chartContainer, options);
     chart.render();
@@ -727,7 +752,6 @@ function startChartTicker() {
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
 
-// === NOWA FUNKCJA POMOCNICZA DO WALUTY ===
 function formatujWalute(liczba) {
     const formatter = new Intl.NumberFormat('pl-PL', {
         style: 'currency',
@@ -737,7 +761,6 @@ function formatujWalute(liczba) {
     return formatter.format(liczba);
 }
 
-// === FUNKCJA MIGOTANIA CEN (WERSJA Z FORMATOWANIEM) ===
 function updatePriceUI() {
     if (!dom || !dom.stockPrice) return;
     const company = market[currentCompanyId];
@@ -760,7 +783,6 @@ function updatePriceUI() {
     }, { once: true }); 
 }
 
-// === FUNKCJA PORTFELA (WERSJA Z FORMATOWANIEM) ===
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     dom.username.textContent = portfolio.name;
@@ -787,7 +809,6 @@ function updatePortfolioUI() {
     else dom.totalProfit.style.color = "var(--text-muted)";
 }
 
-// === FUNKCJA WIADOMOŚCI (WERSJA Z DŹWIĘKIEM) ===
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
     
@@ -795,7 +816,6 @@ function showMessage(message, type) {
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     dom.amountInput.value = "";
 
-    // Odtwórz odpowiedni dźwięk
     if (type === "error" && dom.audioError) {
         dom.audioError.currentTime = 0; 
         dom.audioError.play().catch(e => console.log("Błąd odtwarzania audio"));
