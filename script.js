@@ -65,10 +65,11 @@ let portfolio = {
 
 let chart = null;
 let currentUserId = null;
-let chartHasStarted = false; // <-- DODANO (Poprawka "skoku" wykresu)
+let chartHasStarted = false; 
+let initialNewsLoaded = false; // <-- DODANO (Dźwięk Newsów)
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
-let unsubscribeNews = null; // <-- DODANO (Panel Newsów)
+let unsubscribeNews = null; 
 let unsubscribeLeaderboard = null;
 
 let ytPlayer = null;
@@ -96,26 +97,13 @@ onSnapshot(cenyDocRef, (docSnap) => {
         if (market.rychbud)  market.rychbud.price  = aktualneCeny.rychbud;
 
         // KROK 2: Aktualizuj wyświetlany HTML (interfejs)
-        if (document.getElementById('ulanska-cena')) {
-            document.getElementById('ulanska-cena').innerText = aktualneCeny.ulanska;
-        }
-        if (document.getElementById('brzozair-cena')) {
-            document.getElementById('brzozair-cena').innerText = aktualneCeny.brzozair;
-        }
-        if (document.getElementById('igicorp-cena')) {
-            document.getElementById('igicorp-cena').innerText = aktualneCeny.igicorp;
-        }
-        if (document.getElementById('rychbud-cena')) {
-            document.getElementById('rychbud-cena').innerText = aktualneCeny.rychbud;
-        }
+        // (Ta część jest teraz obsługiwana przez 'updatePriceUI' poniżej)
         
         // KROK 3: Wywołaj funkcje odświeżające UI
         updatePriceUI(); 
         updatePortfolioUI(); 
 
-        // ======================================================
         // POPRAWKA "SKOKU" WYKRESU: Uruchom wykres dopiero po pobraniu cen
-        // ======================================================
         if (currentUserId && !chartHasStarted) {
             console.log("Pierwsze ceny pobrane. Startuję wykres...");
             
@@ -124,7 +112,6 @@ onSnapshot(cenyDocRef, (docSnap) => {
             
             chartHasStarted = true; // Ustaw flagę, by nie robić tego ponownie
         }
-        // ======================================================
 
     } else {
         console.error("KRYTYCZNY BŁĄD: Nie można znaleźć dokumentu 'global/ceny_akcji'!");
@@ -156,14 +143,19 @@ document.addEventListener("DOMContentLoaded", () => {
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
-        newsFeed: document.getElementById("news-feed"), // <-- DODANO (Panel Newsów)
+        newsFeed: document.getElementById("news-feed"), 
         leaderboardList: document.getElementById("leaderboard-list"),
         companySelector: document.getElementById("company-selector"),
         companyName: document.getElementById("company-name"),
         sharesList: document.getElementById("shares-list"),
         ytForm: document.getElementById("yt-form"),
         ytUrlInput: document.getElementById("yt-url-input"),
-        ytPlayerContainer: document.getElementById("yt-player-container")
+        ytPlayerContainer: document.getElementById("yt-player-container"),
+        
+        // --- DODANO (Dźwięki) ---
+        audioKaching: document.getElementById("audio-kaching"),
+        audioError: document.getElementById("audio-error"),
+        audioNews: document.getElementById("audio-news")
     };
 
     // 2. Podepnij GŁÓWNE listenery
@@ -191,15 +183,13 @@ function startAuthListener() {
             
             listenToPortfolioData(currentUserId);
             listenToRumors();
-            listenToMarketNews(); // <-- DODANO (Panel Newsów)
+            listenToMarketNews(); 
             listenToLeaderboard();
             listenToYouTubePlayer();
             
-            // startPriceTicker(); // USUNIĘTE
-            
             // Poniższe 2 linie zostały przeniesione do 'onSnapshot'
-            // if (!chart) initChart();     // <-- ZMIENIONO (Poprawka "skoku" wykresu)
-            // startChartTicker();         // <-- ZMIENIONO (Poprawka "skoku" wykresu)
+            // if (!chart) initChart();     
+            // startChartTicker();         
             
             if (window.YT && window.YT.Player) {
                 initYouTubePlayer();
@@ -215,14 +205,15 @@ function startAuthListener() {
             
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
-            if (unsubscribeNews) unsubscribeNews(); // <-- DODANO (Panel Newsów)
+            if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribePlayer) unsubscribePlayer();
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
-            chartHasStarted = false; // <-- DODANO (Poprawka "skoku" wykresu)
-            chart = null;            // <-- DODANO (Poprawka "skoku" wykresu)
+            chartHasStarted = false; 
+            chart = null;            
+            initialNewsLoaded = false; // <-- DODANO (Dźwięk Newsów)
             
             if (ytPlayer) {
                 ytPlayer.destroy();
@@ -230,7 +221,7 @@ function startAuthListener() {
             }
             
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
-            updatePortfolioUI();
+            updatePortfolioUI(); // Zaktualizuj UI, aby pokazać dane "Gościa"
         }
     });
 }
@@ -304,10 +295,8 @@ function listenToPortfolioData(userId) {
             portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
             portfolio.startValue = data.startValue;
             
-            const totalValue = calculateTotalValue(data.cash, data.shares);
-            portfolio.totalValue = totalValue;
-            portfolio.zysk = totalValue - data.startValue;
-            
+            // Przeliczanie wartości portfela przeniesione do updatePortfolioUI,
+            // aby zawsze bazowało na najnowszych cenach z 'market'
             updatePortfolioUI();
         } else {
             console.error("Błąd: Nie znaleziono danych użytkownika!");
@@ -338,60 +327,62 @@ function listenToRumors() {
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
 
-// ======================================================
-// PONIŻEJ SĄ NOWE FUNKCJE DLA PANELU NEWSÓW
-// ======================================================
-
-// === NOWA FUNKCJA NASŁUCHUJĄCA NEWSÓW ===
-// ======================================================
-// PONIŻEJ SĄ NOWE FUNKCJE DLA PANELU NEWSÓW
-// (TO JEST KOD, KTÓREGO BRAKUJE W TWOIM PLIKU)
-// ======================================================
-
-// === NOWA FUNKCJA NASŁUCHUJĄCA NEWSÓW ===
+// === FUNKCJA NASŁUCHUJĄCA NEWSÓW (WERSJA Z DŹWIĘKIEM) ===
 function listenToMarketNews() {
     if (unsubscribeNews) unsubscribeNews();
     
-    // Pobieramy 5 najnowszych wiadomości
     const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
         if (!dom.newsFeed) return; // Zabezpieczenie
-        
-        dom.newsFeed.innerHTML = ""; // Wyczyść stare newsy
-        
-        querySnapshot.forEach((doc) => {
-            const news = doc.data();
-            displayMarketNews(news.text, news.impactType);
+
+        // Krok 1: Sprawdź, czy są jakieś *nowe* newsy
+        let newItemsAdded = false;
+        querySnapshot.docChanges().forEach((change) => {
+            if (change.type === "added" && initialNewsLoaded) {
+                newItemsAdded = true;
+            }
         });
+
+        // Krok 2: Odtwórz dźwięk, jeśli coś nowego wpadło
+        if (newItemsAdded && dom.audioNews) {
+            console.log("Nowy news! Odtwarzam dźwięk.");
+            dom.audioNews.currentTime = 0;
+            dom.audioNews.play();
+        }
+
+        // Krok 3: Przerusuj listę
+        dom.newsFeed.innerHTML = ""; 
+        querySnapshot.docs.forEach((doc) => {
+            const news = doc.data();
+            displayMarketNews(news.text, news.impactType); 
+        });
+
+        // Oznaczamy, że pierwsze ładowanie się zakończyło
+        initialNewsLoaded = true;
+
     }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
 }
 
-// === NOWA FUNKCJA WYŚWIETLAJĄCA NEWSY ===
+// === FUNKCJA WYŚWIETLAJĄCA NEWSY ===
 function displayMarketNews(text, impactType) {
     if (!dom.newsFeed) return;
     
     const p = document.createElement("p");
     p.textContent = text;
     
-    // Ustawiamy kolor newsa w zależności od jego wpływu
     if (impactType === "positive") {
-        p.style.color = "var(--green)"; // Kolor zielony dla dobrych newsów
+        p.style.color = "var(--green)"; 
     } else if (impactType === "negative") {
-        p.style.color = "var(--red)"; // Kolor czerwony dla złych newsów (krachów)
+        p.style.color = "var(--red)"; 
     }
     
-    // Używamy 'prepend', aby najnowsze newsy były na górze
     dom.newsFeed.prepend(p); 
 }
 
-// ======================================================
-// KONIEC NOWYCH FUNKCJI
-// ======================================================
-
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
-    const impact = 0.05; // Ten kod i tak nie będzie nic robił, bo ceny są z bazy
+    const impact = 0.05; 
     if (sentiment === "positive") {
         marketSentiment[companyId] = impact;
     } else if (sentiment === "negative") {
@@ -422,27 +413,38 @@ async function onPostRumor(e) {
     }
 }
 
+// === FUNKCJA RANKINGU (WERSJA Z PODŚWIETLENIEM I FORMATOWANIEM) ===
 function listenToLeaderboard() {
     if (unsubscribeLeaderboard) unsubscribeLeaderboard();
     
     const leaderboardQuery = query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10));
     
     unsubscribeLeaderboard = onSnapshot(leaderboardQuery, (querySnapshot) => {
+        if(!dom.leaderboardList) return;
         dom.leaderboardList.innerHTML = "";
         let rank = 1;
         querySnapshot.forEach((doc) => {
             const user = doc.data();
             const li = document.createElement("li");
+
+            // --- NOWA LOGIKA ---
+            // Sprawdź, czy ID użytkownika z rankingu to my
+            if (doc.id === currentUserId) {
+                li.classList.add("highlight-me");
+            }
+            // --- KONIEC NOWEJ LOGIKI ---
             
             const nameSpan = document.createElement("span");
             nameSpan.textContent = `${rank}. ${user.name}`;
             
             const valueStrong = document.createElement("strong");
-            valueStrong.textContent = `${(user.totalValue || 0).toFixed(2)} zł`;
+            // Użyj formatowania waluty
+            valueStrong.textContent = formatujWalute(user.totalValue || 0);
             
             const profit = (user.totalValue || 0) - (user.startValue || 100);
             const profitSmall = document.createElement("small");
-            profitSmall.textContent = `Zysk: ${profit.toFixed(2)} zł`;
+            // Użyj formatowania waluty
+            profitSmall.textContent = `Zysk: ${formatujWalute(profit)}`;
             profitSmall.style.color = profit > 0 ? "var(--green)" : (profit < 0 ? "var(--red)" : "var(--text-muted)");
             
             nameSpan.appendChild(profitSmall);
@@ -556,8 +558,6 @@ function calculateTotalValue(cash, shares) {
 
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
-
-// (Funkcja startPriceTicker() została słusznie usunięta)
 
 function initChart() {
     const options = {
@@ -691,22 +691,50 @@ function parseYouTubeVideoId(url) {
 
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
+
+// === NOWA FUNKCJA POMOCNICZA DO WALUTY ===
+function formatujWalute(liczba) {
+    const formatter = new Intl.NumberFormat('pl-PL', {
+        style: 'currency',
+        currency: 'PLN',
+        minimumFractionDigits: 2
+    });
+    return formatter.format(liczba);
+}
+
+// === FUNKCJA MIGOTANIA CEN (WERSJA Z FORMATOWANIEM) ===
 function updatePriceUI() {
     if (!dom || !dom.stockPrice) return;
     const company = market[currentCompanyId];
     if (!company) return;
     
-    const oldPrice = parseFloat(dom.stockPrice.textContent);
-    dom.stockPrice.textContent = `${company.price.toFixed(2)} zł`;
+    // Usuń 'zł' i przekonwertuj na liczbę (uwzględniając polski format)
+    const oldPriceText = dom.stockPrice.textContent.replace(/\s*zł/g, '').replace(',', '.').replace(/\s/g, '');
+    const oldPrice = parseFloat(oldPriceText);
+
+    // Użyj nowej funkcji formatującej
+    dom.stockPrice.textContent = formatujWalute(company.price);
     
-    if (company.price > oldPrice) dom.stockPrice.style.color = "var(--green)";
-    else if (company.price < oldPrice) dom.stockPrice.style.color = "var(--red)";
+    // Logika migotania
+    if (company.price > oldPrice) {
+        dom.stockPrice.classList.remove('flash-red'); // Usuń starą klasę
+        dom.stockPrice.classList.add('flash-green'); // Dodaj nową
+    } else if (company.price < oldPrice) {
+        dom.stockPrice.classList.remove('flash-green');
+        dom.stockPrice.classList.add('flash-red');
+    }
+    // Automatycznie usuń klasę po zakończeniu animacji
+    dom.stockPrice.addEventListener('animationend', () => {
+        dom.stockPrice.classList.remove('flash-green', 'flash-red');
+    }, { once: true }); // 'once: true' automatycznie usuwa listener
 }
 
+// === FUNKCJA PORTFELA (WERSJA Z FORMATOWANIEM) ===
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     dom.username.textContent = portfolio.name;
-    dom.cash.textContent = `${portfolio.cash.toFixed(2)} zł`;
+    // Użyj nowej funkcji formatującej
+    dom.cash.textContent = formatujWalute(portfolio.cash);
     
     dom.sharesList.innerHTML = `
         <p>Ułańska Dev: <strong id="shares-ulanska">${portfolio.shares.ulanska || 0}</strong> szt.</p>
@@ -721,19 +749,31 @@ function updatePortfolioUI() {
     portfolio.totalValue = totalValue;
     portfolio.zysk = totalProfit;
 
-    dom.totalValue.textContent = `${totalValue.toFixed(2)} zł`;
-    dom.totalProfit.textContent = `${totalProfit.toFixed(2)} zł`;
+    // Użyj nowej funkcji formatującej
+    dom.totalValue.textContent = formatujWalute(totalValue);
+    dom.totalProfit.textContent = formatujWalute(totalProfit);
     
     if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
     else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
     else dom.totalProfit.style.color = "var(--text-muted)";
 }
 
+// === FUNKCJA WIADOMOŚCI (WERSJA Z DŹWIĘKIEM) ===
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
+    
     dom.messageBox.textContent = message;
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     dom.amountInput.value = "";
+
+    // Odtwórz odpowiedni dźwięk
+    if (type === "error" && dom.audioError) {
+        dom.audioError.currentTime = 0; // Przewiń na początek
+        dom.audioError.play().catch(e => console.log("Błąd odtwarzania audio"));
+    } else if (type === "success" && dom.audioKaching) {
+        dom.audioKaching.currentTime = 0; // Przewiń na początek
+        dom.audioKaching.play().catch(e => console.log("Błąd odtwarzania audio"));
+    }
 }
 
 function displayNewRumor(text, authorName, sentiment, companyId) {
