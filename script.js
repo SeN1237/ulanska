@@ -343,6 +343,12 @@ function listenToRumors() {
 // ======================================================
 
 // === NOWA FUNKCJA NASŁUCHUJĄCA NEWSÓW ===
+// ======================================================
+// PONIŻEJ SĄ NOWE FUNKCJE DLA PANELU NEWSÓW
+// (TO JEST KOD, KTÓREGO BRAKUJE W TWOIM PLIKU)
+// ======================================================
+
+// === NOWA FUNKCJA NASŁUCHUJĄCA NEWSÓW ===
 function listenToMarketNews() {
     if (unsubscribeNews) unsubscribeNews();
     
