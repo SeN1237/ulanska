@@ -189,7 +189,7 @@ function startAuthListener() {
             dom.authContainer.classList.remove("hidden");
             
             if (unsubscribePortfolio) unsubscribePortfolio();
-            if (unsubscribeRumors) unsubscribeRumors();
+            if (unsubscribeRumors) unsubscribeRumibreak;
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribeChat) unsubscribeChat(); 
@@ -579,6 +579,21 @@ function onBuyMax(e) {
     }
 }
 
+// === NOWA FUNKCJA DLA PRZYCISKU SPRZEDAJ MAX ===
+function onSellMax(e) {
+    if (!currentCompanyId || !portfolio.shares[currentCompanyId]) {
+        return; 
+    }
+    
+    // Pobierz ilość posiadanych akcji wybranej spółki
+    const maxShares = portfolio.shares[currentCompanyId];
+    
+    // Wstaw obliczoną wartość do pola "Ilość"
+    if (dom.amountInput) {
+        dom.amountInput.value = maxShares;
+    }
+}
+
 function buyShares() {
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price; 
@@ -659,7 +674,8 @@ function initChart() {
         title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
         xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
         yaxis: { tooltip: { enabled: true }, labels: { formatter: (val) => val.toFixed(2) + " zł", style: { colors: '#a3acb9' } } },
-        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
+        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } },
+        // --- USUNIĘTO origin z playerVars, bo usunięto YT ---
     };
     chart = new ApexCharts(dom.chartContainer, options);
     chart.render();
