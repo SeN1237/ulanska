@@ -1,5 +1,3 @@
-// script.js - oczyszczona wersja z naprawionym ApexCharts (ciemny wykres świecowy)
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
@@ -27,242 +25,218 @@ const db = getFirestore(app);
 function generateInitialCandles(count, basePrice) {
   const data = [];
   let lastClose = basePrice;
-  let timestamp = Date.now() - (count * 5000);
+  let timestamp = Date.now() - count * 5000;
   for (let i = 0; i < count; i++) {
-    let open = lastClose;
-    let close = open + (Math.random() - 0.5) * (basePrice * 0.05);
-    let high = Math.max(open, close) + Math.random() * (basePrice * 0.02);
-    let low = Math.min(open, close) - Math.random() * (basePrice * 0.02);
-    close = Math.max(0.01, close);
-    data.push({
-      x: new Date(timestamp),
-      y: [parseFloat(open.toFixed(2)), parseFloat(high.toFixed(2)), parseFloat(low.toFixed(2)), parseFloat(close.toFixed(2))]
-    });
+    const open = lastClose;
+    const close = open + (Math.random() - 0.5) * (basePrice * 0.05);
+    const high = Math.max(open, close) + Math.random() * (basePrice * 0.02);
+    const low = Math.min(open, close) - Math.random() * (basePrice * 0.02);
+    data.push({ x: new Date(timestamp), y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)] });
     lastClose = close;
     timestamp += 5000;
   }
   return data;
 }
 
-const market = {
-  ulanska:  { name: "Ułańska Dev", price: 1.00, history: generateInitialCandles(50, 1) },
-  brzozair: { name: "BrzozAir",     price: 1.00, history: generateInitialCandles(50, 1) },
-  igicorp:  { name: "IgiCorp",      price: 1.00, history: generateInitialCandles(50, 1) },
-  rychbud:  { name: "RychBud",      price: 1.00, history: generateInitialCandles(50, 1) }
+let market = {
+  ulanska:  { name: "Ułańska Dev", price: 1.0, history: generateInitialCandles(50, 1) },
+  brzozair: { name: "BrzozAir", price: 1.0, history: generateInitialCandles(50, 1) },
+  igicorp:  { name: "IgiCorp", price: 1.0, history: generateInitialCandles(50, 1) },
+  rychbud:  { name: "RychBud", price: 1.0, history: generateInitialCandles(50, 1) }
 };
 
+let portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
 let currentCompanyId = "ulanska";
-const marketSentiment = { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
-
-let portfolio = {
-  name: "Gość",
-  cash: 1000,
-  shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
-  startValue: 1000,
-  zysk: 0,
-  totalValue: 1000
-};
-
-let chart = null;
-let chartHasStarted = false;
-let currentUserId = null;
-let initialNewsLoaded = false;
-
-let unsubscribePortfolio = null;
-let unsubscribeRumors = null;
-let unsubscribeNews = null;
-let unsubscribeLeaderboard = null;
-let unsubscribeChat = null;
-let unsubscribeTransactions = null;
-
-const dom = {};
+let marketSentiment = { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
+let chart = null, currentUserId = null, chartHasStarted = false, initialNewsLoaded = false;
+let unsubscribePortfolio = null, unsubscribeRumors = null, unsubscribeNews = null, unsubscribeLeaderboard = null, unsubscribeChat = null, unsubscribeTransactions = null;
+let dom = {};
 
 const cenyDocRef = doc(db, "global", "ceny_akcji");
-onSnapshot(cenyDocRef, (docSnap) => {
-  if (docSnap.exists()) {
-    const aktualneCeny = docSnap.data();
-    if (aktualneCeny.ulanska !== undefined) market.ulanska.price = aktualneCeny.ulanska;
-    if (aktualneCeny.brzozair !== undefined) market.brzozair.price = aktualneCeny.brzozair;
-    if (aktualneCeny.igicorp !== undefined) market.igicorp.price = aktualneCeny.igicorp;
-    if (aktualneCeny.rychbud !== undefined) market.rychbud.price = aktualneCeny.rychbud;
-    updatePriceUI();
-    updatePortfolioUI();
-    if (currentUserId && !chartHasStarted) {
-      safeInitChart();
-      startChartTicker();
-      chartHasStarted = true;
-    }
+onSnapshot(cenyDocRef, (snap) => {
+  if (!snap.exists()) return;
+  const d = snap.data();
+  for (const key in d) if (market[key]) market[key].price = d[key];
+  updatePriceUI();
+  updatePortfolioUI();
+  if (currentUserId && !chartHasStarted) {
+    if (!chart) initChart();
+    startChartTicker();
+    chartHasStarted = true;
   }
-}, (err) => { console.error("cenyDocRef snapshot error:", err); });
+});
 
 document.addEventListener("DOMContentLoaded", () => {
-  dom.authContainer = document.getElementById("auth-container");
-  dom.simulatorContainer = document.getElementById("simulator-container");
-  dom.loginForm = document.getElementById("login-form");
-  dom.registerForm = document.getElementById("register-form");
-  dom.authTitle = document.getElementById("auth-title");
-  dom.authMessage = document.getElementById("auth-message");
-  dom.switchAuthLink = document.getElementById("switch-auth-link");
-  dom.resetPasswordLink = document.getElementById("reset-password-link");
-  dom.username = document.getElementById("username");
-  dom.logoutButton = document.getElementById("logout-button");
-  dom.cash = document.getElementById("cash");
-  dom.totalValue = document.getElementById("total-value");
-  dom.totalProfit = document.getElementById("total-profit");
-  dom.stockPrice = document.getElementById("stock-price");
-  dom.amountInput = document.getElementById("amount-input");
-  dom.buyButton = document.getElementById("buy-button");
-  dom.sellButton = document.getElementById("sell-button");
-  dom.buyMaxButton = document.getElementById("buy-max-button");
-  dom.sellMaxButton = document.getElementById("sell-max-button");
-  dom.messageBox = document.getElementById("message-box");
-  dom.chartContainer = document.getElementById("chart-container");
-  dom.rumorForm = document.getElementById("rumor-form");
-  dom.rumorInput = document.getElementById("rumor-input");
-  dom.rumorCompanySelect = document.getElementById("rumor-company-select");
-  dom.rumorsFeed = document.getElementById("rumors-feed");
-  dom.newsFeed = document.getElementById("news-feed");
-  dom.leaderboardList = document.getElementById("leaderboard-list");
-  dom.companySelector = document.getElementById("company-selector");
-  dom.companyName = document.getElementById("company-name");
-  dom.sharesList = document.getElementById("shares-list");
-  dom.chatForm = document.getElementById("chat-form");
-  dom.chatInput = document.getElementById("chat-input");
-  dom.chatFeed = document.getElementById("chat-feed");
-  dom.audioKaching = document.getElementById("audio-kaching");
-  dom.audioError = document.getElementById("audio-error");
-  dom.audioNews = document.getElementById("audio-news");
-  dom.themeToggle = document.getElementById("theme-toggle");
-  dom.userAvatar = document.getElementById("user-avatar");
-  dom.joinDate = document.getElementById("join-date");
-  dom.sentimentFill = document.getElementById("sentiment-fill");
-  dom.sentimentLabel = document.getElementById("sentiment-label");
-  dom.historyFeed = document.getElementById("history-feed");
+  dom = {
+    authContainer: document.getElementById("auth-container"),
+    simulatorContainer: document.getElementById("simulator-container"),
+    loginForm: document.getElementById("login-form"),
+    registerForm: document.getElementById("register-form"),
+    authTitle: document.getElementById("auth-title"),
+    switchAuthLink: document.getElementById("switch-auth-link"),
+    resetPasswordLink: document.getElementById("reset-password-link"),
+    authMessage: document.getElementById("auth-message"),
+    username: document.getElementById("username"),
+    logoutButton: document.getElementById("logout-button"),
+    cash: document.getElementById("cash"),
+    totalValue: document.getElementById("total-value"),
+    totalProfit: document.getElementById("total-profit"),
+    stockPrice: document.getElementById("stock-price"),
+    amountInput: document.getElementById("amount-input"),
+    buyButton: document.getElementById("buy-button"),
+    sellButton: document.getElementById("sell-button"),
+    buyMaxButton: document.getElementById("buy-max-button"),
+    sellMaxButton: document.getElementById("sell-max-button"),
+    messageBox: document.getElementById("message-box"),
+    chartContainer: document.getElementById("chart-container"),
+    rumorForm: document.getElementById("rumor-form"),
+    rumorInput: document.getElementById("rumor-input"),
+    rumorCompanySelect: document.getElementById("rumor-company-select"),
+    rumorsFeed: document.getElementById("rumors-feed"),
+    newsFeed: document.getElementById("news-feed"),
+    leaderboardList: document.getElementById("leaderboard-list"),
+    companySelector: document.getElementById("company-selector"),
+    companyName: document.getElementById("company-name"),
+    sharesList: document.getElementById("shares-list"),
+    chatForm: document.getElementById("chat-form"),
+    chatInput: document.getElementById("chat-input"),
+    chatFeed: document.getElementById("chat-feed"),
+    audioKaching: document.getElementById("audio-kaching"),
+    audioError: document.getElementById("audio-error"),
+    audioNews: document.getElementById("audio-news"),
+    themeToggle: document.getElementById("theme-toggle"),
+    userAvatar: document.getElementById("user-avatar"),
+    joinDate: document.getElementById("join-date"),
+    sentimentFill: document.getElementById("sentiment-fill"),
+    sentimentLabel: document.getElementById("sentiment-label"),
+    historyFeed: document.getElementById("history-feed")
+  };
 
-  dom.switchAuthLink?.addEventListener("click", (e) => { e.preventDefault(); toggleAuthForms(); });
-
+  dom.switchAuthLink?.addEventListener("click", toggleAuthForms);
   dom.loginForm?.addEventListener("submit", onLogin);
   dom.registerForm?.addEventListener("submit", onRegister);
   dom.resetPasswordLink?.addEventListener("click", onResetPassword);
-
   dom.logoutButton?.addEventListener("click", onLogout);
   dom.companySelector?.addEventListener("click", onSelectCompany);
   dom.buyButton?.addEventListener("click", buyShares);
   dom.sellButton?.addEventListener("click", sellShares);
   dom.buyMaxButton?.addEventListener("click", onBuyMax);
   dom.sellMaxButton?.addEventListener("click", onSellMax);
-
   dom.rumorForm?.addEventListener("submit", onPostRumor);
   dom.chatForm?.addEventListener("submit", onSendMessage);
-
   dom.themeToggle?.addEventListener("click", toggleTheme);
 
   if (localStorage.getItem("theme") === "light") {
     document.body.classList.add("light-mode");
-    if (dom.themeToggle) dom.themeToggle.textContent = "☀️";
+    dom.themeToggle.textContent = "☀️";
   } else {
-    if (dom.themeToggle) dom.themeToggle.textContent = "🌙";
+    dom.themeToggle.textContent = "🌙";
   }
 
   setInterval(updateMarketSentimentBar, 2500);
   setInterval(showDailyAlert, 5 * 60 * 1000);
+
+  setTimeout(() => startAuthListener(), 300);
 });
 
 function toggleAuthForms() {
   const login = document.getElementById("login-form");
   const register = document.getElementById("register-form");
-  const authTitle = document.getElementById("auth-title");
-  const switchLink = document.getElementById("switch-auth-link");
-  if (!login || !register || !authTitle || !switchLink) return;
-  const showingLogin = !login.classList.contains("hidden");
-  if (showingLogin) {
-    login.classList.add("hidden");
-    register.classList.remove("hidden");
-    authTitle.textContent = "Rejestracja";
-    switchLink.textContent = "Masz konto? Zaloguj się";
+  const title = document.getElementById("auth-title");
+  const link = document.getElementById("switch-auth-link");
+  const showLogin = !login.classList.contains("hidden");
+  if (showLogin) {
+    login.classList.add("hidden"); register.classList.remove("hidden");
+    title.textContent = "Rejestracja"; link.textContent = "Masz konto? Zaloguj się";
   } else {
-    register.classList.add("hidden");
-    login.classList.remove("hidden");
-    authTitle.textContent = "Logowanie";
-    switchLink.textContent = "Nie masz konta? Zarejestruj się";
+    register.classList.add("hidden"); login.classList.remove("hidden");
+    title.textContent = "Logowanie"; link.textContent = "Nie masz konta? Zarejestruj się";
   }
 }
 
 async function createInitialUserData(userId, name, email) {
-  const userPortfolio = {
-    name: name || "Gracz",
-    email: email || "",
-    cash: 1000.00,
-    shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
-    startValue: 1000.00,
-    zysk: 0.00,
-    totalValue: 1000.00,
-    joinDate: Timestamp.fromDate(new Date())
-  };
-  const userDocRef = doc(db, "uzytkownicy", userId);
-  await setDoc(userDocRef, userPortfolio);
+  const data = { name, email, cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000, joinDate: Timestamp.fromDate(new Date()) };
+  await setDoc(doc(db, "uzytkownicy", userId), data);
 }
 
 async function onRegister(e) {
   e.preventDefault();
-  const name = document.getElementById("register-name")?.value || "Gracz";
-  const email = document.getElementById("register-email")?.value;
-  const password = document.getElementById("register-password")?.value;
-  if (!email || !password) { showAuthMessage("Uzupełnij wymagane pola.", "error"); return; }
+  const name = document.getElementById("register-name").value || "Gracz";
+  const email = document.getElementById("register-email").value;
+  const password = document.getElementById("register-password").value;
+  if (!email || !password) return showAuthMessage("Uzupełnij wymagane pola.", "error");
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    if (userCredential.user) {
-      await createInitialUserData(userCredential.user.uid, name, email);
-    }
-  } catch (error) {
-    if (error.code === 'auth/email-already-in-use') {
-      showAuthMessage("Ten e-mail jest już zajęty. Spróbuj się zalogować.", "error");
-    } else {
-      showAuthMessage("Błąd rejestracji: " + (error.message || error.code), "error");
-    }
+    const user = await createUserWithEmailAndPassword(auth, email, password);
+    await createInitialUserData(user.user.uid, name, email);
+  } catch (err) {
+    showAuthMessage(err.code === "auth/email-already-in-use" ? "Ten e-mail jest już zajęty." : "Błąd rejestracji.", "error");
   }
 }
 
 async function onLogin(e) {
   e.preventDefault();
-  const email = document.getElementById("login-email")?.value;
-  const password = document.getElementById("login-password")?.value;
-  if (!email || !password) { showAuthMessage("Uzupełnij email i hasło.", "error"); return; }
-  try {
-    dom.audioKaching?.play().then(()=>dom.audioKaching.pause()).catch(()=>{});
-    dom.audioError?.play().then(()=>dom.audioError.pause()).catch(()=>{});
-    dom.audioNews?.play().then(()=>dom.audioNews.pause()).catch(()=>{});
-  } catch (e) {}
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+  if (!email || !password) return showAuthMessage("Podaj e-mail i hasło.", "error");
   try {
     await signInWithEmailAndPassword(auth, email, password);
-    showAuthMessage("", "info");
-  } catch (error) {
-    showAuthMessage("Błąd logowania: " + (error.message || error.code), "error");
+    showAuthMessage("");
+  } catch {
+    showAuthMessage("Błędny e-mail lub hasło.", "error");
   }
 }
 
-function onLogout() {
-  signOut(auth).catch(e => console.error("Logout error:", e));
-}
+function onLogout() { signOut(auth); }
 
 async function onResetPassword(e) {
   e.preventDefault();
-  const email = document.getElementById("login-email")?.value;
-  if (!email) { showAuthMessage("Wpisz swój e-mail w polu logowania, aby zresetować hasło.", "error"); return; }
-  try {
-    await sendPasswordResetEmail(auth, email);
-    showAuthMessage("Link do resetowania hasła został wysłany na Twój e-mail!", "success");
-  } catch (error) {
-    showAuthMessage("Błąd: " + (error.message || error.code), "error");
-  }
+  const email = document.getElementById("login-email").value;
+  if (!email) return showAuthMessage("Wpisz e-mail aby zresetować hasło.", "error");
+  await sendPasswordResetEmail(auth, email);
+  showAuthMessage("Link resetujący wysłany!", "success");
 }
 
-function showAuthMessage(message, type = "info") {
-  const el = document.getElementById("auth-message");
-  if (!el) return;
-  el.textContent = message;
-  el.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+function showAuthMessage(msg, type = "info") {
+  dom.authMessage.textContent = msg;
+  dom.authMessage.style.color = type === "error" ? "var(--red)" : "var(--green)";
 }
+
+function startAuthListener() {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      currentUserId = user.uid;
+      dom.simulatorContainer.classList.remove("hidden");
+      dom.authContainer.classList.add("hidden");
+      listenToPortfolioData(user.uid);
+      listenToRumors();
+      listenToMarketNews();
+      listenToLeaderboard();
+      listenToChat();
+      listenToTransactions();
+      if (!chartHasStarted) {
+        initChart();
+        startChartTicker();
+        chartHasStarted = true;
+      }
+    } else {
+      currentUserId = null;
+      dom.simulatorContainer.classList.add("hidden");
+      dom.authContainer.classList.remove("hidden");
+      if (unsubscribePortfolio) unsubscribePortfolio();
+      if (unsubscribeRumors) unsubscribeRumors();
+      if (unsubscribeNews) unsubscribeNews();
+      if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+      if (unsubscribeChat) unsubscribeChat();
+      if (unsubscribeTransactions) unsubscribeTransactions();
+      clearInterval(window.chartTickerInterval);
+      chartHasStarted = false; chart = null;
+    }
+  });
+}
+
+// === DALSZA CZĘŚĆ BEZ ZMIAN === (plotki, chat, wykres, sentyment, transakcje itp.)
+// --- Wklej tu resztę swojego pliku od funkcji `listenToPortfolioData` w dół ---
+
 
 function startAuthListener() {
   onAuthStateChanged(auth, user => {
