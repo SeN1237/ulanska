@@ -347,3 +347,100 @@ function applyRumorSentiment(companyId, sentiment) {
   const impact = sentiment === "positive" ? 0.03 : -0.03;
   market[companyId].price = Math.max(0.01, market[companyId].price * (1 + impact));
 }
+// === TRADING ACTIONS ===
+function onBuyMax() {
+  if (!currentCompanyId) return;
+  const price = market[currentCompanyId].price || 1;
+  dom.amountInput.value = Math.floor(portfolio.cash / price);
+}
+
+function onSellMax() {
+  if (!currentCompanyId) return;
+  dom.amountInput.value = portfolio.shares[currentCompanyId] || 0;
+}
+
+function buyShares() {
+  const amount = parseInt(dom.amountInput?.value || "0");
+  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
+  const price = market[currentCompanyId].price;
+  const cost = amount * price;
+  if (cost > portfolio.cash) return showMessage("Brak środków.", "error");
+
+  const newCash = portfolio.cash - cost;
+  const newShares = { ...portfolio.shares };
+  newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
+
+  const total = calculateTotalValue(newCash, newShares);
+  updatePortfolioInFirebase({
+    cash: newCash,
+    shares: newShares,
+    zysk: total - portfolio.startValue,
+    totalValue: total
+  });
+
+  showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
+  addTransaction("KUPNO", currentCompanyId, amount, price);
+}
+
+function sellShares() {
+  const amount = parseInt(dom.amountInput?.value || "0");
+  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
+  if (amount > (portfolio.shares[currentCompanyId] || 0)) return showMessage("Nie masz tylu akcji.", "error");
+
+  const price = market[currentCompanyId].price;
+  const newCash = portfolio.cash + amount * price;
+  const newShares = { ...portfolio.shares };
+  newShares[currentCompanyId] -= amount;
+
+  const total = calculateTotalValue(newCash, newShares);
+  updatePortfolioInFirebase({
+    cash: newCash,
+    shares: newShares,
+    zysk: total - portfolio.startValue,
+    totalValue: total
+  });
+
+  showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
+  addTransaction("SPRZEDAŻ", currentCompanyId, amount, price);
+}
+
+function calculateTotalValue(cash, shares) {
+  let total = cash;
+  for (const id in shares)
+    if (market[id]) total += (shares[id] || 0) * market[id].price;
+  return total;
+}
+
+async function updatePortfolioInFirebase(data) {
+  if (!currentUserId) return;
+  try {
+    await updateDoc(doc(db, "uzytkownicy", currentUserId), data);
+  } catch (e) {
+    console.error("update portfolio:", e);
+    showMessage("Błąd zapisu w bazie", "error");
+  }
+}
+
+async function addTransaction(type, companyId, amount, price) {
+  if (!currentUserId) return;
+  try {
+    await addDoc(collection(db, "transakcje"), {
+      userId: currentUserId,
+      userName: portfolio.name,
+      companyId,
+      companyName: market[companyId].name,
+      type,
+      amount,
+      price,
+      timestamp: serverTimestamp()
+    });
+  } catch (e) {
+    console.error("add transaction:", e);
+  }
+}
+
+function showMessage(msg, type = "info") {
+  if (!dom.messageBox) return;
+  dom.messageBox.textContent = msg;
+  dom.messageBox.style.color = type === "error" ? "red" : "lime";
+}
