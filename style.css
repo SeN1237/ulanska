@@ -129,7 +129,7 @@ header h1 { margin: 0; color: var(--blue); }
         "market portfolio"
         "market order"
         "rumors leaderboard"
-        "player player";
+        "chat chat"; /* <-- ZMIENIONO z 'player' na 'chat' */
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -137,7 +137,7 @@ header h1 { margin: 0; color: var(--blue); }
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
-#player-panel { grid-area: player; }
+#chat-panel { grid-area: chat; } /* <-- ZMIENIONO z 'player' na 'chat' */
 
 .panel {
     background-color: var(--panel-color);
@@ -326,13 +326,30 @@ button:active { transform: scale(0.98); }
     color: var(--text-muted);
 }
 
-/* STYLE DLA PANELU YOUTUBE */
-#yt-form {
+/* ====================================================== */
+/* === STYLE DLA NOWEGO CZATU (Zastępują YT) === */
+/* ====================================================== */
+
+#chat-feed {
+    height: 150px; /* Możesz dostosować wysokość */
+    font-style: normal; /* Nadpisuje .feed-box p */
+}
+#chat-feed p {
+    margin: 3px 0;
+    padding: 3px;
+    border-bottom: none; /* Nadpisuje .feed-box p */
+    font-style: normal; /* Nadpisuje .feed-box p */
+}
+#chat-feed p strong {
+    color: var(--blue); /* Kolor nicku */
+}
+
+#chat-form {
     display: flex;
     gap: 10px;
-    margin-bottom: 15px;
+    margin-top: 15px; /* Dodany odstęp od okna czatu */
 }
-#yt-url-input {
+#chat-input {
     flex: 1;
     padding: 10px;
     border: 1px solid var(--border-color);
@@ -341,27 +358,11 @@ button:active { transform: scale(0.98); }
     border-radius: 4px;
     font-size: 1em;
 }
-#yt-form button {
-    background-color: var(--red);
+#chat-form button {
+    background-color: var(--green);
     color: white;
 }
-#yt-player-container {
-    position: relative;
-    width: 100%;
-    padding-bottom: 56.25%; /* Proporcje 16:9 */
-    height: 0;
-    overflow: hidden;
-    background-color: #000;
-    border-radius: 8px;
-}
-#yt-player-container iframe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-}
+
 
 /* ====================================================== */
 /* === NOWE STYLE KOSMETYCZNE (Wklejone na dole) === */
@@ -431,7 +432,7 @@ button:active { transform: scale(0.98); }
             "order"       /* Zlecenia poniżej */
             "rumors"      /* Plotki i newsy poniżej */
             "leaderboard" /* Ranking poniżej */
-            "player";     /* Odtwarzacz na samym dole */
+            "chat";       /* <-- ZMIENIONO z 'player' na 'chat' */
         
         gap: 15px; /* Mniejszy odstęp */
     }
