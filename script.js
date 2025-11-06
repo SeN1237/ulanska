@@ -444,3 +444,49 @@ function showMessage(msg, type = "info") {
   dom.messageBox.textContent = msg;
   dom.messageBox.style.color = type === "error" ? "red" : "lime";
 }
+function buyShares() {
+  const amount = parseInt(dom.amountInput?.value || "0");
+  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
+
+  const price = market[currentCompanyId].price;
+  const cost = amount * price;
+
+  if (cost > portfolio.cash) return showMessage("Brak środków.", "error");
+
+  const newCash = portfolio.cash - cost;
+  const newShares = { ...portfolio.shares };
+  newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
+
+  const total = calculateTotalValue(newCash, newShares);
+
+  updatePortfolioInFirebase({
+    cash: newCash,
+    shares: newShares,
+    zysk: total - portfolio.startValue,
+    totalValue: total
+  });
+
+  showMessage(`Kupiono ${amount} × ${market[currentCompanyId].name}`, "success");
+}
+
+function sellShares() {
+  const amount = parseInt(dom.amountInput?.value || "0");
+  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
+  if (amount > (portfolio.shares[currentCompanyId] || 0)) return showMessage("Nie masz tylu akcji.", "error");
+
+  const price = market[currentCompanyId].price;
+  const newCash = portfolio.cash + amount * price;
+  const newShares = { ...portfolio.shares };
+  newShares[currentCompanyId] -= amount;
+
+  const total = calculateTotalValue(newCash, newShares);
+
+  updatePortfolioInFirebase({
+    cash: newCash,
+    shares: newShares,
+    zysk: total - portfolio.startValue,
+    totalValue: total
+  });
+
+  showMessage(`Sprzedano ${amount} × ${market[currentCompanyId].name}`, "success");
+}
