@@ -1,115 +1,160 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>WIG UŁAŃSKA</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <!-- === EKRAN LOGOWANIA / REJESTRACJI === -->
-  <div id="auth-container">
-    <div class="auth-panel">
+  <!-- AUTH SCREEN -->
+  <div id="auth-container" class="center-panel">
+    <div class="auth-card">
       <h2 id="auth-title">Logowanie</h2>
+
       <form id="login-form" class="auth-form">
-        <label for="login-email">Email:</label>
-        <input type="email" id="login-email" required>
-        <label for="login-password">Hasło:</label>
-        <input type="password" id="login-password" required>
-        <button type="submit" id="login-button">Zaloguj</button>
+        <label>Email</label>
+        <input id="login-email" type="email" required>
+        <label>Hasło</label>
+        <input id="login-password" type="password" required>
+        <button type="submit" class="btn">Zaloguj</button>
+        <p id="auth-message" class="muted"></p>
+        <p class="small"><a href="#" id="switch-auth-link">Nie masz konta? Zarejestruj się</a></p>
       </form>
 
       <form id="register-form" class="auth-form hidden">
-        <label for="register-name">Nazwa użytkownika:</label>
-        <input type="text" id="register-name" required>
-        <label for="register-email">Email:</label>
-        <input type="email" id="register-email" required>
-        <label for="register-password">Hasło:</label>
-        <input type="password" id="register-password" minlength="6" required>
-        <button type="submit" id="register-button">Zarejestruj się</button>
+        <label>Nazwa użytkownika</label>
+        <input id="register-name" type="text" required>
+        <label>Email</label>
+        <input id="register-email" type="email" required>
+        <label>Hasło</label>
+        <input id="register-password" type="password" minlength="6" required>
+        <button type="submit" class="btn">Zarejestruj</button>
+        <p class="small"><a href="#" id="switch-to-login">Masz konto? Zaloguj się</a></p>
       </form>
-
-      <p id="auth-message"></p>
-      <p class="switch-auth">
-        <a href="#" id="switch-auth-link">Nie masz konta? Zarejestruj się</a>
-      </p>
     </div>
   </div>
 
-  <!-- === PANEL GIEŁDY === -->
-  <div id="simulator-container" class="hidden">
-    <header class="panel header-panel">
-      <div class="header-left">
-        <h1>STOCK INDEX WIG UŁAŃSKA</h1>
-      </div>
-      <div class="header-right">
-        <div id="user-profile">
+  <!-- SIMULATOR -->
+  <div id="simulator-container" class="hidden app-grid">
+    <header class="topbar">
+      <div class="brand">WIG UŁAŃSKA</div>
+      <div class="top-controls">
+        <div id="user-profile" class="profile">
           <img id="user-avatar" src="https://api.dicebear.com/9.x/identicon/svg?seed=guest" alt="avatar">
           <div>
-            <div id="user-info">Witaj, <span id="username">Gracz</span>!</div>
+            <div id="username">Gość</div>
             <div id="join-date" class="muted">Dołączył: -</div>
           </div>
         </div>
-        <div class="header-controls">
-          <button id="theme-toggle" title="Przełącz tryb">🌙</button>
-          <button id="logout-button">Wyloguj</button>
-        </div>
+        <button id="theme-toggle" class="icon-btn">🌙</button>
+        <button id="logout-button" class="btn small">Wyloguj</button>
       </div>
     </header>
 
-    <div class="grid-container">
-      <main id="market-panel" class="panel">
-        <div id="company-selector">
+    <main class="main-col">
+      <section class="card">
+        <div class="company-tabs" id="company-selector">
           <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
           <button class="company-tab" data-company="rychbud">RychBud</button>
           <button class="company-tab" data-company="igicorp">IgiCorp</button>
           <button class="company-tab" data-company="brzozair">BrzozAir</button>
         </div>
-        <h2 id="company-name">Ułańska Dev</h2>
-        <div id="price-container">Aktualna cena: <strong id="stock-price">75.00 zł</strong></div>
-        <div id="chart-container"></div>
-      </main>
 
-      <!-- Portfel -->
-      <aside id="portfolio-panel" class="panel">
-        <h2>Mój Portfel</h2>
-        <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
-        <hr>
-        <div id="shares-list">
-          <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
-          <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
-          <p>IgiCorp: <strong id="shares-igicorp">0</strong> szt.</p>
-          <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
+        <div class="market-header">
+          <h2 id="company-name">Ułańska Dev</h2>
+          <div id="price-container">Aktualna cena: <strong id="stock-price">1.00 zł</strong></div>
         </div>
-        <hr>
-        <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
-        <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
-      </aside>
 
-      <!-- Czat -->
-      <section id="chat-panel" class="panel">
-        <h2>Globalny Czat</h2>
-        <div id="chat-feed" class="feed-box"><p>...ładowanie...</p></div>
-        <form id="chat-form">
-          <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
-          <button type="submit">Wyślij</button>
-        </form>
+        <div id="chart-container" class="chart-card"></div>
       </section>
-    </div>
+
+      <section class="card small-cards">
+        <h3>Wiadomości Rynkowe</h3>
+        <div id="news-feed" class="feed-box">...</div>
+
+        <h3>Globalne Plotki</h3>
+        <form id="rumor-form" class="rumor-form">
+          <input id="rumor-input" placeholder="Wpisz treść plotki..." required>
+          <div class="rumor-controls">
+            <select id="rumor-company-select">
+              <option value="ulanska">Ułańska Dev</option>
+              <option value="rychbud">RychBud</option>
+              <option value="igicorp">IgiCorp</option>
+              <option value="brzozair">BrzozAir</option>
+            </select>
+            <label><input type="radio" name="sentiment" value="positive" checked> +</label>
+            <label><input type="radio" name="sentiment" value="negative"> -</label>
+            <button type="submit" class="btn tiny">Publikuj</button>
+          </div>
+        </form>
+        <div id="rumors-feed" class="feed-box">...</div>
+      </section>
+    </main>
+
+    <aside class="side-col">
+      <div class="card">
+        <h3>Mój Portfel</h3>
+        <p>Gotówka: <strong id="cash">1000.00 zł</strong></p>
+        <div id="shares-list">
+          <p>Ułańska Dev: <strong id="shares-ulanska">0</strong></p>
+          <p>RychBud: <strong id="shares-rychbud">0</strong></p>
+          <p>IgiCorp: <strong id="shares-igicorp">0</strong></p>
+          <p>BrzozAir: <strong id="shares-brzozair">0</strong></p>
+        </div>
+        <p>Wartość portfela: <strong id="total-value">1000.00 zł</strong></p>
+        <p>Całkowity zysk: <strong id="total-profit">0.00 zł</strong></p>
+      </div>
+
+      <div class="card">
+        <h3>Panel Zleceń</h3>
+        <div class="order-row">
+          <label>Ilość</label>
+          <input id="amount-input" type="number" min="1" placeholder="0">
+          <div class="max-buttons">
+            <button id="buy-max-button" class="btn tiny">KUP MAX</button>
+            <button id="sell-max-button" class="btn tiny">SPRZEDAJ MAX</button>
+          </div>
+        </div>
+        <div class="order-actions">
+          <button id="buy-button" class="btn">KUP</button>
+          <button id="sell-button" class="btn outline">SPRZEDAJ</button>
+        </div>
+        <p id="message-box" class="muted"></p>
+      </div>
+
+      <div class="card">
+        <h3>Ranking Graczy</h3>
+        <ol id="leaderboard-list" class="leaderboard">Ładowanie...</ol>
+      </div>
+
+      <div class="card">
+        <h3>Historia Transakcji</h3>
+        <div id="history-feed" class="feed-box">Brak transakcji...</div>
+      </div>
+
+      <div class="card">
+        <h3>Globalny Czat</h3>
+        <div id="chat-feed" class="feed-box">Ładowanie...</div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" placeholder="Napisz wiadomość..." required>
+          <button type="submit" class="btn tiny">Wyślij</button>
+        </form>
+      </div>
+    </aside>
   </div>
 
-  <!-- Dźwięki -->
+  <!-- sounds -->
   <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
   <audio id="audio-error" src="error.mp3" preload="auto"></audio>
   <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio>
 
-  <!-- 🔹 APEXCHARTS musi być ZAŁADOWANY PRZED Twoim skryptem -->
+  <!-- ApexCharts CDN (MUSI być PRZED script.js) -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-  <!-- 🔹 TWÓJ SKRYPT -->
+  <!-- main script (module) -->
   <script type="module" src="script.js"></script>
 </body>
 </html>
