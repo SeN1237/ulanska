@@ -75,6 +75,19 @@ body {
     color: white;
     margin-top: 10px;
 }
+/* Styl dla linku resetowania hasła */
+#reset-password-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9em;
+    margin-top: 10px;
+    display: inline-block;
+}
+#reset-password-link:hover {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
 #auth-message {
     width: 100%;
     text-align: center;
@@ -378,4 +391,73 @@ button:active { transform: scale(0.98); }
     background-color: rgba(255, 193, 7, 0.15); /* Lekko złote tło */
     border-left: 3px solid var(--accent-color);
     padding-left: 9px; /* 12px - 3px bordera */
+}
+
+
+/* ====================================================== */
+/* === STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) === */
+/* ====================================================== */
+
+/* Użyjemy "breakpointu" 800px. 
+   Poniższe style zadziałają na ekranach mniejszych niż 800px. */
+@media (max-width: 800px) {
+
+    body {
+        /* Zmniejszamy marginesy na telefonie */
+        padding: 10px;
+    }
+
+    header {
+        /* Układamy logo i panel użytkownika jedno pod drugim */
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    #user-info {
+        /* Przycisk wylogowania zajmie całą szerokość */
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* === NAJWAŻNIEJSZA ZMIANA: GRID === */
+    .grid-container {
+        /* Zmieniamy układ z 2 kolumn na 1 kolumnę */
+        grid-template-columns: 1fr;
+        
+        /* Zmieniamy układ paneli na pionowy stos */
+        grid-template-areas:
+            "market"      /* Rynek na górze */
+            "portfolio"   /* Portfel poniżej */
+            "order"       /* Zlecenia poniżej */
+            "rumors"      /* Plotki i newsy poniżej */
+            "leaderboard" /* Ranking poniżej */
+            "player";     /* Odtwarzacz na samym dole */
+        
+        gap: 15px; /* Mniejszy odstęp */
+    }
+
+    /* Poprawka dla panelu logowania/rejestracji */
+    #auth-container {
+        /* Poprawka z 'padding: 0' na 'width: 100%' dla lepszego dopasowania */
+        width: 100%;
+        padding: 0;
+        gap: 15px;
+    }
+
+    /* Zmniejszamy trochę czcionki */
+    header h1 { font-size: 1.5em; } 
+    h2, h3 { font-size: 1.1em; }
+    #price-container { font-size: 1.3em; }
+
+    /* Poprawka dla zakładek spółek (aby się mieściły) */
+    .company-tab {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+
+    /* Poprawka dla panelu plotek */
+    #rumor-controls {
+        flex-direction: column; /* Ustawiamy kontrolki pionowo */
+        align-items: stretch; /* Rozciągamy na całą szerokość */
+    }
 }
