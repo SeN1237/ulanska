@@ -1,189 +1,188 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>WIG UŁAŃSKA</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WIG UŁAŃSKA</title>
 
-    <!-- Nowa czcionka -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="style.css">
-
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
-    <script type="module" src="script.js"></script>
-
-    <link rel="icon" type="image/png" href="favicon.png">
-
-    <script src="https://www.youtube.com/iframe_api"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
 </head>
+
 <body>
+  <!-- === EKRAN LOGOWANIA / REJESTRACJI === -->
+  <div id="auth-container">
+    <div class="auth-panel">
+      <h2 id="auth-title">Logowanie</h2>
+      <form id="login-form" class="auth-form">
+        <label for="login-email">Email:</label>
+        <input type="email" id="login-email" required>
+
+        <label for="login-password">Hasło:</label>
+        <input type="password" id="login-password" required>
+
+        <button type="submit" id="login-button">Zaloguj</button>
+      </form>
+
+      <form id="register-form" class="auth-form hidden">
+        <label for="register-name">Nazwa użytkownika:</label>
+        <input type="text" id="register-name" required>
+
+        <label for="register-email">Email:</label>
+        <input type="email" id="register-email" required>
+
+        <label for="register-password">Hasło:</label>
+        <input type="password" id="register-password" minlength="6" required>
+
+        <button type="submit" id="register-button">Zarejestruj się</button>
+      </form>
+
+      <p id="auth-message"></p>
+
+      <p class="switch-auth">
+        <a href="#" id="switch-auth-link">Nie masz konta? Zarejestruj się</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- === PANEL GIEŁDY === -->
+  <div id="simulator-container" class="hidden">
+    <header class="panel header-panel">
+      <div class="header-left">
+        <h1>STOCK INDEX WIG UŁAŃSKA</h1>
+      </div>
+      <div class="header-right">
+        <div id="user-profile">
+          <img id="user-avatar" src="https://api.dicebear.com/9.x/identicon/svg?seed=guest" alt="avatar">
+          <div>
+            <div id="user-info">Witaj, <span id="username">Gracz</span>!</div>
+            <div id="join-date" class="muted">Dołączył: -</div>
+          </div>
+        </div>
+        <div class="header-controls">
+          <button id="theme-toggle" title="Przełącz tryb">🌙</button>
+          <button id="logout-button">Wyloguj</button>
+        </div>
+      </div>
+    </header>
+
     <!-- Pasek nastroju rynku -->
     <div id="market-sentiment-bar" class="panel sentiment-panel">
-        <span id="sentiment-label">Neutralny rynek</span>
-        <div id="sentiment-meter">
-            <div id="sentiment-fill"></div>
-        </div>
+      <span id="sentiment-label">Neutralny rynek</span>
+      <div id="sentiment-meter">
+        <div id="sentiment-fill"></div>
+      </div>
     </div>
 
-    <!-- Auth -->
-    <div id="auth-container">
-        <div class="panel auth-panel">
-            <h2>Logowanie</h2>
-            <form id="login-form">
-                <label for="login-email">Email:</label>
-                <input type="email" id="login-email" required>
-                <label for="login-password">Hasło:</label>
-                <input type="password" id="login-password" required>
-                <div class="auth-actions">
-                    <button type="submit">Zaloguj</button>
-                    <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
-                </div>
-            </form>
+    <div class="grid-container">
+      <!-- Market panel -->
+      <main id="market-panel" class="panel">
+        <div id="company-selector">
+          <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
+          <button class="company-tab" data-company="rychbud">RychBud</button>
+          <button class="company-tab" data-company="igicorp">IgiCorp</button>
+          <button class="company-tab" data-company="brzozair">BrzozAir</button>
         </div>
-        <div class="panel auth-panel">
-            <h2>Rejestracja (Start 1000 zł)</h2>
-            <form id="register-form">
-                <label for="register-name">Twoja nazwa:</label>
-                <input type="text" id="register-name" required>
-                <label for="register-email">Email:</label>
-                <input type="email" id="register-email" required>
-                <label for="register-password">Hasło:</label>
-                <input type="password" id="register-password" minlength="6" required>
-                <button type="submit">Zarejestruj</button>
-            </form>
+        <h2 id="company-name">Ułańska Dev</h2>
+        <div id="price-container">
+          Aktualna cena: <strong id="stock-price">75.00 zł</strong>
         </div>
-        <p id="auth-message"></p>
-    </div>
+        <div id="chart-container"></div>
+      </main>
 
-    <!-- Symulator -->
-    <div id="simulator-container" class="hidden">
-        <header class="panel header-panel">
-            <div class="header-left">
-                <h1>STOCK INDEX WIG UŁAŃSKA</h1>
+      <!-- Portfolio -->
+      <aside id="portfolio-panel" class="panel">
+        <h2>Mój Portfel</h2>
+        <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
+        <hr>
+        <div id="shares-list">
+          <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
+          <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
+          <p>IgiCorp: <strong id="shares-igicorp">0</strong> szt.</p>
+          <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
+        </div>
+        <hr>
+        <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
+        <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
+      </aside>
+
+      <!-- Panel zleceń -->
+      <aside id="order-panel" class="panel">
+        <h2>Panel Zleceń</h2>
+        <div class="actions">
+          <div class="label-with-max">
+            <label for="amount-input">Ilość:</label>
+            <span class="max-buttons-group">
+              <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
+              <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
+            </span>
+          </div>
+          <input type="number" id="amount-input" placeholder="0" min="1">
+          <button id="buy-button">KUP</button>
+          <button id="sell-button">SPRZEDAJ</button>
+        </div>
+        <p id="message-box"></p>
+      </aside>
+
+      <!-- Plotki -->
+      <section id="rumors-panel" class="panel">
+        <h3>Wiadomości Rynkowe</h3>
+        <div id="news-feed" class="feed-box"></div>
+        <hr>
+        <h3>Globalne Plotki z Wpływem</h3>
+        <form id="rumor-form">
+          <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
+          <div id="rumor-controls">
+            <select id="rumor-company-select" required>
+              <option value="ulanska" selected>Ułańska Dev</option>
+              <option value="rychbud">RychBud</option>
+              <option value="igicorp">IgiCorp</option>
+              <option value="brzozair">BrzozAir</option>
+            </select>
+            <div id="rumor-sentiment">
+              <label><input type="radio" name="sentiment" value="positive" checked> 📈 Pozytywna</label>
+              <label><input type="radio" name="sentiment" value="negative"> 📉 Negatywna</label>
             </div>
-            <div class="header-right">
-                <div id="user-profile">
-                    <img id="user-avatar" src="https://api.dicebear.com/9.x/identicon/svg?seed=guest" alt="avatar">
-                    <div>
-                        <div id="user-info">Witaj, <span id="username">Gracz</span>!</div>
-                        <div id="join-date" class="muted">Dołączył: -</div>
-                    </div>
-                </div>
-                <div class="header-controls">
-                    <button id="theme-toggle" title="Przełącz tryb">🌙</button>
-                    <button id="logout-button">Wyloguj</button>
-                </div>
-            </div>
-        </header>
-
-        <div class="grid-container">
-
-            <main id="market-panel" class="panel">
-                <div id="company-selector">
-                    <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
-                    <button class="company-tab" data-company="rychbud">RychBud</button>
-                    <button class="company-tab" data-company="igicorp">IgiCorp</button>
-                    <button class="company-tab" data-company="brzozair">BrzozAir</button>
-                </div>
-                <h2 id="company-name">Ułańska Dev</h2>
-                <div id="price-container">
-                    Aktualna cena: <strong id="stock-price">75.00 zł</strong>
-                </div>
-                <div id="chart-container"></div>
-            </main>
-
-            <aside id="portfolio-panel" class="panel">
-                <h2>Mój Portfel (Live)</h2>
-                <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
-                <hr>
-                <div id="shares-list">
-                    <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
-                    <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
-                    <p>IgiCorp: <strong id="shares-igicorp">0</strong> szt.</p>
-                    <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
-                </div>
-                <hr>
-                <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
-                <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
-            </aside>
-
-            <aside id="order-panel" class="panel">
-                <h2>Panel Zleceń</h2>
-                <div class="actions">
-                    <div class="label-with-max">
-                        <label for="amount-input">Ilość:</label>
-                        <span class="max-buttons-group">
-                            <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
-                            <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
-                        </span>
-                    </div>
-                    <input type="number" id="amount-input" placeholder="0" min="1">
-                    <button id="buy-button">KUP</button>
-                    <button id="sell-button">SPRZEDAJ</button>
-                </div>
-                <p id="message-box"></p>
-            </aside>
-
-            <section id="rumors-panel" class="panel">
-                <h3>Wiadomości Rynkowe</h3>
-                <div id="news-feed" class="feed-box"></div>
-
-                <hr>
-
-                <h3>Globalne Plotki z Wpływem</h3>
-                <form id="rumor-form">
-                    <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
-                    <div id="rumor-controls">
-                        <select id="rumor-company-select" required>
-                            <option value="ulanska" selected>Dot. Ułańska Dev</option>
-                            <option value="rychbud">Dot. RychBud</option>
-                            <option value="igicorp">Dot. IgiCorp</option>
-                            <option value="brzozair">Dot. BrzozAir</option>
-                        </select>
-                        <div id="rumor-sentiment">
-                            <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
-                            <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
-                        </div>
-                    </div>
-                    <button type="submit">Publikuj</button>
-                </form>
-                <div id="rumors-feed">
-                    <p>...ładowanie plotek z serwera...</p>
-                </div>
-            </section>
-
-            <section id="leaderboard-panel" class="panel">
-                <h2>Ranking Graczy (TOP 10 Wartość)</h2>
-                <ol id="leaderboard-list">
-                    <li>...ładowanie rankingu...</li>
-                </ol>
-            </section>
-
-            <section id="history-panel" class="panel">
-                <h2>Historia Transakcji</h2>
-                <div id="history-feed" class="feed-box">
-                    <p>Brak transakcji...</p>
-                </div>
-            </section>
-
-            <section id="chat-panel" class="panel">
-                <h2>Globalny Czat</h2>
-                <div id="chat-feed" class="feed-box">
-                    <p>...ładowanie czatu...</p>
-                </div>
-
-                <form id="chat-form">
-                    <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
-                    <button type="submit">Wyślij</button>
-                </form>
-            </section>
+          </div>
+          <button type="submit">Publikuj</button>
+        </form>
+        <div id="rumors-feed" class="feed-box">
+          <p>...ładowanie plotek...</p>
         </div>
-    </div>
+      </section>
 
-    <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
-    <audio id="audio-error" src="error.mp3" preload="auto"></audio>
-    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio>
+      <!-- Ranking -->
+      <section id="leaderboard-panel" class="panel">
+        <h2>Ranking Graczy</h2>
+        <ol id="leaderboard-list"><li>...ładowanie...</li></ol>
+      </section>
+
+      <!-- Historia -->
+      <section id="history-panel" class="panel">
+        <h2>Historia Transakcji</h2>
+        <div id="history-feed" class="feed-box">
+          <p>Brak transakcji...</p>
+        </div>
+      </section>
+
+      <!-- Czat -->
+      <section id="chat-panel" class="panel">
+        <h2>Globalny Czat</h2>
+        <div id="chat-feed" class="feed-box">
+          <p>...ładowanie...</p>
+        </div>
+        <form id="chat-form">
+          <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
+          <button type="submit">Wyślij</button>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <!-- Dźwięki -->
+  <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
+  <audio id="audio-error" src="error.mp3" preload="auto"></audio>
+  <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio>
 </body>
 </html>
