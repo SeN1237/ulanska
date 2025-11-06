@@ -13,7 +13,7 @@
 
     <link rel="icon" type="image/png" href="favicon.png">
     
-    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://www.youtube.com/iframe_api"></script> 
 </head>
 <body>
 
@@ -135,18 +135,19 @@
                 </ol>
             </section>
                 
-            <section id="player-panel" class="panel">
-                <h2>Globalny Odtwarzacz YT</h2>
-                <form id="yt-form">
-                    <input type="text" id="yt-url-input" placeholder="Wklej link YouTube lub ID wideo...">
-                    <button type="submit">Wczytaj</button>
-                </form>
-                <div id="yt-player-container">
-                    <div id="yt-player"></div>
+            <section id="chat-panel" class="panel">
+                <h2>Globalny Czat</h2>
+                
+                <div id="chat-feed" class="feed-box">
+                    <p>...ładowanie czatu...</p>
                 </div>
+                
+                <form id="chat-form">
+                    <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
+                    <button type="submit">Wyślij</button>
+                </form>
             </section>
-
-        </div> 
+            </div> 
     </div>
     
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
