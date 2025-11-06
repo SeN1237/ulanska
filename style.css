@@ -1,4 +1,4 @@
-/* Ustawienia globalne i ciemny motyw */ 
+/* Ustawienia globalne i ciemny motyw */
 :root {
     --bg-color: #1a1e25;
     --panel-color: #252a34;
@@ -21,6 +21,8 @@ body {
     justify-content: center;
     align-items: flex-start;
     min-height: 100vh;
+    /* NOWOŚĆ: Subtelny cień dla ostrości tekstu na ciemnym tle */
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.1); 
 }
 
 /* --- STYLE LOGOWANIA --- */
@@ -35,6 +37,511 @@ body {
 .auth-panel {
     flex: 1;
     min-width: 300px;
+    /* Usunięto: background-color: var(--panel-color); */
+    /* Usunięto: border: 1px solid var(--border-color); */
+    /* Usunięto: box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); */
+    
+    /* PRZENIESIONE DO .panel DLA KONSISTENCJI */
+    background-color: var(--panel-color);
+    border-radius: 12px; /* Zwiększone zaokrąglenie */
+    padding: 20px;
+    border: none;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05); /* Nowoczesny, miękki cień */
+    transition: box-shadow 0.3s ease;
+}
+.auth-panel:hover {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-color);
+}
+
+
+.auth-panel h2 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px; /* Większy padding */
+    color: var(--text-color); /* Jaśniejszy kolor nagłówka */
+    font-size: 1.4em;
+    font-weight: 600;
+}
+.auth-panel form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.auth-panel label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+.auth-panel input {
+    padding: 12px; /* Większy padding */
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 8px; /* Większe zaokrąglenie */
+    font-size: 1em;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    outline: none;
+}
+.auth-panel input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5); /* Lekka niebieska obwódka */
+}
+
+
+/* NOWOCZESNE STYLE PRZYCISKÓW (Logowanie, Rejestracja, Kup, Wyślij) */
+.auth-panel button,
+#buy-button, #sell-button,
+#buy-max-button, #sell-max-button,
+#rumor-form button,
+#chat-form button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px; /* Zwiększam zaokrąglenie */
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1em;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    text-transform: uppercase;
+}
+
+/* Guzik domyślny/akcji (Niebieski/Kupno) */
+.auth-panel button,
+#rumor-form button,
+#chat-form button,
+#buy-button,
+#buy-max-button {
+    background-color: var(--blue);
+    color: white;
+}
+.auth-panel button:hover,
+#rumor-form button:hover,
+#chat-form button:hover,
+#buy-button:hover,
+#buy-max-button:hover {
+    background-color: #0056b3; /* Ciemniejszy niebieski */
+    transform: translateY(-1px);
+}
+
+/* Guzik Sprzedaży/Ostrzegawczy (Czerwony/Sprzedaż) */
+#sell-button,
+#sell-max-button {
+    background-color: var(--red);
+    color: white;
+}
+#sell-button:hover,
+#sell-max-button:hover {
+    background-color: #bd2130; /* Ciemniejszy czerwony */
+    transform: translateY(-1px);
+}
+
+/* Styl dla linku resetowania hasła */
+#reset-password-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9em;
+    margin-top: 10px;
+    display: inline-block;
+}
+#reset-password-link:hover {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
+#auth-message {
+    width: 100%;
+    text-align: center;
+    font-size: 1.1em;
+    min-height: 20px;
+}
+
+/* Klasa do ukrywania/pokazywania */
+.hidden {
+    display: none !important;
+}
+
+/* --- STYLE SYMULATORA --- */
+#simulator-container {
+    width: 100%;
+    max-width: 1400px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+header h1 { margin: 0; color: var(--blue); }
+#logout-button {
+    background: var(--red); 
+    color: white; 
+    border: none;
+    padding: 8px 15px; /* Zwiększony padding */
+    border-radius: 4px; 
+    cursor: pointer;
+    font-size: 0.9em; 
+    margin-left: 10px;
+    transition: background-color 0.2s ease;
+}
+#logout-button:hover {
+    background: #bd2130;
+}
+
+
+/* ZAKTUALIZOWANY Układ siatki (Grid) */
+.grid-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+        "market portfolio"
+        "market order"
+        "rumors leaderboard"
+        "chat chat";
+    gap: 20px;
+}
+#market-panel { grid-area: market; }
+#portfolio-panel { grid-area: portfolio; }
+#order-panel { grid-area: order; }
+#rumors-panel { grid-area: rumors; }
+#leaderboard-panel { grid-area: leaderboard; }
+#chat-panel { grid-area: chat; }
+
+/* NOWOCZESNY PANEL */
+.panel {
+    background-color: var(--panel-color);
+    border: none; /* Usunięto ramkę */
+    border-radius: 12px; /* Zwiększone zaokrąglenie */
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    transition: box-shadow 0.3s ease;
+}
+.panel:hover {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-color);
+}
+
+h2, h3 { 
+    margin-top: 0; 
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px; /* Większy padding */
+    color: var(--text-color); /* Zmieniono z text-muted na jaśniejszy */
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+/* Taby Spółek (Pill Shape) */
+#company-selector {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+.company-tab {
+    background-color: var(--bg-color); 
+    color: var(--text-muted);
+    border: 1px solid var(--border-color); 
+    padding: 8px 15px;
+    border-radius: 50px; /* PILL shape */
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.company-tab:hover {
+    background-color: #3b4252;
+    color: var(--text-color);
+}
+.company-tab.active {
+    background-color: var(--blue); 
+    color: white;
+    border-color: var(--blue);
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.4);
+}
+
+
+/* Panel Rynku i Wykresu */
+#price-container { font-size: 1.5em; margin-bottom: 20px; }
+#stock-price { 
+    font-weight: bold; 
+    transition: color 0.3s ease; 
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+/* WYKRES POZOSTAJE BEZ ZMIAN */
+#chart-container { width: 100%; min-height: 300px; }
+
+
+/* Panel Portfela */
+#portfolio-panel p {
+    margin: 12px 0; /* Większy odstęp */
+    font-size: 1.1em;
+    display: flex; justify-content: space-between;
+    padding: 5px 0;
+}
+#portfolio-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
+}
+#total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
+#shares-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05); /* Lekki separator */
+}
+#shares-list li:last-child {
+    border-bottom: none;
+}
+
+
+/* Panel Zleceń */
+.actions {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+    align-items: center;
+}
+.actions label {
+    grid-column: 1 / 3; 
+    font-size: 0.9em; 
+    color: var(--text-muted);
+}
+#amount-input { 
+    grid-column: 1 / 3; 
+    padding: 12px; /* Zmieniono z 10px na 12px */
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 8px; /* Zmieniono z 4px na 8px */
+    font-size: 1.1em; 
+    transition: border-color 0.3s, box-shadow 0.3s;
+    outline: none;
+}
+#amount-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5); 
+}
+
+/* Przyciski MAX są w jednej linii */
+#buy-max-button, #sell-max-button {
+    /* Zastosowane nowe style guzików */
+    font-size: 0.9em;
+    padding: 8px 10px;
+    border-radius: 4px;
+}
+
+/* Panel Wiadomości */
+#message-box {
+    margin: 10px 0 20px 0;
+    min-height: 20px;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-align: center;
+}
+.feed-box {
+    height: 200px;
+    overflow-y: auto;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    font-size: 0.9em;
+}
+.feed-box p {
+    margin: 5px 0;
+    padding: 5px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+    word-wrap: break-word;
+}
+.feed-box p:last-child {
+    border-bottom: none;
+}
+
+/* Panel Plotek */
+#rumor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+#rumor-input {
+    flex: 1; 
+    /* Zastosowane nowe style inputów */
+}
+#rumor-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+#rumor-company-select {
+    padding: 10px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; /* Zmieniono z 4px na 8px */
+    flex-grow: 1;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    outline: none;
+}
+#rumor-company-select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+}
+#rumor-sentiment {
+    display: flex;
+    gap: 10px;
+    flex-grow: 1;
+}
+#rumor-sentiment label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+#rumor-form button {
+    background-color: var(--blue);
+    color: white;
+}
+#rumors-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
+}
+
+/* Panel Rankingu (Zaktualizowane style) */
+#leaderboard-list { 
+    list-style: none;
+    padding: 0; 
+    margin: 0;
+}
+#leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.05); 
+    font-size: 1.1em;
+}
+#leaderboard-list li:last-child {
+    border-bottom: none;
+}
+#leaderboard-list li strong {
+    font-weight: bold;
+    color: var(--accent-color);
+}
+#leaderboard-list li span small {
+    display: block;
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* Panel Czat */
+#chat-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+#chat-input {
+    flex: 1;
+    /* Zastosowane nowe style inputów */
+}
+#chat-form button {
+    background-color: var(--green);
+    color: white;
+}
+
+/* --- MIGOTANIE I RANKING --- */
+/* Animacja migotania cen na zielono */
+@keyframes flash-green {
+    0% { background-color: rgba(40, 167, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+.flash-green {
+    animation: flash-green 0.7s ease-out;
+}
+
+/* Animacja migotania cen na czerwono */
+@keyframes flash-red {
+    0% { background-color: rgba(220, 53, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+.flash-red {
+    animation: flash-red 0.7s ease-out;
+}
+
+/* Wyróżnienie siebie w rankingu */
+#leaderboard-list li.highlight-me {
+    background-color: rgba(255, 193, 7, 0.15); 
+    border-left: 3px solid var(--accent-color);
+    padding-left: 15px; /* Zwiększony padding */
+    border-radius: 4px;
+}
+
+
+/* --- STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) --- */
+
+@media (max-width: 800px) {
+
+    body {
+        padding: 10px;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    #user-info {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* === NAJWAŻNIEJSZA ZMIANA: GRID === */
+    .grid-container {
+        grid-template-columns: 1fr;
+        
+        grid-template-areas:
+            "market"
+            "portfolio"
+            "order"
+            "rumors"
+            "leaderboard"
+            "chat"; 
+        
+        gap: 15px; 
+    }
+
+    /* Poprawka dla panelu logowania/rejestracji */
+    #auth-container {
+        width: 100%;
+        gap: 15px;
+    }
+    .auth-panel {
+        min-width: 100%;
+    }
+    
+    #company-selector {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    #rumor-controls {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    #rumor-company-select {
+        width: 100%;
+    }
+    
+    #rumor-sentiment {
+        justify-content: space-around;
+        width: 100%;
+    }
+}    min-width: 300px;
     background-color: var(--panel-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
