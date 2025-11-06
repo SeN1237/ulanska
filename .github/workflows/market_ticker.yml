@@ -3,7 +3,7 @@ name: Aktualizacja Cen Giełdy
 on:
   schedule:
     # Uruchamiaj co 5 minut (możesz zmienić na '*/1 * * * *' dla 1 minuty)
-    - cron: '*/5 * * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch:
     # Dodaje przycisk "Run workflow" w zakładce Actions
     # do ręcznego uruchamiania
