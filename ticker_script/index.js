@@ -250,12 +250,12 @@ try {
       const price = currentPrices[companyId];
       let newPrice = price;
       
-      const volatility = 0.01 * price; 
+      const volatility = 0.04 * price; 
       let change = (Math.random() - 0.5) * 2 * volatility; 
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
-      const eventChance = 0.03; 
+      const eventChance = 0.07; 
       
       if (Math.random() < eventChance) {
           const isPositive = Math.random() > 0.5;
@@ -264,11 +264,11 @@ try {
           let impactType = ""; // 'positive' lub 'negative'
 
           if (isPositive) {
-              impactPercent = (Math.random() * 0.10) + 0.05; // +5% to +15%
+              impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
               newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
               impactType = "positive";
           } else {
-              impactPercent = ((Math.random() * 0.10) + 0.05) * -1; // -5% to -15%
+              impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
               newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
               impactType = "negative";
           }
