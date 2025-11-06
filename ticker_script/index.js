@@ -255,7 +255,7 @@ try {
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
-      const eventChance = 0.10; 
+      const eventChance = 0.03; 
       
       if (Math.random() < eventChance) {
           const isPositive = Math.random() > 0.5;
