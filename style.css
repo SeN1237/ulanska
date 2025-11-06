@@ -221,7 +221,7 @@ body[data-theme="dark"] #logout-button:hover {
         "market portfolio"
         "market order"
         "rumors leaderboard"
-        "chat chat"                       /* <-- Czat jest teraz tutaj */
+        "chat chat"
         "history_global history_personal"; /* <-- Historia jest na dole */
     gap: 20px;
 }
@@ -246,6 +246,42 @@ h2, h3 {
     margin-top: 0; border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
 }
+
+/* === NOWE STYLE DLA NAGŁÓWKA Z PRZYCISKIEM === */
+.panel-header-with-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 15px; /* Zastępuje margines .feed-box */
+}
+.panel-header-with-button h2 {
+    border-bottom: none; /* Usuwamy podwójną ramkę */
+    margin-bottom: 0; /* h2 już nie ma marginesu */
+    padding-bottom: 10px; /* Zachowujemy odstęp */
+}
+.clear-btn {
+    background: none;
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 3px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.clear-btn:hover {
+    background: rgba(220, 53, 69, 0.1);
+    opacity: 1;
+}
+body[data-theme="dark"] .clear-btn:hover {
+    background: rgba(255, 69, 0, 0.1);
+    box-shadow: 0 0 5px var(--red);
+}
+/* === KONIEC NOWYCH STYLI === */
+
 
 /* Panel Rynku i Wykresu */
 #price-container { font-size: 1.5em; margin-bottom: 20px; }
@@ -379,6 +415,11 @@ body[data-theme="light"] #sell-max-button:hover {
     word-break: break-word;
 }
 .feed-box p:last-child { border-bottom: none; }
+/* Usunięcie marginesu dla feedów, które mają nowy nagłówek */
+.panel-header-with-button + .feed-box {
+    margin-bottom: 0;
+}
+
 
 #rumor-form {
     display: flex;
@@ -629,7 +670,6 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     #theme-switcher { margin-left: 0; order: 2; }
     #user-info { order: 3; width: 100%; text-align: center; }
     
-    /* ZAKTUALIZOWANA SIATKA MOBILNA */
     .grid-container {
         grid-template-columns: 1fr;
         grid-template-areas:
@@ -638,7 +678,7 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
             "order"
             "rumors"
             "leaderboard"
-            "chat"             /* <-- Czat jest teraz tutaj */
+            "chat"
             "history_global"
             "history_personal";
         gap: 15px; 
