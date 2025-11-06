@@ -129,7 +129,7 @@ header h1 { margin: 0; color: var(--blue); }
         "market portfolio"
         "market order"
         "rumors leaderboard"
-        "chat chat"; /* <-- ZMIENIONO z 'player' na 'chat' */
+        "chat chat";
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -137,7 +137,7 @@ header h1 { margin: 0; color: var(--blue); }
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
-#chat-panel { grid-area: chat; } /* <-- ZMIENIONO z 'player' na 'chat' */
+#chat-panel { grid-area: chat; }
 
 .panel {
     background-color: var(--panel-color);
@@ -146,7 +146,7 @@ header h1 { margin: 0; color: var(--blue); }
     padding: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
-h2, h3 { /* Dodano h3 */
+h2, h3 { 
     margin-top: 0; border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
 }
@@ -156,7 +156,6 @@ h2, h3 { /* Dodano h3 */
 #stock-price { 
     font-weight: bold; 
     transition: color 0.3s ease; 
-    /* Dodajemy padding, aby migotanie tła wyglądało lepiej */
     padding: 2px 6px;
     border-radius: 4px;
 }
@@ -174,16 +173,26 @@ h2, h3 { /* Dodano h3 */
 
 /* Panel Zleceń */
 .actions {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 10px; align-items: center;
+    display: grid; 
+    /* Dwie kolumny, pierwsza na etykietę/pole MAX, druga na input i guziki */
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+    align-items: center;
 }
 .actions label {
-    grid-column: 1 / 3; font-size: 0.9em; color: var(--text-muted);
+    /* Poprawka: Etykiety i inputy zajmują pełną szerokość */
+    grid-column: 1 / 3; 
+    font-size: 0.9em; 
+    color: var(--text-muted);
 }
 #amount-input {
-    grid-column: 1 / 3; padding: 10px; border: 1px solid var(--border-color);
-    background-color: var(--bg-color); color: var(--text-color);
-    border-radius: 4px; font-size: 1.1em;
+    grid-column: 1 / 3; 
+    padding: 10px; 
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    border-radius: 4px; 
+    font-size: 1.1em;
 }
 button {
     padding: 12px; border: none; border-radius: 4px; cursor: pointer;
@@ -194,6 +203,50 @@ button:active { transform: scale(0.98); }
 #sell-button { background-color: var(--red); color: white; }
 #message-box {
     margin-top: 15px; font-style: italic; min-height: 20px;
+}
+
+/* --- STYLI DLA PRZYCISKÓW MAX --- */
+
+.label-with-max {
+    /* To zajmuje całą szerokość nad inputem */
+    grid-column: 1 / 3; 
+    display: flex;
+    justify-content: space-between; 
+    align-items: center; 
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-bottom: -5px; /* Przyciąga do inputa */
+}
+
+.max-buttons-group {
+    display: flex;
+    gap: 5px; 
+}
+
+.max-btn {
+    background: none;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 2px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.max-btn:hover {
+    background: rgba(255, 193, 7, 0.1);
+}
+.max-btn:active {
+    transform: scale(0.97);
+}
+
+/* Nadpisujemy styl dla "SPRZEDAJ MAX" */
+#sell-max-button {
+    border-color: var(--red);
+    color: var(--red);
+}
+#sell-max-button:hover {
+    background: rgba(220, 53, 69, 0.1); 
 }
 
 /* Panel Plotek i Newsów (zaktualizowany) */
@@ -326,28 +379,26 @@ button:active { transform: scale(0.98); }
     color: var(--text-muted);
 }
 
-/* ====================================================== */
-/* === STYLE DLA NOWEGO CZATU (Zastępują YT) === */
-/* ====================================================== */
+/* --- STYLE DLA NOWEGO CZATU --- */
 
 #chat-feed {
-    height: 150px; /* Możesz dostosować wysokość */
-    font-style: normal; /* Nadpisuje .feed-box p */
+    height: 150px; 
+    font-style: normal; 
 }
 #chat-feed p {
     margin: 3px 0;
     padding: 3px;
-    border-bottom: none; /* Nadpisuje .feed-box p */
-    font-style: normal; /* Nadpisuje .feed-box p */
+    border-bottom: none; 
+    font-style: normal; 
 }
 #chat-feed p strong {
-    color: var(--blue); /* Kolor nicku */
+    color: var(--blue); 
 }
 
 #chat-form {
     display: flex;
     gap: 10px;
-    margin-top: 15px; /* Dodany odstęp od okna czatu */
+    margin-top: 15px; 
 }
 #chat-input {
     flex: 1;
@@ -364,9 +415,7 @@ button:active { transform: scale(0.98); }
 }
 
 
-/* ====================================================== */
-/* === NOWE STYLE KOSMETYCZNE (Wklejone na dole) === */
-/* ====================================================== */
+/* --- MIGOTANIE I RANKING --- */
 
 /* Animacja migotania cen na zielono */
 @keyframes flash-green {
@@ -374,7 +423,6 @@ button:active { transform: scale(0.98); }
     100% { background-color: transparent; }
 }
 .flash-green {
-    /* Używamy 'flash-green' jako nazwy animacji */
     animation: flash-green 0.7s ease-out;
 }
 
@@ -389,57 +437,47 @@ button:active { transform: scale(0.98); }
 
 /* Wyróżnienie siebie w rankingu */
 #leaderboard-list li.highlight-me {
-    background-color: rgba(255, 193, 7, 0.15); /* Lekko złote tło */
+    background-color: rgba(255, 193, 7, 0.15); 
     border-left: 3px solid var(--accent-color);
-    padding-left: 9px; /* 12px - 3px bordera */
+    padding-left: 9px; 
 }
 
 
-/* ====================================================== */
-/* === STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) === */
-/* ====================================================== */
+/* --- STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) --- */
 
-/* Użyjemy "breakpointu" 800px. 
-   Poniższe style zadziałają na ekranach mniejszych niż 800px. */
 @media (max-width: 800px) {
 
     body {
-        /* Zmniejszamy marginesy na telefonie */
         padding: 10px;
     }
 
     header {
-        /* Układamy logo i panel użytkownika jedno pod drugim */
         flex-direction: column;
         gap: 15px;
     }
     
     #user-info {
-        /* Przycisk wylogowania zajmie całą szerokość */
         width: 100%;
         text-align: center;
     }
     
     /* === NAJWAŻNIEJSZA ZMIANA: GRID === */
     .grid-container {
-        /* Zmieniamy układ z 2 kolumn na 1 kolumnę */
         grid-template-columns: 1fr;
         
-        /* Zmieniamy układ paneli na pionowy stos */
         grid-template-areas:
-            "market"      /* Rynek na górze */
-            "portfolio"   /* Portfel poniżej */
-            "order"       /* Zlecenia poniżej */
-            "rumors"      /* Plotki i newsy poniżej */
-            "leaderboard" /* Ranking poniżej */
-            "chat";       /* <-- ZMIENIONO z 'player' na 'chat' */
+            "market"
+            "portfolio"
+            "order"
+            "rumors"
+            "leaderboard"
+            "chat"; 
         
-        gap: 15px; /* Mniejszy odstęp */
+        gap: 15px; 
     }
 
     /* Poprawka dla panelu logowania/rejestracji */
     #auth-container {
-        /* Poprawka z 'padding: 0' na 'width: 100%' dla lepszego dopasowania */
         width: 100%;
         padding: 0;
         gap: 15px;
@@ -458,54 +496,7 @@ button:active { transform: scale(0.98); }
 
     /* Poprawka dla panelu plotek */
     #rumor-controls {
-        flex-direction: column; /* Ustawiamy kontrolki pionowo */
-        align-items: stretch; /* Rozciągamy na całą szerokość */
+        flex-direction: column; 
+        align-items: stretch; 
     }
-
-    .label-with-max {
-    /* Ustawiamy na 2 kolumny, tak jak był <label> */
-    grid-column: 1 / 3; 
-    display: flex;
-    justify-content: space-between; /* "Ilość:" po lewej, "MAX" po prawej */
-    align-items: baseline; /* Wyrównuje tekst */
-    font-size: 0.9em;
-    color: var(--text-muted);
-    }
-
-/* Plik: style.css (dodaj na samym dole) */
-
-/* === STYLE PRZYCISKÓW MAX === */
-
-/* Dodajemy ten styl, aby przyciski miały odstęp */
-.max-buttons-group {
-    display: flex;
-    gap: 5px; /* Odstęp między "KUP" i "SPRZEDAJ" */
-}
-
-/* Istniejący styl dla przycisków max (złoty) */
-.max-btn {
-    background: none;
-    border: 1px solid var(--accent-color);
-    color: var(--accent-color);
-    padding: 2px 8px;
-    font-size: 0.8em;
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-}
-.max-btn:hover {
-    background: rgba(255, 193, 7, 0.1);
-}
-.max-btn:active {
-    transform: scale(0.97);
-}
-
-/* (Opcjonalnie) Nadpisujemy styl dla "SPRZEDAJ MAX", aby był czerwony */
-#sell-max-button {
-    border-color: var(--red);
-    color: var(--red);
-}
-#sell-max-button:hover {
-    background: rgba(220, 53, 69, 0.1); /* Lekka czerwona poświata */
-}
 }
