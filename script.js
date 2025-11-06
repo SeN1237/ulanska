@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebas
 import { 
     getAuth, onAuthStateChanged, createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, signOut,
-    sendPasswordResetEmail // <-- DODANO (Reset Hasła)
+    sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 import { 
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
@@ -72,10 +72,7 @@ let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
 let unsubscribeLeaderboard = null;
-
-let ytPlayer = null;
-let unsubscribePlayer = null;
-let localPlayerUpdate = false;
+let unsubscribeChat = null; // <-- ZMIENIONO (z 'Player' na 'Chat')
 
 // Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
 let dom = {};
@@ -96,11 +93,8 @@ onSnapshot(cenyDocRef, (docSnap) => {
         if (market.brzozair) market.brzozair.price = aktualneCeny.brzozair;
         if (market.igicorp)  market.igicorp.price  = aktualneCeny.igicorp;
         if (market.rychbud)  market.rychbud.price  = aktualneCeny.rychbud;
-
-        // KROK 2: Aktualizuj wyświetlany HTML (interfejs)
-        // (Ta część jest teraz obsługiwana przez 'updatePriceUI' poniżej)
         
-        // KROK 3: Wywołaj funkcje odświeżające UI
+        // KROK 2: Wywołaj funkcje odświeżające UI
         updatePriceUI(); 
         updatePortfolioUI(); 
 
@@ -130,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loginForm: document.getElementById("login-form"),
         registerForm: document.getElementById("register-form"),
         authMessage: document.getElementById("auth-message"),
-        resetPasswordLink: document.getElementById("reset-password-link"), // <-- DODANO (Reset Hasła)
+        resetPasswordLink: document.getElementById("reset-password-link"),
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         cash: document.getElementById("cash"),
@@ -150,9 +144,11 @@ document.addEventListener("DOMContentLoaded", () => {
         companySelector: document.getElementById("company-selector"),
         companyName: document.getElementById("company-name"),
         sharesList: document.getElementById("shares-list"),
-        ytForm: document.getElementById("yt-form"),
-        ytUrlInput: document.getElementById("yt-url-input"),
-        ytPlayerContainer: document.getElementById("yt-player-container"),
+
+        // --- ZMIENIONO (z 'yt' na 'chat') ---
+        chatForm: document.getElementById("chat-form"),
+        chatInput: document.getElementById("chat-input"),
+        chatFeed: document.getElementById("chat-feed"),
         
         // --- DODANO (Dźwięki) ---
         audioKaching: document.getElementById("audio-kaching"),
@@ -168,8 +164,8 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
     dom.rumorForm.addEventListener("submit", onPostRumor);
-    dom.ytForm.addEventListener("submit", onYouTubeLoad);
-    dom.resetPasswordLink.addEventListener("click", onResetPassword); // <-- DODANO (Reset Hasła)
+    dom.chatForm.addEventListener("submit", onSendMessage); // <-- ZMIENIONO (z 'ytForm' na 'chatForm')
+    dom.resetPasswordLink.addEventListener("click", onResetPassword);
 
     // 3. Uruchom główną pętlę aplikacji
     startAuthListener();
@@ -188,17 +184,13 @@ function startAuthListener() {
             listenToRumors();
             listenToMarketNews(); 
             listenToLeaderboard();
-            listenToYouTubePlayer();
+            listenToChat(); // <-- ZMIENIONO (z 'Player' na 'Chat')
             
             // Poniższe 2 linie zostały przeniesione do 'onSnapshot'
             // if (!chart) initChart();     
             // startChartTicker();         
             
-            if (window.YT && window.YT.Player) {
-                initYouTubePlayer();
-            } else {
-                window.onYouTubeIframeAPIReady = initYouTubePlayer;
-            }
+            // --- USUNIĘTO BLOK YOUTUBE ---
             
         } else {
             // UŻYTKOWNIK WYLOGOWANY
@@ -210,7 +202,7 @@ function startAuthListener() {
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-            if (unsubscribePlayer) unsubscribePlayer();
+            if (unsubscribeChat) unsubscribeChat(); // <-- ZMIENIONO (z 'Player' na 'Chat')
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
@@ -218,10 +210,7 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            if (ytPlayer) {
-                ytPlayer.destroy();
-                ytPlayer = null;
-            }
+            // --- USUNIĘTO BLOK YOUTUBE ('ytPlayer.destroy()') ---
             
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
             updatePortfolioUI(); // Zaktualizuj UI, aby pokazać dane "Gościa"
@@ -290,7 +279,6 @@ async function onLogin(e) {
     
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        // Logowanie udane, reszta dzieje się w 'startAuthListener'
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
@@ -307,7 +295,6 @@ function showAuthMessage(message, type = "info") {
 async function onResetPassword(e) {
     e.preventDefault();
     
-    // Pobieramy e-mail wpisany w polu logowania
     const email = dom.loginForm.querySelector("#login-email").value;
 
     if (!email) {
@@ -317,7 +304,7 @@ async function onResetPassword(e) {
 
     try {
         await sendPasswordResetEmail(auth, email);
-        showAuthMessage("Link do resetowania hasła został wysłany na Twój e-mail!", "success"); // Użyj 'success'
+        showAuthMessage("Link do resetowania hasła został wysłany na Twój e-mail!", "success");
     } catch (error) {
         console.error("Błąd wysyłania resetu hasła:", error);
         showAuthMessage("Błąd: " + error.message, "error");
@@ -377,7 +364,6 @@ function listenToMarketNews() {
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
         if (!dom.newsFeed) return; // Zabezpieczenie
 
-        // Krok 1: Sprawdź, czy są jakieś *nowe* newsy
         let newItemsAdded = false;
         querySnapshot.docChanges().forEach((change) => {
             if (change.type === "added" && initialNewsLoaded) {
@@ -385,21 +371,18 @@ function listenToMarketNews() {
             }
         });
 
-        // Krok 2: Odtwórz dźwięk, jeśli coś nowego wpadło
         if (newItemsAdded && dom.audioNews) {
             console.log("Nowy news! Odtwarzam dźwięk.");
             dom.audioNews.currentTime = 0;
             dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio (news)"));
         }
 
-        // Krok 3: Przerusuj listę
         dom.newsFeed.innerHTML = ""; 
         querySnapshot.docs.forEach((doc) => {
             const news = doc.data();
             displayMarketNews(news.text, news.impactType); 
         });
 
-        // Oznaczamy, że pierwsze ładowanie się zakończyło
         initialNewsLoaded = true;
 
     }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
@@ -420,6 +403,81 @@ function displayMarketNews(text, impactType) {
     
     dom.newsFeed.prepend(p); 
 }
+
+// ======================================================
+// === NOWE FUNKCJE CZATU (Wklejone tutaj) ===
+// ======================================================
+
+async function onSendMessage(e) {
+    e.preventDefault();
+    const text = dom.chatInput.value.trim();
+    
+    if (!text || !currentUserId) {
+        return; // Nie wysyłaj pustych wiadomości
+    }
+    
+    try {
+        // Wysyłamy wiadomość do bazy
+        await addDoc(collection(db, "chat_messages"), {
+            text: text,
+            authorName: portfolio.name, // Używamy nazwy gracza z jego portfela
+            authorId: currentUserId,
+            timestamp: serverTimestamp() // Używamy czasu serwera dla kolejności
+        });
+        // Wyczyść pole po wysłaniu
+        dom.chatInput.value = "";
+    } catch (error) {
+        console.error("Błąd wysyłania wiadomości: ", error);
+        showMessage("Nie udało się wysłać wiadomości.", "error");
+    }
+}
+
+function listenToChat() {
+    if (unsubscribeChat) unsubscribeChat();
+    
+    // Pobieramy 30 ostatnich wiadomości
+    const chatQuery = query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30));
+    
+    unsubscribeChat = onSnapshot(chatQuery, (querySnapshot) => {
+        if (!dom.chatFeed) return;
+        
+        dom.chatFeed.innerHTML = ""; // Wyczyść stare wiadomości
+        
+        // Musimy odwrócić tablicę, bo pobraliśmy 'desc', a chcemy wyświetlić 'asc'
+        const messages = querySnapshot.docs.reverse(); 
+        
+        messages.forEach((doc) => {
+            const msg = doc.data();
+            displayChatMessage(msg);
+        });
+        
+        // Automatyczne przewijanie na dół czatu
+        dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
+
+    }, (error) => { console.error("Błąd nasłuchu czatu: ", error); });
+}
+
+function displayChatMessage(msg) {
+    if (!dom.chatFeed) return;
+    
+    const p = document.createElement("p");
+    
+    // Tworzymy nick (np. 'Gracz: ')
+    const strong = document.createElement("strong");
+    strong.textContent = msg.authorName + ": ";
+    
+    // Dodajemy nick i treść wiadomości
+    p.appendChild(strong);
+    p.appendChild(document.createTextNode(msg.text));
+    
+    // Podświetlamy własne wiadomości
+    if (msg.authorId === currentUserId) {
+        p.style.backgroundColor = "rgba(0, 123, 255, 0.1)";
+    }
+    
+    dom.chatFeed.appendChild(p); // Dodaj na końcu
+}
+
 
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
@@ -644,91 +702,7 @@ function startChartTicker() {
 }
 
 
-// --- SEKCJA 7: LOGIKA ODTWARZACZA YOUTUBE ---
-window.onYouTubeIframeAPIReady = function() {
-    if (currentUserId) { initYouTubePlayer(); }
-};
-
-// === FUNKCJA YOUTUBE (WERSJA Z POPRAWKĄ 'ORIGIN') ===
-function initYouTubePlayer(videoId = '5qap5aO4i9A') {
-    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
-        ytPlayer.loadVideoById(videoId);
-    } 
-    else if (window.YT && window.YT.Player) {
-        if (document.getElementById('yt-player')) {
-            ytPlayer = new window.YT.Player('yt-player', {
-                height: '100%',
-                width: '100%',
-                videoId: videoId,
-                playerVars: {
-                    'playsinline': 1,
-                    'autoplay': 1,
-                    'controls': 1,
-                    // ======================================================
-                    // DODANO (Poprawka błędu 'postMessage')
-                    'origin': 'https://sen1237.github.io'
-                    // ======================================================
-                }
-            });
-        }
-    } 
-}
-
-function listenToYouTubePlayer() {
-    if (unsubscribePlayer) unsubscribePlayer();
-    const playerDocRef = doc(db, "global", "youtube");
-    
-    unsubscribePlayer = onSnapshot(playerDocRef, (docSnap) => {
-        if (localPlayerUpdate) {
-            localPlayerUpdate = false;
-            return;
-        }
-        
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data.currentVideoId) {
-                initYouTubePlayer(data.currentVideoId);
-            }
-        } else {
-             initYouTubePlayer('5qap5aO4i9A');
-        }
-    });
-}
-
-function onYouTubeLoad(e) {
-    e.preventDefault();
-    const url = dom.ytUrlInput.value;
-    const videoId = parseYouTubeVideoId(url);
-    
-    if (!videoId) {
-        showMessage("Nieprawidłowy link YouTube lub ID wideo", "error");
-        return;
-    }
-    
-    const playerDocRef = doc(db, "global", "youtube");
-    localPlayerUpdate = true;
-    
-    setDoc(playerDocRef, {
-        currentVideoId: videoId,
-        updatedBy: portfolio.name,
-        timestamp: serverTimestamp()
-    }).catch(err => {
-        console.error("Błąd zapisu wideo: ", err);
-        localPlayerUpdate = false;
-    });
-    
-    dom.ytUrlInput.value = "";
-}
-
-function parseYouTubeVideoId(url) {
-    if (!url) return null;
-    if (url.length === 11 && !url.includes('.')) {
-        return url;
-    }
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
+// --- SEKCJA 7: USUNIĘTO LOGIKĘ ODTWARZACZA YOUTUBE ---
 
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
