@@ -58,8 +58,8 @@ try {
 
   // === GŁÓWNA PĘTLA (NOWA LOGIKA) ===
   const mainLoop = async () => {
-    const updatesPerRun = 10;       // 10 aktualizacji...
-    const intervalSeconds = 27;     // ...co 30 sekund
+    const updatesPerRun = 8;       // 10 aktualizacji...
+    const intervalSeconds = 30;     // ...co 30 sekund
     // (10 * 30s = 300s = 5 minut)
 
     console.log(`Rozpoczynam pętlę: ${updatesPerRun} aktualizacji co ${intervalSeconds} sekund.`);
