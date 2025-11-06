@@ -1,7 +1,4 @@
-// script.js
-// Kompletny skrypt aplikacji: Firebase auth + Firestore + UI + dodatkowe funkcje
-// Upewnij się, że index.html importuje ten plik jako module:
-// <script type="module" src="script.js"></script>
+// script.js - oczyszczona wersja z naprawionym ApexCharts (ciemny wykres świecowy)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import {
@@ -13,7 +10,6 @@ import {
   collection, addDoc, query, orderBy, limit, Timestamp, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
-/* ------------------ CONFIG FIREBASE ------------------ */
 const firebaseConfig = {
   apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
   authDomain: "symulator-gielda.firebaseapp.com",
@@ -28,10 +24,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* ------------------ POCZĄTKOWE DANE RYNKOWE ------------------ */
 function generateInitialCandles(count, basePrice) {
-  let data = []; let lastClose = basePrice;
-  let timestamp = new Date().getTime() - (count * 5000);
+  const data = [];
+  let lastClose = basePrice;
+  let timestamp = Date.now() - (count * 5000);
   for (let i = 0; i < count; i++) {
     let open = lastClose;
     let close = open + (Math.random() - 0.5) * (basePrice * 0.05);
@@ -40,14 +36,15 @@ function generateInitialCandles(count, basePrice) {
     close = Math.max(0.01, close);
     data.push({
       x: new Date(timestamp),
-      y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+      y: [parseFloat(open.toFixed(2)), parseFloat(high.toFixed(2)), parseFloat(low.toFixed(2)), parseFloat(close.toFixed(2))]
     });
-    lastClose = close; timestamp += 5000;
+    lastClose = close;
+    timestamp += 5000;
   }
   return data;
 }
 
-let market = {
+const market = {
   ulanska:  { name: "Ułańska Dev", price: 1.00, history: generateInitialCandles(50, 1) },
   brzozair: { name: "BrzozAir",     price: 1.00, history: generateInitialCandles(50, 1) },
   igicorp:  { name: "IgiCorp",      price: 1.00, history: generateInitialCandles(50, 1) },
@@ -55,9 +52,8 @@ let market = {
 };
 
 let currentCompanyId = "ulanska";
-let marketSentiment = { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
+const marketSentiment = { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
 
-/* ------------------ PORTFEL UŻYTKOWNIKA ------------------ */
 let portfolio = {
   name: "Gość",
   cash: 1000,
@@ -67,11 +63,11 @@ let portfolio = {
   totalValue: 1000
 };
 
-/* ------------------ STAN APLIKACJI ------------------ */
 let chart = null;
-let currentUserId = null;
 let chartHasStarted = false;
+let currentUserId = null;
 let initialNewsLoaded = false;
+
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null;
@@ -79,10 +75,8 @@ let unsubscribeLeaderboard = null;
 let unsubscribeChat = null;
 let unsubscribeTransactions = null;
 
-/* ------------------ REFERENCJE DOM (wypełnione w DOMContentLoaded) ------------------ */
-let dom = {};
+const dom = {};
 
-/* ------------------ SŁUCHANIE GLOBALNYCH CEN (opcjonalne) ------------------ */
 const cenyDocRef = doc(db, "global", "ceny_akcji");
 onSnapshot(cenyDocRef, (docSnap) => {
   if (docSnap.exists()) {
@@ -94,73 +88,63 @@ onSnapshot(cenyDocRef, (docSnap) => {
     updatePriceUI();
     updatePortfolioUI();
     if (currentUserId && !chartHasStarted) {
-      if (!chart) initChart();
+      safeInitChart();
       startChartTicker();
       chartHasStarted = true;
     }
   }
-});
+}, (err) => { console.error("cenyDocRef snapshot error:", err); });
 
-/* ------------------ DOMContentLoaded: inicjalizacja UI i eventy ------------------ */
 document.addEventListener("DOMContentLoaded", () => {
-  // cache DOM
-  dom = {
-    authContainer: document.getElementById("auth-container"),
-    simulatorContainer: document.getElementById("simulator-container"),
-    loginForm: document.getElementById("login-form"),
-    registerForm: document.getElementById("register-form"),
-    authTitle: document.getElementById("auth-title"),
-    authMessage: document.getElementById("auth-message"),
-    switchAuthLink: document.getElementById("switch-auth-link"),
-    resetPasswordLink: document.getElementById("reset-password-link"),
-    username: document.getElementById("username"),
-    logoutButton: document.getElementById("logout-button"),
-    cash: document.getElementById("cash"),
-    totalValue: document.getElementById("total-value"),
-    totalProfit: document.getElementById("total-profit"),
-    stockPrice: document.getElementById("stock-price"),
-    amountInput: document.getElementById("amount-input"),
-    buyButton: document.getElementById("buy-button"),
-    sellButton: document.getElementById("sell-button"),
-    buyMaxButton: document.getElementById("buy-max-button"),
-    sellMaxButton: document.getElementById("sell-max-button"),
-    messageBox: document.getElementById("message-box"),
-    chartContainer: document.getElementById("chart-container"),
-    rumorForm: document.getElementById("rumor-form"),
-    rumorInput: document.getElementById("rumor-input"),
-    rumorCompanySelect: document.getElementById("rumor-company-select"),
-    rumorsFeed: document.getElementById("rumors-feed"),
-    newsFeed: document.getElementById("news-feed"),
-    leaderboardList: document.getElementById("leaderboard-list"),
-    companySelector: document.getElementById("company-selector"),
-    companyName: document.getElementById("company-name"),
-    sharesList: document.getElementById("shares-list"),
-    chatForm: document.getElementById("chat-form"),
-    chatInput: document.getElementById("chat-input"),
-    chatFeed: document.getElementById("chat-feed"),
-    audioKaching: document.getElementById("audio-kaching"),
-    audioError: document.getElementById("audio-error"),
-    audioNews: document.getElementById("audio-news"),
-    themeToggle: document.getElementById("theme-toggle"),
-    userAvatar: document.getElementById("user-avatar"),
-    joinDate: document.getElementById("join-date"),
-    sentimentFill: document.getElementById("sentiment-fill"),
-    sentimentLabel: document.getElementById("sentiment-label"),
-    historyFeed: document.getElementById("history-feed")
-  };
+  dom.authContainer = document.getElementById("auth-container");
+  dom.simulatorContainer = document.getElementById("simulator-container");
+  dom.loginForm = document.getElementById("login-form");
+  dom.registerForm = document.getElementById("register-form");
+  dom.authTitle = document.getElementById("auth-title");
+  dom.authMessage = document.getElementById("auth-message");
+  dom.switchAuthLink = document.getElementById("switch-auth-link");
+  dom.resetPasswordLink = document.getElementById("reset-password-link");
+  dom.username = document.getElementById("username");
+  dom.logoutButton = document.getElementById("logout-button");
+  dom.cash = document.getElementById("cash");
+  dom.totalValue = document.getElementById("total-value");
+  dom.totalProfit = document.getElementById("total-profit");
+  dom.stockPrice = document.getElementById("stock-price");
+  dom.amountInput = document.getElementById("amount-input");
+  dom.buyButton = document.getElementById("buy-button");
+  dom.sellButton = document.getElementById("sell-button");
+  dom.buyMaxButton = document.getElementById("buy-max-button");
+  dom.sellMaxButton = document.getElementById("sell-max-button");
+  dom.messageBox = document.getElementById("message-box");
+  dom.chartContainer = document.getElementById("chart-container");
+  dom.rumorForm = document.getElementById("rumor-form");
+  dom.rumorInput = document.getElementById("rumor-input");
+  dom.rumorCompanySelect = document.getElementById("rumor-company-select");
+  dom.rumorsFeed = document.getElementById("rumors-feed");
+  dom.newsFeed = document.getElementById("news-feed");
+  dom.leaderboardList = document.getElementById("leaderboard-list");
+  dom.companySelector = document.getElementById("company-selector");
+  dom.companyName = document.getElementById("company-name");
+  dom.sharesList = document.getElementById("shares-list");
+  dom.chatForm = document.getElementById("chat-form");
+  dom.chatInput = document.getElementById("chat-input");
+  dom.chatFeed = document.getElementById("chat-feed");
+  dom.audioKaching = document.getElementById("audio-kaching");
+  dom.audioError = document.getElementById("audio-error");
+  dom.audioNews = document.getElementById("audio-news");
+  dom.themeToggle = document.getElementById("theme-toggle");
+  dom.userAvatar = document.getElementById("user-avatar");
+  dom.joinDate = document.getElementById("join-date");
+  dom.sentimentFill = document.getElementById("sentiment-fill");
+  dom.sentimentLabel = document.getElementById("sentiment-label");
+  dom.historyFeed = document.getElementById("history-feed");
 
-  // auth switching (login <-> register)
-  dom.switchAuthLink?.addEventListener("click", (e) => {
-    e.preventDefault();
-    toggleAuthForms();
-  });
+  dom.switchAuthLink?.addEventListener("click", (e) => { e.preventDefault(); toggleAuthForms(); });
 
-  // auth forms
   dom.loginForm?.addEventListener("submit", onLogin);
   dom.registerForm?.addEventListener("submit", onRegister);
   dom.resetPasswordLink?.addEventListener("click", onResetPassword);
 
-  // simulation UI
   dom.logoutButton?.addEventListener("click", onLogout);
   dom.companySelector?.addEventListener("click", onSelectCompany);
   dom.buyButton?.addEventListener("click", buyShares);
@@ -173,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   dom.themeToggle?.addEventListener("click", toggleTheme);
 
-  // Load theme preference (dark default)
   if (localStorage.getItem("theme") === "light") {
     document.body.classList.add("light-mode");
     if (dom.themeToggle) dom.themeToggle.textContent = "☀️";
@@ -181,25 +164,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dom.themeToggle) dom.themeToggle.textContent = "🌙";
   }
 
-  // Sentiment bar update interval
   setInterval(updateMarketSentimentBar, 2500);
-
-  // Daily alert (demo - co 5 minut)
   setInterval(showDailyAlert, 5 * 60 * 1000);
-
-  // Start auth listener
-  startAuthListener();
 });
 
-/* ------------------ HELPERS: auth form toggle ------------------ */
 function toggleAuthForms() {
   const login = document.getElementById("login-form");
   const register = document.getElementById("register-form");
   const authTitle = document.getElementById("auth-title");
   const switchLink = document.getElementById("switch-auth-link");
-
   if (!login || !register || !authTitle || !switchLink) return;
-
   const showingLogin = !login.classList.contains("hidden");
   if (showingLogin) {
     login.classList.add("hidden");
@@ -214,7 +188,6 @@ function toggleAuthForms() {
   }
 }
 
-/* ------------------ AUTH: register/login/logout/reset ------------------ */
 async function createInitialUserData(userId, name, email) {
   const userPortfolio = {
     name: name || "Gracz",
@@ -255,14 +228,11 @@ async function onLogin(e) {
   const email = document.getElementById("login-email")?.value;
   const password = document.getElementById("login-password")?.value;
   if (!email || !password) { showAuthMessage("Uzupełnij email i hasło.", "error"); return; }
-
-  // try to unlock audio autoplay (best-effort)
   try {
     dom.audioKaching?.play().then(()=>dom.audioKaching.pause()).catch(()=>{});
     dom.audioError?.play().then(()=>dom.audioError.pause()).catch(()=>{});
     dom.audioNews?.play().then(()=>dom.audioNews.pause()).catch(()=>{});
   } catch (e) {}
-
   try {
     await signInWithEmailAndPassword(auth, email, password);
     showAuthMessage("", "info");
@@ -288,34 +258,26 @@ async function onResetPassword(e) {
 }
 
 function showAuthMessage(message, type = "info") {
-  if (!dom.authMessage) {
-    const el = document.getElementById("auth-message");
-    if (el) el.textContent = message;
-    return;
-  }
-  dom.authMessage.textContent = message;
-  dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+  const el = document.getElementById("auth-message");
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = (type === "error") ? "var(--red)" : "var(--green)";
 }
 
-/* ------------------ START AUTH LISTENER (przełączenia UI) ------------------ */
 function startAuthListener() {
   onAuthStateChanged(auth, user => {
     if (user) {
       currentUserId = user.uid;
       dom.simulatorContainer?.classList.remove("hidden");
       dom.authContainer?.classList.add("hidden");
-
-      // start all listeners for logged in user
       listenToPortfolioData(currentUserId);
       listenToRumors();
       listenToMarketNews();
       listenToLeaderboard();
       listenToChat();
       listenToTransactions();
-
-      // start chart if prices available
-      if (!chart && !chartHasStarted) {
-        initChart();
+      if (!chartHasStarted) {
+        safeInitChart();
         startChartTicker();
         chartHasStarted = true;
       }
@@ -323,28 +285,22 @@ function startAuthListener() {
       currentUserId = null;
       dom.simulatorContainer?.classList.add("hidden");
       dom.authContainer?.classList.remove("hidden");
-
-      // unsubscribe all listeners
       if (unsubscribePortfolio) unsubscribePortfolio();
       if (unsubscribeRumors) unsubscribeRumors();
       if (unsubscribeNews) unsubscribeNews();
       if (unsubscribeLeaderboard) unsubscribeLeaderboard();
       if (unsubscribeChat) unsubscribeChat();
       if (unsubscribeTransactions) unsubscribeTransactions();
-
       if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
-
       chartHasStarted = false;
       chart = null;
       initialNewsLoaded = false;
-
       portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
       updatePortfolioUI();
     }
   });
 }
 
-/* ------------------ LISTENERS: portfolio, rumors, news, chat, leaderboard, transactions ------------------ */
 function listenToPortfolioData(userId) {
   if (unsubscribePortfolio) unsubscribePortfolio();
   const userDocRef = doc(db, "uzytkownicy", userId);
@@ -357,12 +313,8 @@ function listenToPortfolioData(userId) {
       portfolio.startValue = data.startValue || portfolio.startValue;
       updatePortfolioUI();
       updateUserProfile(data);
-    } else {
-      console.error("Nie znaleziono danych użytkownika:", userId);
     }
-  }, (error) => {
-    console.error("Błąd nasłuchu portfela:", error);
-  });
+  }, (error) => { console.error("Błąd nasłuchu portfela:", error); });
 }
 
 function listenToRumors() {
@@ -373,7 +325,6 @@ function listenToRumors() {
     querySnapshot.forEach((doc) => {
       const r = doc.data();
       displayNewRumor(r.text, r.authorName, r.sentiment, r.companyId);
-      // optionally apply immediate sentiment when new rumor arrives
       if (r.sentiment && r.companyId) applyRumorSentiment(r.companyId, r.sentiment);
     });
   }, (error) => { console.error("Błąd nasłuchu plotek:", error); });
@@ -388,17 +339,14 @@ function listenToMarketNews() {
     querySnapshot.docChanges().forEach((change) => {
       if (change.type === "added" && initialNewsLoaded) newItemsAdded = true;
     });
-    if (newItemsAdded && dom.audioNews) {
-      dom.audioNews.currentTime = 0;
-      dom.audioNews.play().catch(()=>{});
-    }
+    if (newItemsAdded && dom.audioNews) { dom.audioNews.currentTime = 0; dom.audioNews.play().catch(()=>{}); }
     dom.newsFeed.innerHTML = "";
     querySnapshot.docs.forEach((doc) => {
       const news = doc.data();
       displayMarketNews(news.text, news.impactType);
     });
     initialNewsLoaded = true;
-  }, (error) => console.error("Błąd nasłuchu newsów:", error));
+  }, (error) => { console.error("Błąd nasłuchu newsów:", error); });
 }
 
 function listenToChat() {
@@ -409,7 +357,7 @@ function listenToChat() {
     const reversed = querySnapshot.docs.slice().reverse();
     reversed.forEach(doc => displayChatMessage(doc.data()));
     dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
-  }, (error) => console.error("Błąd nasłuchu czatu:", error));
+  }, (error) => { console.error("Błąd nasłuchu czatu:", error); });
 }
 
 function listenToLeaderboard() {
@@ -431,7 +379,7 @@ function listenToLeaderboard() {
       dom.leaderboardList.appendChild(li);
       rank++;
     });
-  }, (error) => console.error("Błąd nasłuchu rankingu:", error));
+  }, (error) => { console.error("Błąd nasłuchu rankingu:", error); });
 }
 
 function listenToTransactions() {
@@ -448,10 +396,9 @@ function listenToTransactions() {
       p.innerHTML = `<strong style="color:${color}">${t.type}</strong> ${t.amount}× ${t.companyName} po ${formatujWalute(t.price)} <span style="color:var(--text-muted);font-size:0.9em"> — ${timeText}</span>`;
       dom.historyFeed.appendChild(p);
     });
-  }, (error) => console.error("Błąd nasłuchu transakcji:", error));
+  }, (error) => { console.error("Błąd nasłuchu transakcji:", error); });
 }
 
-/* ------------------ UI: show news/rumors/chat messages ------------------ */
 function displayMarketNews(text, impactType) {
   if (!dom.newsFeed) return;
   const p = document.createElement("p");
@@ -488,7 +435,6 @@ function displayChatMessage(msg) {
   dom.chatFeed.appendChild(p);
 }
 
-/* ------------------ SENDING: chat & rumors ------------------ */
 async function onSendMessage(e) {
   e.preventDefault();
   const text = dom.chatInput.value.trim();
@@ -502,8 +448,8 @@ async function onSendMessage(e) {
     });
     dom.chatInput.value = "";
   } catch (error) {
-    console.error("Błąd wysyłania wiadomości:", error);
     showMessage("Nie udało się wysłać wiadomości.", "error");
+    console.error("sendMessage error:", error);
   }
 }
 
@@ -529,7 +475,6 @@ async function onPostRumor(e) {
   }
 }
 
-/* ------------------ TRADING: buy/sell, update Firestore, transactions ------------------ */
 async function addTransaction(type, companyId, amount, price) {
   if (!currentUserId) return;
   try {
@@ -615,8 +560,8 @@ async function updatePortfolioInFirebase(dataToUpdate) {
     const userDocRef = doc(db, "uzytkownicy", currentUserId);
     await updateDoc(userDocRef, dataToUpdate);
   } catch (error) {
-    console.error("Błąd aktualizacji portfela:", error);
     showMessage("Błąd zapisu danych!", "error");
+    console.error("updatePortfolioInFirebase error:", error);
   }
 }
 
@@ -630,9 +575,15 @@ function calculateTotalValue(cash, shares) {
   return cash + sharesValue;
 }
 
-/* ------------------ MARKET CHART + TICKER (ApexCharts) ------------------ */
+function safeInitChart() {
+  if (typeof ApexCharts === "undefined") {
+    setTimeout(safeInitChart, 300);
+    return;
+  }
+  initChart();
+}
+
 function initChart() {
-  // lazy init only if container present
   if (!dom.chartContainer) return;
   const options = {
     series: [{ data: market[currentCompanyId].history }],
@@ -641,8 +592,14 @@ function initChart() {
     title: { text: 'Historia cen (świece 5s)', align: 'left', style: { color: '#a3acb9' } },
     xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
     yaxis: { tooltip: { enabled: true }, labels: { formatter: (val) => val.toFixed(2) + " zł", style: { colors: '#a3acb9' } } },
-    plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
+    plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } },
+    grid: { borderColor: "rgba(255,255,255,0.06)" },
+    tooltip: { theme: "dark" }
   };
+  if (chart) {
+    try { chart.destroy(); } catch (e) {}
+    chart = null;
+  }
   chart = new ApexCharts(dom.chartContainer, options);
   chart.render();
 }
@@ -657,10 +614,8 @@ function startChartTicker() {
       const lastCandle = history[history.length - 1];
       const lastClose = parseFloat(lastCandle.y[3]);
       const open = lastClose;
-      // price is maintained from global document or simulated; let's add a small noise from sentiment
       let sentimentImpact = marketSentiment[companyId] || 0;
       const base = company.price;
-      // minor random jitter
       const jitter = (Math.random() - 0.5) * (base * 0.01);
       const close = Math.max(0.01, base + sentimentImpact * base + jitter);
       const high = Math.max(open, close) + Math.random() * (base * 0.01);
@@ -668,18 +623,19 @@ function startChartTicker() {
 
       const newCandle = {
         x: new Date(lastCandle.x.getTime() + 5000),
-        y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+        y: [parseFloat(open.toFixed(2)), parseFloat(high.toFixed(2)), parseFloat(low.toFixed(2)), parseFloat(close.toFixed(2))]
       };
 
       history.push(newCandle);
       if (history.length > 60) history.shift();
     }
 
-    if (chart) chart.updateSeries([{ data: market[currentCompanyId].history }]);
+    if (chart) {
+      try { chart.updateSeries([{ data: market[currentCompanyId].history }]); } catch (e) {}
+    }
   }, 5000);
 }
 
-/* ------------------ UI UPDATES ------------------ */
 function formatujWalute(liczba) {
   const formatter = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', minimumFractionDigits: 2 });
   return formatter.format(liczba);
@@ -732,12 +688,10 @@ function showMessage(message, type) {
   if (type === "error") dom.audioError?.play().catch(()=>{});
 }
 
-/* ------------------ SENTIMENT BAR / APPLY RUMOR ------------------ */
 function applyRumorSentiment(companyId, sentiment) {
   if (!marketSentiment.hasOwnProperty(companyId)) return;
-  const impact = 0.03; // adjust
+  const impact = 0.03;
   marketSentiment[companyId] = (sentiment === "positive") ? impact : -impact;
-  // slowly decay sentiment after a while
   setTimeout(()=> { marketSentiment[companyId] = 0; }, 30 * 1000);
 }
 
@@ -759,7 +713,6 @@ function updateMarketSentimentBar() {
   }
 }
 
-/* ------------------ ALERT (TOAST) ------------------ */
 function showDailyAlert() {
   try {
     const names = Object.keys(market);
@@ -783,20 +736,17 @@ function showDailyAlert() {
     setTimeout(()=>toast.classList.add("show"), 80);
     setTimeout(()=>toast.classList.remove("show"), 6000);
     setTimeout(()=>toast.remove(), 6400);
-  } catch (e) { console.warn("showDailyAlert error:", e); }
+  } catch (e) { console.error("showDailyAlert error:", e); }
 }
 
-/* ------------------ USER PROFILE ------------------ */
 function updateUserProfile(data) {
   if (!dom) return;
   if (dom.userAvatar) dom.userAvatar.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(data.name || 'guest')}`;
   if (dom.joinDate && data.joinDate) {
-    try { dom.joinDate.textContent = "Dołączył: " + data.joinDate.toDate().toLocaleDateString(); }
-    catch (e) { dom.joinDate.textContent = "Dołączył: -"; }
+    try { dom.joinDate.textContent = "Dołączył: " + data.joinDate.toDate().toLocaleDateString(); } catch (e) { dom.joinDate.textContent = "Dołączył: -"; }
   }
 }
 
-/* ------------------ THEME TOGGLE ------------------ */
 function toggleTheme() {
   const body = document.body;
   const isLight = body.classList.toggle("light-mode");
@@ -804,7 +754,6 @@ function toggleTheme() {
   localStorage.setItem("theme", isLight ? "light" : "dark");
 }
 
-/* ------------------ HELPERS: company switch ------------------ */
 function onSelectCompany(e) {
   if (e.target.classList.contains("company-tab")) {
     changeCompany(e.target.dataset.company);
@@ -816,11 +765,10 @@ function changeCompany(companyId) {
   currentCompanyId = companyId;
   document.querySelectorAll(".company-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.company === companyId));
   dom.companyName.textContent = market[companyId].name;
-  if (chart) chart.updateSeries([{ data: market[currentCompanyId].history }]);
+  if (chart) {
+    try { chart.updateSeries([{ data: market[currentCompanyId].history }]); } catch (e) {}
+  } else {
+    safeInitChart();
+  }
   updatePriceUI();
 }
-
-/* ------------------ UTILITY: format, scroll, etc. ------------------ */
-// nothing extra here
-
-/* ------------------ KONIEC PLIKU ------------------ */
