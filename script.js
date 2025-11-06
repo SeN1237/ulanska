@@ -72,7 +72,7 @@ let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
 let unsubscribeLeaderboard = null;
-let unsubscribeChat = null; // <-- Poprawka dla Czatu
+let unsubscribeChat = null; 
 
 // Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
 let dom = {};
@@ -128,7 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
         amountInput: document.getElementById("amount-input"),
         buyButton: document.getElementById("buy-button"),
         sellButton: document.getElementById("sell-button"),
-        buyMaxButton: document.getElementById("buy-max-button"), // <-- DODANO KUP MAX
+        buyMaxButton: document.getElementById("buy-max-button"), 
+        sellMaxButton: document.getElementById("sell-max-button"), // <-- DODANO SPRZEDAJ MAX
         messageBox: document.getElementById("message-box"),
         chartContainer: document.getElementById("chart-container"),
         rumorForm: document.getElementById("rumor-form"),
@@ -140,12 +141,10 @@ document.addEventListener("DOMContentLoaded", () => {
         companyName: document.getElementById("company-name"),
         sharesList: document.getElementById("shares-list"),
 
-        // --- ZMIENIONO (z 'yt' na 'chat') ---
         chatForm: document.getElementById("chat-form"),
         chatInput: document.getElementById("chat-input"),
         chatFeed: document.getElementById("chat-feed"),
         
-        // --- DODANO (Dźwięki) ---
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
         audioNews: document.getElementById("audio-news")
@@ -158,9 +157,10 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.companySelector.addEventListener("click", onSelectCompany);
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
-    dom.buyMaxButton.addEventListener("click", onBuyMax); // <-- DODANO KUP MAX
+    dom.buyMaxButton.addEventListener("click", onBuyMax); 
+    dom.sellMaxButton.addEventListener("click", onSellMax); // <-- DODANO SPRZEDAJ MAX
     dom.rumorForm.addEventListener("submit", onPostRumor);
-    dom.chatForm.addEventListener("submit", onSendMessage); // <-- ZMIENIONO
+    dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
 
     // 3. Uruchom główną pętlę aplikacji
@@ -180,9 +180,7 @@ function startAuthListener() {
             listenToRumors();
             listenToMarketNews(); 
             listenToLeaderboard();
-            listenToChat(); // <-- ZMIENIONO
-            
-            // --- USUNIĘTO BLOK YOUTUBE ---
+            listenToChat(); 
             
         } else {
             // UŻYTKOWNIK WYLOGOWANY
@@ -194,15 +192,13 @@ function startAuthListener() {
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-            if (unsubscribeChat) unsubscribeChat(); // <-- ZMIENIONO
+            if (unsubscribeChat) unsubscribeChat(); 
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
             chartHasStarted = false; 
             chart = null;            
             initialNewsLoaded = false; 
-            
-            // --- USUNIĘTO BLOK YOUTUBE ---
             
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
             updatePortfolioUI();
@@ -396,10 +392,7 @@ function displayMarketNews(text, impactType) {
     dom.newsFeed.prepend(p); 
 }
 
-// ======================================================
 // === NOWE FUNKCJE CZATU (Wklejone tutaj) ===
-// ======================================================
-
 async function onSendMessage(e) {
     e.preventDefault();
     const text = dom.chatInput.value.trim();
@@ -568,21 +561,19 @@ function changeCompany(companyId) {
 // === NOWA FUNKCJA DLA PRZYCISKU KUP MAX ===
 function onBuyMax(e) {
     if (!currentCompanyId || !market[currentCompanyId]) {
-        return; // Nie wybrano spółki
+        return; 
     }
     
     const currentPrice = market[currentCompanyId].price;
     const availableCash = portfolio.cash;
     
     if (currentPrice <= 0) {
-        dom.amountInput.value = 0; // Cena jest zerowa, nie da się kupić
+        dom.amountInput.value = 0; 
         return;
     }
     
-    // Oblicz maksymalną ilość akcji, na które nas stać
     const maxShares = Math.floor(availableCash / currentPrice);
     
-    // Wstaw obliczoną wartość do pola "Ilość"
     if (dom.amountInput) {
         dom.amountInput.value = maxShares;
     }
