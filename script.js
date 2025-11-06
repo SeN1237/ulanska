@@ -127,7 +127,11 @@ async function onRegister(e) {
     });
   } catch (err) {
     console.error(err);
-    showAuthMessage("Błąd rejestracji", "error");
+    if (err.code === "auth/email-already-in-use") {
+      showAuthMessage("Ten e-mail jest już zajęty", "error");
+    } else {
+      showAuthMessage("Błąd rejestracji", "error");
+    }
   }
 }
 
