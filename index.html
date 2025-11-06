@@ -95,40 +95,35 @@
             </aside>
 
             <section id="rumors-panel" class="panel">
-                <h2>Globalne Plotki z Wpływem</h2>
-                <form id="rumor-form">
-                    <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
-                    <div id="rumor-controls">
-                        <select id="rumor-company-select" required>
-                            <option value="ulanska" selected>Dot. Ułańska Dev</option>
-                            <option value="rychbud">Dot. RychBud</option>
-                            <option value="igicorp">Dot. IgiCorp</option>
-                            <option value="brzozair">Dot. BrzozAir</option>
-                        </select>
-                        <div id="rumor-sentiment">
-                            <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
-                            <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
-                        </div>
-                    </div>
-                    <button type="submit">Publikuj</button>
-                </form>
-                <div id="rumors-feed">
-                    <p>...ładowanie plotek z serwera...</p>
-                </div>
-                <div class="panel">
+
     <h3>Wiadomości Rynkowe</h3>
     <div id="news-feed" class="feed-box">
         </div>
-</div>
 
-<div class="panel">
-    <h3>Ostatnie plotki</h3>
+    <hr> 
+
+    <h3>Globalne Plotki z Wpływem</h3>
     <form id="rumor-form">
-        </form>
-    <div id="rumors-feed" class="feed-box">
+        <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
+        <div id="rumor-controls">
+            <select id="rumor-company-select" required>
+                <option value="ulanska" selected>Dot. Ułańska Dev</option>
+                <option value="rychbud">Dot. RychBud</option>
+                <option value="igicorp">Dot. IgiCorp</option>
+                <option value="brzozair">Dot. BrzozAir</option>
+            </select>
+            <div id="rumor-sentiment">
+                <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
+                <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
+            </div>
         </div>
-</div>
-            </section>
+        <button type="submit">Publikuj</button>
+    </form>
+    <div id="rumors-feed">
+        <p>...ładowanie plotek z serwera...</p>
+    </div>
+    
+</section>
             
             <section id="leaderboard-panel" class="panel">
                 <h2>Ranking Graczy (TOP 10 Wartość)</h2>
