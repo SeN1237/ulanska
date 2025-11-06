@@ -1,12 +1,9 @@
-// Plik: ticker_script/index.js (NOWA WERSJA)
+// Plik: ticker_script/index.js (NOWA WERSJA 2.0)
 
 const admin = require('firebase-admin');
 
-// Pobieramy klucz (w formie stringa) z sekretów GitHub
 const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-// === PRZYKŁADOWE NEWSY, KTÓRE WYMYŚLIŁEM ===
-// Będziemy je losować przy anomaliach
 const positiveNews = [
     "NEWS: {COMPANY} ogłasza rekordowe zyski kwartalne! Analitycy w szoku!",
     "NEWS: Rząd ogłasza strategiczny, wielomiliardowy kontrakt dla {COMPANY}.",
@@ -22,22 +19,22 @@ const negativeNews = [
     "NEWS: {COMPANY} przegrywa kluczowy proces sądowy. Grozi im gigantyczna kara.",
     "NEWS: Strajk generalny w {COMPANY} paraliżuje całą produkcję."
 ];
-// ============================================
 
 try {
-  // Inicjalizujemy Firebase Admin SDK
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccountKey),
     databaseURL: 'https://symulator-gielda.firebaseio.com' 
   });
 
   const db = admin.firestore();
-  const cenyDocRef = db.doc("global/ceny_akcji"); // Poprawna ścieżka
+  const cenyDocRef = db.doc("global/ceny_akcji");
+  
+  // ==========================================================
+  // NOWOŚĆ KROK 1: Referencja do nowej kolekcji na newsy
+  const newsCollectionRef = db.collection("gielda_news");
+  // ==========================================================
 
-  // === FUNKCJA TICKERA (serce) ===
-  // Ta funkcja robi JEDNĄ aktualizację cen
   const runTicker = async () => {
-    // 1. Pobierz aktualne ceny
     const docSnap = await cenyDocRef.get();
     if (!docSnap.exists) {
       console.error("Krytyczny błąd: Dokument 'global/ceny_akcji' nie istnieje!");
@@ -49,89 +46,77 @@ try {
     const companies = ["ulanska", "brzozair", "igicorp", "rychbud"];
 
     console.log("Pobrano ceny:", currentPrices);
-
-    // ==========================================================
-    // NOWA LOGIKA RYNKU
-    // ==========================================================
-
-    // 1. Globalny Sentyment Rynkowy (wpływa na wszystkie spółki)
-    // Losujemy, czy rynek ma teraz lekki trend wzrostowy, czy spadkowy.
-    // (Math.random() - 0.5) daje liczbę od -0.5 do +0.5
-    // To zastępuje nasz stary, stały trend wzrostowy.
-    const globalSentiment = (Math.random() - 0.5); // Np. -0.2 (lekka bessa) lub +0.4 (lekka hossa)
+    const globalSentiment = (Math.random() - 0.5); 
     
-    if (globalSentiment < -0.3) {
-        console.log("!!! Sentyment rynkowy: PANIKA (silne spadki)");
-    } else if (globalSentiment < 0) {
-        console.log("... Sentyment rynkowy: Ostrożność (lekkie spadki)");
-    } else if (globalSentiment > 0.3) {
-        console.log("!!! Sentyment rynkowy: EUFORIA (silne wzrosty)");
-    } else {
-        console.log("... Sentyment rynkowy: Stabilnie (lekkie wzrosty)");
-    }
+    // (Reszta logiki sentymentu...)
+    if (globalSentiment < -0.3) console.log("!!! Sentyment rynkowy: PANIKA");
+    else if (globalSentiment < 0) console.log("... Sentyment rynkowy: Ostrożność");
+    else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
+    else console.log("... Sentyment rynkowy: Stabilnie");
 
-
-    // 2. Przetwarzanie każdej spółki
-    companies.forEach((companyId) => {
-      if (currentPrices[companyId] === undefined) return;
+    // Używamy pętli 'for...of', aby móc użyć 'await' w środku
+    for (const companyId of companies) {
+      if (currentPrices[companyId] === undefined) continue;
 
       const price = currentPrices[companyId];
       let newPrice = price;
       
-      // A. Zwykła zmienność (małe wahania góra/dół)
-      const volatility = 0.01 * price; // 1% ceny
-      let change = (Math.random() - 0.5) * 2 * volatility; // losowo +/- 1%
-
-      // B. Zastosowanie Globalnego Sentymentu
-      // Sentyment dodaje lub odejmuje trochę od ceny (max 0.5% w danym cyklu)
+      const volatility = 0.01 * price; 
+      let change = (Math.random() - 0.5) * 2 * volatility; 
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
-      // C. Anomalie i Krachy (Wydarzenia losowe / "Newsy")
-      // Ustawiamy 10% szans na "wydarzenie" dla danej spółki w tym cyklu
       const eventChance = 0.10; 
       
       if (Math.random() < eventChance) {
-          // Zdarzyło się! Losujemy czy dobre, czy złe.
           const isPositive = Math.random() > 0.5;
-          let news = "";
+          let newsTemplate = "";
           let impactPercent = 0.0;
+          let impactType = ""; // 'positive' lub 'negative'
 
           if (isPositive) {
-              // Hossa! Losujemy moc od +5% do +15%
               impactPercent = (Math.random() * 0.10) + 0.05; // +5% to +15%
-              news = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+              newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+              impactType = "positive";
           } else {
-              // Krach! Losujemy moc od -5% do -15%
               impactPercent = ((Math.random() * 0.10) + 0.05) * -1; // -5% to -15%
-              news = negativeNews[Math.floor(Math.random() * negativeNews.length)];
+              newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
+              impactType = "negative";
           }
-
-          // Wyświetlamy "news" w logach GitHuba
-          console.log(news.replace("{COMPANY}", companyId.toUpperCase()));
+          
+          const companyName = companyId.toUpperCase();
+          const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
+          console.log(formattedNews); // Log dla GitHuba
           
           const anomalyImpact = impactPercent * price;
-          change += anomalyImpact; // Dodajemy potężną zmianę
+          change += anomalyImpact; 
+
+          // ==========================================================
+          // NOWOŚĆ KROK 2: Zapisujemy news do bazy danych
+          const newsItem = {
+              text: formattedNews,
+              companyId: companyId,
+              impactType: impactType,
+              timestamp: admin.firestore.FieldValue.serverTimestamp() 
+          };
+          // Używamy 'await', aby mieć pewność, że news się zapisał
+          await newsCollectionRef.add(newsItem);
+          // ==========================================================
       }
       
-      // 3. Obliczenie finalnej ceny
       newPrice = price + change;
-      newPrice = Math.max(1.00, newPrice); // Cena nie spadnie poniżej 1
-      
+      newPrice = Math.max(1.00, newPrice); 
       newPrices[companyId] = parseFloat(newPrice.toFixed(2));
-    });
+    }
 
-    // 4. ZAPISZ nowe ceny z powrotem do bazy
     await cenyDocRef.update(newPrices);
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
   };
 
-  // === FUNKCJA PAUZY ===
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // === GŁÓWNA PĘTLA (3-godzinna) ===
+  // GŁÓWNA PĘTLA (3-godzinna)
   const mainLoop = async () => {
-    // 360 aktualizacji co 30 sekund = 10800 sekund = 3 godziny
     const updatesPerRun = 360;      
     const intervalSeconds = 30;     
 
@@ -141,25 +126,23 @@ try {
       console.log(`--- Aktualizacja ${i}/${updatesPerRun} ---`);
       
       try {
-        await runTicker(); // Uruchom właściwą aktualizację cen
+        await runTicker(); 
       } catch (e) {
         console.error("Błąd w trakcie 'runTicker':", e);
       }
       
-      // Czekaj (jeśli to nie jest ostatnia pętla)
       if (i < updatesPerRun) {
         console.log(`Czekam ${intervalSeconds} sekund...`);
         await sleep(intervalSeconds * 1000);
       }
     }
-    console.log("Pętla 3-godzinna zakończona. Zamykam zadanie (GitHub uruchomi mnie ponownie).");
+    console.log("Pętla 3-godzinna zakończona. Zamykam zadanie.");
   };
 
-  // Uruchom główną pętlę
   mainLoop();
 
 } catch (e) {
   console.error("Wystąpił krytyczny błąd podczas inicjalizacji skryptu:");
   console.error(e);
-  process.exit(1); // Zakończ z błędem
+  process.exit(1); 
 }
