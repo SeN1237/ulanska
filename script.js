@@ -129,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
         buyButton: document.getElementById("buy-button"),
         sellButton: document.getElementById("sell-button"),
         buyMaxButton: document.getElementById("buy-max-button"), 
-        sellMaxButton: document.getElementById("sell-max-button"), // <-- DODANO SPRZEDAJ MAX
+        sellMaxButton: document.getElementById("sell-max-button"), 
         messageBox: document.getElementById("message-box"),
         chartContainer: document.getElementById("chart-container"),
         rumorForm: document.getElementById("rumor-form"),
@@ -158,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
     dom.buyMaxButton.addEventListener("click", onBuyMax); 
-    dom.sellMaxButton.addEventListener("click", onSellMax); // <-- DODANO SPRZEDAJ MAX
+    dom.sellMaxButton.addEventListener("click", onSellMax); 
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
@@ -189,7 +189,7 @@ function startAuthListener() {
             dom.authContainer.classList.remove("hidden");
             
             if (unsubscribePortfolio) unsubscribePortfolio();
-            if (unsubscribeRumors) unsubscribeRumibreak;
+            if (unsubscribeRumors) unsubscribeRumors(); // Zmieniono 'unsubscribeRumibreak' na 'unsubscribeRumors'
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribeChat) unsubscribeChat(); 
@@ -200,7 +200,8 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
+            // Zmieniono wartość startową na 1000 dla Gościa
+            portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
             updatePortfolioUI();
         }
     });
@@ -213,11 +214,11 @@ async function createInitialUserData(userId, name, email) {
     const userPortfolio = {
         name: name,
         email: email,
-        cash: 100.00,
+        cash: 1000.00, // <-- ZMIANA: Gotówka początkowa
         shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
-        startValue: 100.00,
+        startValue: 1000.00, // <-- ZMIANA: Wartość początkowa portfela
         zysk: 0.00,
-        totalValue: 100.00,
+        totalValue: 1000.00, // <-- ZMIANA: Całkowita wartość początkowa
         joinDate: Timestamp.fromDate(new Date())
     };
     const userDocRef = doc(db, "uzytkownicy", userId);
@@ -243,7 +244,7 @@ async function onRegister(e) {
     }
 }
 
-// === FUNKCJA LOGOWANIA (WERSJA Z ODBLOKOWANIEM DŹWIĘKU) ===
+// === FUNKCJA LOGOWANIA (WERSJA Z ODBLOKOWANIEM DŹWIĘKU I NAPRAWĄ PRZEŁĄCZANIA) ===
 async function onLogin(e) {
     e.preventDefault();
     
@@ -267,6 +268,11 @@ async function onLogin(e) {
     
     try {
         await signInWithEmailAndPassword(auth, email, password);
+        
+        // --- KLUCZ DO NAPRAWY PRZEŁĄCZANIA ---
+        // Ponowne wywołanie, które natychmiast upewnia się, że widok się przełączy
+        startAuthListener(); 
+        // -------------------------------------
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
