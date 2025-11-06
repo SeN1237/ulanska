@@ -8,7 +8,8 @@ import {
 import { 
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, Timestamp, 
-    serverTimestamp, where // <-- TA ZMIANA NAPRAWIA BŁĄD
+    serverTimestamp, where, 
+    getDocs, writeBatch // <-- NOWE IMPORTY
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -20,8 +21,6 @@ const firebaseConfig = {
   appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
   measurementId: "G-BXPWNE261F"
 };
-
-// Reszta pliku script.js pozostaje DOKŁADNIE TAKA SAMA jak w mojej poprzedniej odpowiedzi...
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -180,6 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
+        clearHistoryButton: document.getElementById("clear-history-button"), // <-- NOWY PRZYCISK
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
@@ -199,6 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
+    dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory); // <-- NOWY LISTENER
 
     dom.showRegisterLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -542,7 +543,6 @@ function listenToGlobalHistory() {
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
-    // Ta linia powodowała błąd - teraz `where` jest zaimportowane
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
         where("userId", "==", userId), 
@@ -588,6 +588,46 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     p.appendChild(totalSpan);
 
     feedElement.prepend(p);
+}
+
+// === NOWA FUNKCJA DO CZYSZCZENIA HISTORII ===
+async function onClearPersonalHistory() {
+    if (!currentUserId) return;
+
+    // 1. Potwierdzenie
+    if (!confirm("Czy na pewno chcesz trwale usunąć CAŁĄ swoją historię transakcji? Tej operacji nie można cofnąć.")) {
+        return;
+    }
+
+    console.log("Rozpoczynam usuwanie historii dla użytkownika: ", currentUserId);
+    
+    try {
+        // 2. Znajdź wszystkie dokumenty historii dla tego użytkownika
+        const q = query(collection(db, "historia_transakcji"), where("userId", "==", currentUserId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            console.log("Brak historii do usunięcia.");
+            return;
+        }
+
+        // 3. Utwórz 'batch' do usunięcia wielu dokumentów na raz
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+            batch.delete(doc.ref); // Dodaj każdy dokument do usunięcia
+        });
+
+        // 4. Wykonaj usunięcie
+        await batch.commit();
+
+        console.log("Pomyślnie usunięto historię osobistą.");
+        // Listener `listenToPersonalHistory` automatycznie odświeży widok
+        
+    } catch (error) {
+        console.error("Błąd podczas usuwania historii osobistej: ", error);
+        // Pokaż błąd w panelu zleceń, bo jest pod ręką
+        showMessage("Błąd podczas usuwania historii. Sprawdź konsolę.", "error");
+    }
 }
 
 
