@@ -44,12 +44,6 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
-// ====================================================================
-// POPRAWKA #1: Prawidłowa definicja obiektu 'market'
-// Definiujemy tutaj strukturę rynku. Ceny ('price') zostaną
-// natychmiast nadpisane przez wartości z Firebase, gdy tylko się połączymy.
-// Używamy '1' jako ceny startowej, aby uniknąć błędów.
-// ====================================================================
 let market = {
     ulanska:  { name: "Ułańska Dev", price: 1, history: generateInitialCandles(50, 1) },
     brzozair: { name: "BrzozAir",     price: 1, history: generateInitialCandles(50, 1) },
@@ -71,8 +65,10 @@ let portfolio = {
 
 let chart = null;
 let currentUserId = null;
+let chartHasStarted = false; // <-- DODANO (Poprawka "skoku" wykresu)
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
+let unsubscribeNews = null; // <-- DODANO (Panel Newsów)
 let unsubscribeLeaderboard = null;
 
 let ytPlayer = null;
@@ -84,9 +80,7 @@ let dom = {};
 
 
 // ====================================================================
-// POPRAWKA #2: Zmodyfikowany 'onSnapshot'
-// Teraz aktualizuje on ZARÓWNO logikę gry (obiekt 'market'),
-// JAK I wyświetlany HTML.
+// NASŁUCHIWACZ CEN (onSnapshot)
 // ====================================================================
 const cenyDocRef = doc(db, "global", "ceny_akcji");
 onSnapshot(cenyDocRef, (docSnap) => {
@@ -96,7 +90,6 @@ onSnapshot(cenyDocRef, (docSnap) => {
         console.log("Pobrano aktualne ceny z bazy:", aktualneCeny);
 
         // KROK 1: Aktualizuj logikę gry (obiekt 'market')
-        // Dzięki temu kupno/sprzedaż będzie używać cen z bazy.
         if (market.ulanska)  market.ulanska.price  = aktualneCeny.ulanska;
         if (market.brzozair) market.brzozair.price = aktualneCeny.brzozair;
         if (market.igicorp)  market.igicorp.price  = aktualneCeny.igicorp;
@@ -117,8 +110,21 @@ onSnapshot(cenyDocRef, (docSnap) => {
         }
         
         // KROK 3: Wywołaj funkcje odświeżające UI
-        updatePriceUI(); // Aktualizuje cenę na głównym panelu
-        updatePortfolioUI(); // Przelicza wartość portfela na nowo
+        updatePriceUI(); 
+        updatePortfolioUI(); 
+
+        // ======================================================
+        // POPRAWKA "SKOKU" WYKRESU: Uruchom wykres dopiero po pobraniu cen
+        // ======================================================
+        if (currentUserId && !chartHasStarted) {
+            console.log("Pierwsze ceny pobrane. Startuję wykres...");
+            
+            if (!chart) initChart(); // Zainicjuj wykres
+            startChartTicker();    // Uruchom pętlę wykresu
+            
+            chartHasStarted = true; // Ustaw flagę, by nie robić tego ponownie
+        }
+        // ======================================================
 
     } else {
         console.error("KRYTYCZNY BŁĄD: Nie można znaleźć dokumentu 'global/ceny_akcji'!");
@@ -150,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
+        newsFeed: document.getElementById("news-feed"), // <-- DODANO (Panel Newsów)
         leaderboardList: document.getElementById("leaderboard-list"),
         companySelector: document.getElementById("company-selector"),
         companyName: document.getElementById("company-name"),
@@ -184,17 +191,15 @@ function startAuthListener() {
             
             listenToPortfolioData(currentUserId);
             listenToRumors();
+            listenToMarketNews(); // <-- DODANO (Panel Newsów)
             listenToLeaderboard();
             listenToYouTubePlayer();
             
-            // ====================================================================
-            // POPRAWKA #3: Usunięto wywołanie startPriceTicker()
-            // Nie chcemy już lokalnie symulować cen.
-            // ====================================================================
             // startPriceTicker(); // USUNIĘTE
             
-            if (!chart) initChart();
-            startChartTicker();
+            // Poniższe 2 linie zostały przeniesione do 'onSnapshot'
+            // if (!chart) initChart();     // <-- ZMIENIONO (Poprawka "skoku" wykresu)
+            // startChartTicker();         // <-- ZMIENIONO (Poprawka "skoku" wykresu)
             
             if (window.YT && window.YT.Player) {
                 initYouTubePlayer();
@@ -210,11 +215,14 @@ function startAuthListener() {
             
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
+            if (unsubscribeNews) unsubscribeNews(); // <-- DODANO (Panel Newsów)
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
             if (unsubscribePlayer) unsubscribePlayer();
             
-            //if (window.priceTickerInterval) clearInterval(window.priceTickerInterval); // Usunięte, bo nie ma już tej funkcji
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
+            
+            chartHasStarted = false; // <-- DODANO (Poprawka "skoku" wykresu)
+            chart = null;            // <-- DODANO (Poprawka "skoku" wykresu)
             
             if (ytPlayer) {
                 ytPlayer.destroy();
@@ -330,6 +338,51 @@ function listenToRumors() {
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
 
+// ======================================================
+// PONIŻEJ SĄ NOWE FUNKCJE DLA PANELU NEWSÓW
+// ======================================================
+
+// === NOWA FUNKCJA NASŁUCHUJĄCA NEWSÓW ===
+function listenToMarketNews() {
+    if (unsubscribeNews) unsubscribeNews();
+    
+    // Pobieramy 5 najnowszych wiadomości
+    const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
+    
+    unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
+        if (!dom.newsFeed) return; // Zabezpieczenie
+        
+        dom.newsFeed.innerHTML = ""; // Wyczyść stare newsy
+        
+        querySnapshot.forEach((doc) => {
+            const news = doc.data();
+            displayMarketNews(news.text, news.impactType);
+        });
+    }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
+}
+
+// === NOWA FUNKCJA WYŚWIETLAJĄCA NEWSY ===
+function displayMarketNews(text, impactType) {
+    if (!dom.newsFeed) return;
+    
+    const p = document.createElement("p");
+    p.textContent = text;
+    
+    // Ustawiamy kolor newsa w zależności od jego wpływu
+    if (impactType === "positive") {
+        p.style.color = "var(--green)"; // Kolor zielony dla dobrych newsów
+    } else if (impactType === "negative") {
+        p.style.color = "var(--red)"; // Kolor czerwony dla złych newsów (krachów)
+    }
+    
+    // Używamy 'prepend', aby najnowsze newsy były na górze
+    dom.newsFeed.prepend(p); 
+}
+
+// ======================================================
+// KONIEC NOWYCH FUNKCJI
+// ======================================================
+
 function applyRumorSentiment(companyId, sentiment) {
     if (!marketSentiment.hasOwnProperty(companyId)) return;
     const impact = 0.05; // Ten kod i tak nie będzie nic robił, bo ceny są z bazy
@@ -428,7 +481,6 @@ function changeCompany(companyId) {
 
 function buyShares() {
     const amount = parseInt(dom.amountInput.value);
-    // CENA JEST POBIERANA Z 'market', który jest aktualizowany przez 'onSnapshot'
     const currentPrice = market[currentCompanyId].price; 
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     const cost = amount * currentPrice;
@@ -453,7 +505,6 @@ function buyShares() {
 
 function sellShares() {
     const amount = parseInt(dom.amountInput.value);
-    // CENA JEST POBIERANA Z 'market', który jest aktualizowany przez 'onSnapshot'
     const currentPrice = market[currentCompanyId].price;
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     if (amount > (portfolio.shares[currentCompanyId] || 0)) { showMessage("Nie masz tylu akcji tej spółki.", "error"); return; }
@@ -491,7 +542,6 @@ function calculateTotalValue(cash, shares) {
     let sharesValue = 0;
     for (const companyId in shares) {
         if (market[companyId]) {
-            // Używa aktualnej ceny z obiektu 'market'
             sharesValue += (shares[companyId] || 0) * market[companyId].price;
         }
     }
@@ -501,31 +551,7 @@ function calculateTotalValue(cash, shares) {
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
 
-// ====================================================================
-// POPRAWKA #4: Usunięcie `startPriceTicker`
-// Ta funkcja generowała losowe ceny lokalnie,
-// co powodowało nadpisywanie cen pobranych z bazy.
-// Usunęliśmy ją, aby JEDYNYM źródłem cen była baza danych.
-// ====================================================================
-/*
-function startPriceTicker() {
-    if (window.priceTickerInterval) clearInterval(window.priceTickerInterval);
-    
-    window.priceTickerInterval = setInterval(() => {
-        for (const companyId in market) {
-            const company = market[companyId];
-            const sentimentImpact = marketSentiment[companyId];
-            const volatility = 0.01 * company.price;
-            const trend = 0.0005 * company.price;
-            const change = (Math.random() - 0.5) * 2 * volatility + trend + (sentimentImpact * company.price);
-            company.price = Math.max(1.00, company.price + change); // <--- TO BYŁ PROBLEM
-            marketSentiment[companyId] *= 0.95;
-        }
-        updatePriceUI();
-        updatePortfolioUI();
-    }, 2000);
-}
-*/
+// (Funkcja startPriceTicker() została słusznie usunięta)
 
 function initChart() {
     const options = {
@@ -553,8 +579,6 @@ function startChartTicker() {
             const lastCandle = history[history.length - 1];
             const lastClose = parseFloat(lastCandle.y[3]);
             
-            // Wykres świecowy używa teraz ceny z 'market' (ustawianej przez Firebase)
-            // jako nowej ceny zamknięcia.
             const open = lastClose;
             const close = company.price; 
             const high = Math.max(open, close) + Math.random() * (company.price * 0.01);
