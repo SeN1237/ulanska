@@ -1,9 +1,7 @@
 /* --- SEKCJA 0: IMPORT I DEFINICJE MOTYWÓW --- */
 
-/* Import nowoczesnej czcionki */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-/* === MOTYW 1: FUTURYSTYCZNY/CIEMNY (domyślny) === */
 body[data-theme="dark"] {
     --bg-color: #0A0A0A;
     --panel-color: #121212;
@@ -15,8 +13,6 @@ body[data-theme="dark"] {
     --blue: #00BFFF;
     --accent-color: #FF00FF;
 }
-
-/* === MOTYW 2: CZYSTY/JASNY === */
 body[data-theme="light"] {
     --bg-color: #F4F7F6;
     --panel-color: #FFFFFF;
@@ -28,13 +24,639 @@ body[data-theme="light"] {
     --blue: #007bff;
     --accent-color: #F58400;
 }
-
-/* === MOTYW 3: SZARY/POPRZEDNI === */
 body[data-theme="dim"] {
     --bg-color: #1a1e25;
     --panel-color: #252a34;
     --border-color: #3b4252;
     --text-color: #e5e9f0;
+    --text-muted: #a3acb9;
+    --green: #28a745;
+    --red: #dc3545;
+    --blue: #007bff;
+    --accent-color: #ffc107;
+}
+
+
+/* --- SEKCJA 1: USTAWIENIA GLOBALNE --- */
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.panel, input, button, select, #leaderboard-list li {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.2s ease;
+}
+
+/* --- STYLE LOGOWANIA --- */
+#auth-container {
+    display: flex;
+    max-width: 400px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 50px;
+}
+.auth-panel {
+    flex: 1;
+    min-width: 300px;
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.auth-panel h2 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    color: var(--text-muted);
+}
+.auth-panel form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.auth-panel label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+.auth-panel input {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1em;
+}
+body[data-theme="dark"] .auth-panel input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 8px var(--blue);
+    outline: none;
+}
+.auth-panel button {
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    background-color: var(--blue);
+    color: white;
+    margin-top: 10px;
+}
+body[data-theme="dark"] .auth-panel button:hover {
+    box-shadow: 0 0 10px var(--blue);
+}
+
+#reset-password-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9em;
+    margin-top: 10px;
+    display: inline-block;
+}
+#reset-password-link:hover {
+    color: var(--blue);
+    text-decoration: underline;
+}
+
+#register-panel {
+    display: none;
+}
+#auth-container.show-register #register-panel {
+    display: block;
+}
+#auth-container.show-register #login-panel {
+    display: none;
+}
+.auth-toggle {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+.auth-toggle a {
+    color: var(--blue);
+    text-decoration: none;
+    font-weight: bold;
+}
+.auth-toggle a:hover {
+    text-decoration: underline;
+}
+#auth-message {
+    width: 100%;
+    text-align: center;
+    font-size: 1.1em;
+    min-height: 20px;
+    margin-top: 15px;
+}
+
+
+.hidden {
+    display: none !important;
+}
+
+/* --- STYLE SYMULATORA --- */
+#simulator-container {
+    width: 100%;
+    max-width: 1400px;
+}
+
+header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+header h1 { 
+    margin: 0; 
+    color: var(--blue);
+    order: 1;
+}
+#theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9em;
+    margin-left: auto;
+    order: 2;
+}
+#theme-switcher select {
+    background-color: var(--panel-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 3px 5px;
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+#user-info {
+    order: 3;
+}
+#logout-button {
+    background: var(--red); color: white; border: none;
+    padding: 5px 10px; border-radius: 4px; cursor: pointer;
+    font-size: 0.8em; margin-left: 10px;
+}
+body[data-theme="dark"] #logout-button:hover {
+    box-shadow: 0 0 10px var(--red);
+}
+
+/* === ZAKTUALIZOWANA SIATKA (GRID) === */
+.grid-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+        "market portfolio"
+        "market order"
+        "rumors leaderboard"
+        "history_global history_personal" /* <-- NOWY RZĄD */
+        "chat chat";
+    gap: 20px;
+}
+#market-panel { grid-area: market; }
+#portfolio-panel { grid-area: portfolio; }
+#order-panel { grid-area: order; }
+#rumors-panel { grid-area: rumors; }
+#leaderboard-panel { grid-area: leaderboard; }
+#chat-panel { grid-area: chat; }
+
+/* <-- NOWE OBSZARY --> */
+#global-history-panel { grid-area: history_global; }
+#personal-history-panel { grid-area: history_personal; }
+
+
+.panel {
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+h2, h3 { 
+    margin-top: 0; border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
+}
+
+/* Panel Rynku i Wykresu */
+#price-container { font-size: 1.5em; margin-bottom: 20px; }
+#stock-price { 
+    font-weight: bold; 
+    transition: color 0.3s ease, background-color 0.3s ease, text-shadow 0.3s ease; 
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+#chart-container { width: 100%; min-height: 300px; }
+
+/* Panel Portfela */
+#portfolio-panel p {
+    margin: 10px 0; font-size: 1.1em;
+    display: flex; justify-content: space-between;
+}
+#portfolio-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
+}
+#total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
+
+/* Panel Zleceń */
+.actions {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+    align-items: center;
+}
+.actions label {
+    grid-column: 1 / 3; 
+    font-size: 0.9em; 
+    color: var(--text-muted);
+}
+#amount-input {
+    grid-column: 1 / 3; 
+    padding: 10px; 
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    border-radius: 4px; 
+    font-size: 1.1em;
+}
+body[data-theme="dark"] #amount-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 8px var(--blue);
+    outline: none;
+}
+button {
+    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
+    font-weight: bold; font-size: 1em; transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+button:active { transform: scale(0.98); }
+#buy-button { background-color: var(--green); color: white; }
+#sell-button { background-color: var(--red); color: white; }
+
+body[data-theme="dark"] #buy-button:hover {
+    box-shadow: 0 0 10px var(--green);
+}
+body[data-theme="dark"] #sell-button:hover {
+    box-shadow: 0 0 10px var(--red);
+}
+
+#message-box {
+    margin-top: 15px; font-style: italic; min-height: 20px;
+}
+
+/* Style przycisków MAX */
+.label-with-max {
+    grid-column: 1 / 3; 
+    display: flex;
+    justify-content: space-between; 
+    align-items: center; 
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-bottom: -5px; 
+}
+.max-buttons-group {
+    display: flex;
+    gap: 5px; 
+}
+.max-btn {
+    background: none;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 2px 8px;
+    font-size: 0.8em;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.max-btn:hover {
+    background: rgba(255, 193, 7, 0.1);
+    color: var(--accent-color);
+}
+body[data-theme="dark"] .max-btn:hover {
+    background: rgba(255, 0, 255, 0.1);
+    box-shadow: 0 0 5px var(--accent-color);
+}
+body[data-theme="light"] .max-btn:hover {
+    background: rgba(245, 132, 0, 0.1);
+}
+.max-btn:active {
+    transform: scale(0.97);
+}
+#sell-max-button {
+    border-color: var(--red);
+    color: var(--red);
+}
+#sell-max-button:hover {
+    background: rgba(220, 53, 69, 0.1);
+}
+body[data-theme="dark"] #sell-max-button:hover {
+    background: rgba(255, 69, 0, 0.1);
+    box-shadow: 0 0 5px var(--red);
+}
+body[data-theme="light"] #sell-max-button:hover {
+    background: rgba(220, 53, 69, 0.1);
+}
+
+
+/* Panel Plotek i Newsów */
+.feed-box {
+    max-height: 200px; 
+    overflow-y: auto; 
+    margin-bottom: 15px;
+}
+.feed-box p {
+    margin: 5px 0; font-style: italic;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 5px;
+    word-break: break-word;
+}
+.feed-box p:last-child { border-bottom: none; }
+
+#rumor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px; 
+}
+#rumor-input, #rumor-company-select {
+    padding: 10px; border: 1px solid var(--border-color);
+    background-color: var(--bg-color); color: var(--text-color);
+    border-radius: 4px; font-size: 1em;
+}
+body[data-theme="dark"] #rumor-input:focus,
+body[data-theme="dark"] #rumor-company-select:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 8px var(--blue);
+    outline: none;
+}
+#rumor-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+#rumor-company-select {
+    padding: 8px; flex-grow: 1;
+}
+#rumor-sentiment {
+    display: flex;
+    gap: 10px;
+    flex-grow: 1;
+}
+#rumor-sentiment label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+#rumor-form button {
+    background-color: var(--blue); color: white;
+}
+body[data-theme="dark"] #rumor-form button:hover {
+    box-shadow: 0 0 10px var(--blue);
+}
+#rumors-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
+}
+
+
+/* Panel Rankingu */
+#leaderboard-list {
+    padding-left: 20px;
+    margin: 0;
+    max-height: 200px; /* Dopasowanie wysokości do innych feedów */
+    overflow-y: auto;
+}
+#leaderboard-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.3s ease; 
+    margin-left: -12px; 
+    padding-left: 12px; 
+}
+#leaderboard-list li:last-child {
+    border-bottom: none;
+}
+#leaderboard-list li strong {
+    font-weight: bold;
+    color: var(--text-color);
+}
+#leaderboard-list li span {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+#leaderboard-list li span small {
+    font-size: 0.85em;
+    margin-top: 2px;
+}
+
+/* Zakładki spółek */
+#company-selector {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+.company-tab {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.company-tab:hover {
+    color: var(--text-color);
+}
+.company-tab.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+}
+body[data-theme="dark"] .company-tab.active {
+    text-shadow: 0 0 5px var(--blue);
+}
+
+/* Panel portfela */
+#shares-list p {
+    margin: 10px 0;
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+}
+#shares-list p strong {
+    color: var(--text-muted);
+}
+
+/* --- STYLE DLA CZATU --- */
+#chat-feed {
+    height: 150px; 
+    font-style: normal; 
+}
+#chat-feed p {
+    margin: 3px 0;
+    padding: 3px;
+    border-bottom: none; 
+    font-style: normal; 
+}
+#chat-feed p strong {
+    color: var(--blue); 
+}
+#chat-feed p.my-message strong {
+    color: var(--accent-color);
+}
+
+#chat-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px; 
+}
+#chat-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1em;
+}
+body[data-theme="dark"] #chat-input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    outline: none;
+}
+#chat-form button {
+    background-color: var(--green);
+    color: white;
+}
+body[data-theme="dark"] #chat-form button:hover {
+    box-shadow: 0 0 10px var(--green);
+}
+
+/* --- NOWE STYLE DLA HISTORII TRANSAKCJI --- */
+.history-feed {
+    max-height: 150px; /* Niższy niż inne, bo są dwa obok siebie */
+    font-style: normal;
+}
+.history-feed p {
+    font-style: normal;
+    font-size: 0.9em;
+    display: flex;
+    flex-wrap: wrap; /* Zawijanie na mniejszych */
+    justify-content: space-between;
+    gap: 5px; /* Odstęp między elementami */
+}
+/* Style dla poszczególnych części wpisu */
+.history-feed .h-user {
+    font-weight: bold;
+    color: var(--blue);
+}
+.history-feed .h-action-buy {
+    font-weight: bold;
+    color: var(--green);
+}
+.history-feed .h-action-sell {
+    font-weight: bold;
+    color: var(--red);
+}
+.history-feed .h-details {
+    color: var(--text-color);
+}
+.history-feed .h-total {
+    color: var(--text-muted);
+    font-style: italic;
+    flex-basis: 100%; /* Wartość zawsze w nowej linii */
+    text-align: right;
+}
+
+
+/* --- MIGOTANIE I RANKING --- */
+@keyframes flash-green {
+    0% { background-color: rgba(40, 167, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+body[data-theme="dark"] @keyframes flash-green {
+    0% { background-color: rgba(0, 255, 127, 0.4); text-shadow: 0 0 5px var(--green); }
+    100% { background-color: transparent; text-shadow: none; }
+}
+@keyframes flash-red {
+    0% { background-color: rgba(220, 53, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+body[data-theme="dark"] @keyframes flash-red {
+    0% { background-color: rgba(255, 69, 0, 0.4); text-shadow: 0 0 5px var(--red); }
+    100% { background-color: transparent; text-shadow: none; }
+}
+
+.flash-green { animation: flash-green 0.7s ease-out; }
+.flash-red { animation: flash-red 0.7s ease-out; }
+
+#leaderboard-list li.highlight-me {
+    background-color: rgba(255, 193, 7, 0.15);
+    border-left: 3px solid var(--accent-color);
+    padding-left: 9px; 
+}
+body[data-theme="dark"] #leaderboard-list li.highlight-me {
+    background-color: rgba(255, 0, 255, 0.1); 
+}
+body[data-theme="light"] #leaderboard-list li.highlight-me {
+    background-color: rgba(245, 132, 0, 0.1); 
+}
+
+
+/* --- STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) --- */
+@media (max-width: 800px) {
+    body { padding: 10px; }
+    header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+    header h1 { order: 1; }
+    #theme-switcher { margin-left: 0; order: 2; }
+    #user-info { order: 3; width: 100%; text-align: center; }
+    
+    /* ZAKTUALIZOWANA SIATKA MOBILNA */
+    .grid-container {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "market"
+            "portfolio"
+            "order"
+            "rumors"
+            "leaderboard"
+            "history_global"   /* <-- NOWY OBSZAR */
+            "history_personal" /* <-- NOWY OBSZAR */
+            "chat"; 
+        gap: 15px; 
+    }
+
+    #auth-container { width: 100%; padding: 0; gap: 15px; }
+    header h1 { font-size: 1.5em; } 
+    h2, h3 { font-size: 1.1em; }
+    #price-container { font-size: 1.3em; }
+    .company-tab { padding: 8px 10px; font-size: 0.9em; }
+    #rumor-controls { flex-direction: column; align-items: stretch; }
+    
+    /* Poprawka wysokości feedów na mobilce */
+    .history-feed { max-height: 200px; }
+}    --text-color: #e5e9f0;
     --text-muted: #a3acb9;
     --green: #28a745;
     --red: #dc3545;
