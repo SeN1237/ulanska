@@ -27,6 +27,7 @@
                 <input type="password" id="login-password" required>
                 <button type="submit">Zaloguj</button>
             </form>
+            <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
         </div>
         <div class="panel auth-panel">
             <h2>Rejestracja (Start 100 zł)</h2>
@@ -98,42 +99,42 @@
 
             <section id="rumors-panel" class="panel">
 
-    <h3>Wiadomości Rynkowe</h3>
-    <div id="news-feed" class="feed-box">
-        </div>
+                <h3>Wiadomości Rynkowe</h3>
+                <div id="news-feed" class="feed-box">
+                    </div>
 
-    <hr> 
+                <hr> 
 
-    <h3>Globalne Plotki z Wpływem</h3>
-    <form id="rumor-form">
-        <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
-        <div id="rumor-controls">
-            <select id="rumor-company-select" required>
-                <option value="ulanska" selected>Dot. Ułańska Dev</option>
-                <option value="rychbud">Dot. RychBud</option>
-                <option value="igicorp">Dot. IgiCorp</option>
-                <option value="brzozair">Dot. BrzozAir</option>
-            </select>
-            <div id="rumor-sentiment">
-                <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
-                <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
-            </div>
-        </div>
-        <button type="submit">Publikuj</button>
-    </form>
-    <div id="rumors-feed">
-        <p>...ładowanie plotek z serwera...</p>
-    </div>
-    
-</section>
-            
+                <h3>Globalne Plotki z Wpływem</h3>
+                <form id="rumor-form">
+                    <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
+                    <div id="rumor-controls">
+                        <select id="rumor-company-select" required>
+                            <option value="ulanska" selected>Dot. Ułańska Dev</option>
+                            <option value="rychbud">Dot. RychBud</option>
+                            <option value="igicorp">Dot. IgiCorp</option>
+                            <option value="brzozair">Dot. BrzozAir</option>
+                        </select>
+                        <div id="rumor-sentiment">
+                            <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
+                            <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
+                        </div>
+                    </div>
+                    <button type="submit">Publikuj</button>
+                </form>
+                <div id="rumors-feed">
+                    <p>...ładowanie plotek z serwera...</p>
+                </div>
+                
+            </section>
+                
             <section id="leaderboard-panel" class="panel">
                 <h2>Ranking Graczy (TOP 10 Wartość)</h2>
                 <ol id="leaderboard-list">
                     <li>...ładowanie rankingu...</li>
                 </ol>
             </section>
-            
+                
             <section id="player-panel" class="panel">
                 <h2>Globalny Odtwarzacz YT</h2>
                 <form id="yt-form">
@@ -145,7 +146,9 @@
                 </div>
             </section>
 
-        </div> </div>
+        </div> 
+    </div>
+    
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
     <audio id="audio-error" src="error.mp3" preload="auto"></audio>
     <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio> 
