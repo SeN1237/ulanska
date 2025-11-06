@@ -72,7 +72,7 @@ let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
 let unsubscribeLeaderboard = null;
-let unsubscribeChat = null; // <-- ZMIENIONO (z 'Player' na 'Chat')
+let unsubscribeChat = null; // <-- Poprawka dla Czatu
 
 // Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
 let dom = {};
@@ -88,24 +88,19 @@ onSnapshot(cenyDocRef, (docSnap) => {
         const aktualneCeny = docSnap.data();
         console.log("Pobrano aktualne ceny z bazy:", aktualneCeny);
 
-        // KROK 1: Aktualizuj logikę gry (obiekt 'market')
         if (market.ulanska)  market.ulanska.price  = aktualneCeny.ulanska;
         if (market.brzozair) market.brzozair.price = aktualneCeny.brzozair;
         if (market.igicorp)  market.igicorp.price  = aktualneCeny.igicorp;
         if (market.rychbud)  market.rychbud.price  = aktualneCeny.rychbud;
         
-        // KROK 2: Wywołaj funkcje odświeżające UI
         updatePriceUI(); 
         updatePortfolioUI(); 
 
-        // POPRAWKA "SKOKU" WYKRESU: Uruchom wykres dopiero po pobraniu cen
         if (currentUserId && !chartHasStarted) {
             console.log("Pierwsze ceny pobrane. Startuję wykres...");
-            
-            if (!chart) initChart(); // Zainicjuj wykres
-            startChartTicker();    // Uruchom pętlę wykresu
-            
-            chartHasStarted = true; // Ustaw flagę, by nie robić tego ponownie
+            if (!chart) initChart();
+            startChartTicker();    
+            chartHasStarted = true;
         }
 
     } else {
@@ -117,7 +112,6 @@ onSnapshot(cenyDocRef, (docSnap) => {
 // --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
 document.addEventListener("DOMContentLoaded", () => {
     
-    // 1. Wypełnij referencje DOM (teraz jest to bezpieczne)
     dom = {
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
@@ -134,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
         amountInput: document.getElementById("amount-input"),
         buyButton: document.getElementById("buy-button"),
         sellButton: document.getElementById("sell-button"),
+        buyMaxButton: document.getElementById("buy-max-button"), // <-- DODANO KUP MAX
         messageBox: document.getElementById("message-box"),
         chartContainer: document.getElementById("chart-container"),
         rumorForm: document.getElementById("rumor-form"),
@@ -163,8 +158,9 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.companySelector.addEventListener("click", onSelectCompany);
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
+    dom.buyMaxButton.addEventListener("click", onBuyMax); // <-- DODANO KUP MAX
     dom.rumorForm.addEventListener("submit", onPostRumor);
-    dom.chatForm.addEventListener("submit", onSendMessage); // <-- ZMIENIONO (z 'ytForm' na 'chatForm')
+    dom.chatForm.addEventListener("submit", onSendMessage); // <-- ZMIENIONO
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
 
     // 3. Uruchom główną pętlę aplikacji
@@ -184,11 +180,7 @@ function startAuthListener() {
             listenToRumors();
             listenToMarketNews(); 
             listenToLeaderboard();
-            listenToChat(); // <-- ZMIENIONO (z 'Player' na 'Chat')
-            
-            // Poniższe 2 linie zostały przeniesione do 'onSnapshot'
-            // if (!chart) initChart();     
-            // startChartTicker();         
+            listenToChat(); // <-- ZMIENIONO
             
             // --- USUNIĘTO BLOK YOUTUBE ---
             
@@ -202,7 +194,7 @@ function startAuthListener() {
             if (unsubscribeRumors) unsubscribeRumors();
             if (unsubscribeNews) unsubscribeNews(); 
             if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-            if (unsubscribeChat) unsubscribeChat(); // <-- ZMIENIONO (z 'Player' na 'Chat')
+            if (unsubscribeChat) unsubscribeChat(); // <-- ZMIENIONO
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
@@ -210,10 +202,10 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            // --- USUNIĘTO BLOK YOUTUBE ('ytPlayer.destroy()') ---
+            // --- USUNIĘTO BLOK YOUTUBE ---
             
             portfolio = { name: "Gość", cash: 100, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 100, zysk: 0, totalValue: 100 };
-            updatePortfolioUI(); // Zaktualizuj UI, aby pokazać dane "Gościa"
+            updatePortfolioUI();
         }
     });
 }
@@ -362,7 +354,7 @@ function listenToMarketNews() {
     const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
-        if (!dom.newsFeed) return; // Zabezpieczenie
+        if (!dom.newsFeed) return;
 
         let newItemsAdded = false;
         querySnapshot.docChanges().forEach((change) => {
@@ -413,18 +405,16 @@ async function onSendMessage(e) {
     const text = dom.chatInput.value.trim();
     
     if (!text || !currentUserId) {
-        return; // Nie wysyłaj pustych wiadomości
+        return; 
     }
     
     try {
-        // Wysyłamy wiadomość do bazy
         await addDoc(collection(db, "chat_messages"), {
             text: text,
-            authorName: portfolio.name, // Używamy nazwy gracza z jego portfela
+            authorName: portfolio.name, 
             authorId: currentUserId,
-            timestamp: serverTimestamp() // Używamy czasu serwera dla kolejności
+            timestamp: serverTimestamp() 
         });
-        // Wyczyść pole po wysłaniu
         dom.chatInput.value = "";
     } catch (error) {
         console.error("Błąd wysyłania wiadomości: ", error);
@@ -435,15 +425,13 @@ async function onSendMessage(e) {
 function listenToChat() {
     if (unsubscribeChat) unsubscribeChat();
     
-    // Pobieramy 30 ostatnich wiadomości
     const chatQuery = query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30));
     
     unsubscribeChat = onSnapshot(chatQuery, (querySnapshot) => {
         if (!dom.chatFeed) return;
         
-        dom.chatFeed.innerHTML = ""; // Wyczyść stare wiadomości
+        dom.chatFeed.innerHTML = ""; 
         
-        // Musimy odwrócić tablicę, bo pobraliśmy 'desc', a chcemy wyświetlić 'asc'
         const messages = querySnapshot.docs.reverse(); 
         
         messages.forEach((doc) => {
@@ -451,7 +439,6 @@ function listenToChat() {
             displayChatMessage(msg);
         });
         
-        // Automatyczne przewijanie na dół czatu
         dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
 
     }, (error) => { console.error("Błąd nasłuchu czatu: ", error); });
@@ -462,20 +449,17 @@ function displayChatMessage(msg) {
     
     const p = document.createElement("p");
     
-    // Tworzymy nick (np. 'Gracz: ')
     const strong = document.createElement("strong");
     strong.textContent = msg.authorName + ": ";
     
-    // Dodajemy nick i treść wiadomości
     p.appendChild(strong);
     p.appendChild(document.createTextNode(msg.text));
     
-    // Podświetlamy własne wiadomości
     if (msg.authorId === currentUserId) {
         p.style.backgroundColor = "rgba(0, 123, 255, 0.1)";
     }
     
-    dom.chatFeed.appendChild(p); // Dodaj na końcu
+    dom.chatFeed.appendChild(p); 
 }
 
 
@@ -579,6 +563,29 @@ function changeCompany(companyId) {
         chart.updateSeries([{ data: companyData.history }]);
     }
     updatePriceUI();
+}
+
+// === NOWA FUNKCJA DLA PRZYCISKU KUP MAX ===
+function onBuyMax(e) {
+    if (!currentCompanyId || !market[currentCompanyId]) {
+        return; // Nie wybrano spółki
+    }
+    
+    const currentPrice = market[currentCompanyId].price;
+    const availableCash = portfolio.cash;
+    
+    if (currentPrice <= 0) {
+        dom.amountInput.value = 0; // Cena jest zerowa, nie da się kupić
+        return;
+    }
+    
+    // Oblicz maksymalną ilość akcji, na które nas stać
+    const maxShares = Math.floor(availableCash / currentPrice);
+    
+    // Wstaw obliczoną wartość do pola "Ilość"
+    if (dom.amountInput) {
+        dom.amountInput.value = maxShares;
+    }
 }
 
 function buyShares() {
