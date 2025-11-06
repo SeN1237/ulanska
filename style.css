@@ -8,6 +8,7 @@
     --green: #28a745;
     --red: #dc3545;
     --blue: #007bff;
+    --accent-color: #ffc107; /* Dodatkowy kolor akcentu, np. złoty */
 }
 
 body {
@@ -132,14 +133,20 @@ header h1 { margin: 0; color: var(--blue); }
     padding: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
-h2 {
+h2, h3 { /* Dodano h3 */
     margin-top: 0; border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
 }
 
 /* Panel Rynku i Wykresu */
 #price-container { font-size: 1.5em; margin-bottom: 20px; }
-#stock-price { font-weight: bold; transition: color 0.3s ease; }
+#stock-price { 
+    font-weight: bold; 
+    transition: color 0.3s ease; 
+    /* Dodajemy padding, aby migotanie tła wyglądało lepiej */
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 #chart-container { width: 100%; min-height: 300px; }
 
 /* Panel Portfela */
@@ -176,12 +183,26 @@ button:active { transform: scale(0.98); }
     margin-top: 15px; font-style: italic; min-height: 20px;
 }
 
-/* Panel Plotek (zaktualizowany formularz) */
+/* Panel Plotek i Newsów (zaktualizowany) */
+/* Wspólny styl dla obu feedów */
+.feed-box {
+    max-height: 200px; /* Ograniczenie wysokości */
+    overflow-y: auto; /* Dodanie przewijania */
+    margin-bottom: 15px;
+}
+.feed-box p {
+    margin: 5px 0; font-style: italic;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 5px;
+    word-break: break-word;
+}
+.feed-box p:last-child { border-bottom: none; }
+
 #rumor-form {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-bottom: 15px;
+    margin-top: 15px; /* Dodany margines po 'hr' */
 }
 #rumor-input {
     flex: 1; padding: 10px; border: 1px solid var(--border-color);
@@ -215,13 +236,11 @@ button:active { transform: scale(0.98); }
 #rumor-form button {
     background-color: var(--blue); color: white;
 }
-#rumors-feed p {
-    margin: 5px 0; font-style: italic;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 5px;
-    word-break: break-word;
+/* Dodany separator, jeśli chcesz go użyć */
+#rumors-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
 }
-#rumors-feed p:last-child { border-bottom: none; }
+
 
 /* Panel Rankingu (Zaktualizowane style) */
 #leaderboard-list {
@@ -235,6 +254,10 @@ button:active { transform: scale(0.98); }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    /* Dodajemy przejście dla płynnego podświetlenia */
+    transition: background-color 0.3s ease; 
+    margin-left: -12px; /* Kompensujemy padding */
+    padding-left: 12px; /* Dodajemy padding */
 }
 #leaderboard-list li:last-child {
     border-bottom: none;
@@ -325,4 +348,34 @@ button:active { transform: scale(0.98); }
     width: 100%;
     height: 100%;
     border: none;
+}
+
+/* ====================================================== */
+/* === NOWE STYLE KOSMETYCZNE (Wklejone na dole) === */
+/* ====================================================== */
+
+/* Animacja migotania cen na zielono */
+@keyframes flash-green {
+    0% { background-color: rgba(40, 167, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+.flash-green {
+    /* Używamy 'flash-green' jako nazwy animacji */
+    animation: flash-green 0.7s ease-out;
+}
+
+/* Animacja migotania cen na czerwono */
+@keyframes flash-red {
+    0% { background-color: rgba(220, 53, 69, 0.5); }
+    100% { background-color: transparent; }
+}
+.flash-red {
+    animation: flash-red 0.7s ease-out;
+}
+
+/* Wyróżnienie siebie w rankingu */
+#leaderboard-list li.highlight-me {
+    background-color: rgba(255, 193, 7, 0.15); /* Lekko złote tło */
+    border-left: 3px solid var(--accent-color);
+    padding-left: 9px; /* 12px - 3px bordera */
 }
