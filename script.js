@@ -74,7 +74,6 @@ let unsubscribeNews = null;
 let unsubscribeLeaderboard = null;
 let unsubscribeChat = null; 
 
-// Obiekt DOM będzie wypełniony w 'DOMContentLoaded'
 let dom = {};
 
 
@@ -111,10 +110,9 @@ onSnapshot(cenyDocRef, (docSnap) => {
 // --- SEKCJA 1.5: LOGIKA MOTYWÓW ---
 
 function applySavedTheme() {
-    const savedTheme = localStorage.getItem('simulatorTheme') || 'dark'; // 'dark' jako domyślny
+    const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
     
-    // Zaktualizuj select, aby pokazywał zapisany motyw
     const themeSelect = document.getElementById("theme-select");
     if (themeSelect) {
         themeSelect.value = savedTheme;
@@ -124,10 +122,8 @@ function applySavedTheme() {
 function onChangeTheme(e) {
     const theme = e.target.value;
     document.body.setAttribute('data-theme', theme);
-    // Zapisz wybór użytkownika w localStorage, aby go pamiętał
     localStorage.setItem('simulatorTheme', theme);
     
-    // Zaktualizuj motyw wykresu, jeśli istnieje
     if (chart) {
         const newChartTheme = (theme === 'light') ? 'light' : 'dark';
         chart.updateOptions({
@@ -139,10 +135,9 @@ function onChangeTheme(e) {
 }
 
 
-// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (POPRAWIONA LOGIKA) ---
+// --- SEKCJA 2: GŁÓWNY PUNKT WEJŚCIA (ZAKTUALIZOWANY) ---
 document.addEventListener("DOMContentLoaded", () => {
     
-    // 1. Zastosuj zapisany motyw PRZED resztą
     applySavedTheme();
 
     dom = {
@@ -152,6 +147,11 @@ document.addEventListener("DOMContentLoaded", () => {
         registerForm: document.getElementById("register-form"),
         authMessage: document.getElementById("auth-message"),
         resetPasswordLink: document.getElementById("reset-password-link"),
+        
+        // NOWE ELEMENTY DO PRZEŁĄCZANIA
+        showRegisterLink: document.getElementById("show-register-link"),
+        showLoginLink: document.getElementById("show-login-link"),
+        
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         cash: document.getElementById("cash"),
@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chatInput: document.getElementById("chat-input"),
         chatFeed: document.getElementById("chat-feed"),
         
-        themeSelect: document.getElementById("theme-select"), // <-- DODANO PRZEŁĄCZNIK MOTYWU
+        themeSelect: document.getElementById("theme-select"),
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
@@ -197,13 +197,26 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
-    dom.themeSelect.addEventListener("change", onChangeTheme); // <-- DODANO LISTENER DLA MOTYWU
+    dom.themeSelect.addEventListener("change", onChangeTheme);
+
+    // NOWE LISTENERY DO PRZEŁĄCZANIA AUTH
+    dom.showRegisterLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        dom.authContainer.classList.add("show-register");
+        showAuthMessage(""); // Wyczyść błędy
+    });
+    dom.showLoginLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        dom.authContainer.classList.remove("show-register");
+        showAuthMessage(""); // Wyczyść błędy
+    });
 
     // 3. Uruchom główną pętlę aplikacji
     startAuthListener();
 });
 
 
+// === ZAKTUALIZOWANY AUTH LISTENER ===
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
         if (user) {
@@ -223,6 +236,9 @@ function startAuthListener() {
             currentUserId = null;
             dom.simulatorContainer.classList.add("hidden");
             dom.authContainer.classList.remove("hidden");
+            
+            // NOWA LINIA: Zresetuj widok do logowania
+            if (dom.authContainer) dom.authContainer.classList.remove("show-register");
             
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeRumors) unsubscribeRumors();
@@ -269,6 +285,7 @@ async function onRegister(e) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (userCredential.user) {
             await createInitialUserData(userCredential.user.uid, name, email);
+            // Nie musimy przełączać, onAuthStateChanged zrobi to automatycznie
         }
     } catch (error) {
         if (error.code === 'auth/email-already-in-use') {
@@ -285,10 +302,8 @@ async function onLogin(e) {
     try {
         if (dom.audioKaching) dom.audioKaching.play();
         if (dom.audioKaching) dom.audioKaching.pause();
-        
         if (dom.audioError) dom.audioError.play();
         if (dom.audioError) dom.audioError.pause();
-        
         if (dom.audioNews) dom.audioNews.play();
         if (dom.audioNews) dom.audioNews.pause();
     } catch (err) {
@@ -467,7 +482,6 @@ function listenToChat() {
     }, (error) => { console.error("Błąd nasłuchu czatu: ", error); });
 }
 
-// === ZAKTUALIZOWANA FUNKCJA CZATU (UŻYWA KLASY CSS) ===
 function displayChatMessage(msg) {
     if (!dom.chatFeed) return;
     
@@ -479,7 +493,6 @@ function displayChatMessage(msg) {
     p.appendChild(strong);
     p.appendChild(document.createTextNode(msg.text));
     
-    // Użyj klasy 'my-message' (zdefiniowanej w nowym CSS)
     if (msg.authorId === currentUserId) {
         p.classList.add("my-message");
     }
@@ -693,16 +706,14 @@ function calculateTotalValue(cash, shares) {
 
 // --- SEKCJA 6: SYMULATOR RYNKU ---
 
-// === ZAKTUALIZOWANA FUNKCJA WYKRESU (CZYTA MOTYW PRZY STARCIE) ===
 function initChart() {
-    // Odczytaj motyw ustawiony na body, aby poprawnie uruchomić wykres
     const currentTheme = document.body.getAttribute('data-theme') || 'dark';
     const chartTheme = (currentTheme === 'light') ? 'light' : 'dark';
 
     const options = {
         series: [{ data: market[currentCompanyId].history }],
         chart: { type: 'candlestick', height: 350, toolbar: { show: false }, animations: { enabled: false } },
-        theme: { mode: chartTheme }, // <-- Użyj dynamicznego motywu
+        theme: { mode: chartTheme },
         title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
         xaxis: { type: 'datetime', labels: { style: { colors: '#a3acb9' } } },
         yaxis: { tooltip: { enabled: true }, labels: { formatter: (val) => val.toFixed(2) + " zł", style: { colors: '#a3acb9' } } },
