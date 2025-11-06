@@ -1,16 +1,15 @@
-// === script.js (oczyszczony, poprawiony) ===
-
+// === Firebase importy ===
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
   signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, onSnapshot, updateDoc,
-  collection, addDoc, query, orderBy, limit, Timestamp, serverTimestamp
+  getFirestore, doc, setDoc, updateDoc, onSnapshot,
+  collection, addDoc, query, orderBy, limit, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
-// --- Firebase config ---
+// === Konfiguracja Firebase ===
 const firebaseConfig = {
   apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
   authDomain: "symulator-gielda.firebaseapp.com",
@@ -20,251 +19,228 @@ const firebaseConfig = {
   appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
   measurementId: "G-BXPWNE261F"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- Market init ---
-function generateInitialCandles(count, base) {
-  const data = [];
-  let lastClose = base;
-  let t = Date.now() - count * 5000;
-  for (let i = 0; i < count; i++) {
-    const open = lastClose;
-    const close = Math.max(0.01, open + (Math.random() - 0.5) * base * 0.05);
-    const high = Math.max(open, close) + Math.random() * base * 0.02;
-    const low = Math.min(open, close) - Math.random() * base * 0.02;
-    data.push({
-      x: new Date(t),
-      y: [
-        parseFloat(open.toFixed(2)),
-        parseFloat(high.toFixed(2)),
-        parseFloat(low.toFixed(2)),
-        parseFloat(close.toFixed(2))
-      ]
-    });
-    lastClose = close;
-    t += 5000;
-  }
-  return data;
-}
+// === Zmienne globalne ===
+let currentUserId = null;
+let chart = null;
+let chartStarted = false;
 
 const market = {
-  ulanska: { name: "Ułańska Dev", price: 1.00, history: generateInitialCandles(50, 1) },
-  rychbud: { name: "RychBud", price: 1.00, history: generateInitialCandles(50, 1) },
-  igicorp: { name: "IgiCorp", price: 1.00, history: generateInitialCandles(50, 1) },
-  brzozair: { name: "BrzozAir", price: 1.00, history: generateInitialCandles(50, 1) }
+  ulanska: { name: "Ułańska Dev", price: 1.0, history: generateCandles(50, 1.0) },
+  rychbud: { name: "RychBud", price: 1.0, history: generateCandles(50, 1.0) },
+  igicorp: { name: "IgiCorp", price: 1.0, history: generateCandles(50, 1.0) },
+  brzozair: { name: "BrzozAir", price: 1.0, history: generateCandles(50, 1.0) }
 };
 
 let currentCompanyId = "ulanska";
-let portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
-let dom = {};
-let chart = null;
-let chartHasStarted = false;
-let currentUserId = null;
+let portfolio = { cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 } };
 
-// --- DOM init ---
+let dom = {};
+
+// === DOM ładowanie ===
 document.addEventListener("DOMContentLoaded", () => {
   dom = {
     authContainer: document.getElementById("auth-container"),
     simulatorContainer: document.getElementById("simulator-container"),
     loginForm: document.getElementById("login-form"),
     registerForm: document.getElementById("register-form"),
-    switchAuthLink: document.getElementById("switch-auth-link"),
-    switchToLogin: document.getElementById("switch-to-login"),
     authMessage: document.getElementById("auth-message"),
     username: document.getElementById("username"),
-    joinDate: document.getElementById("join-date"),
     logoutButton: document.getElementById("logout-button"),
     stockPrice: document.getElementById("stock-price"),
-    chartContainer: document.getElementById("chart-container"),
-    companySelector: document.getElementById("company-selector"),
     companyName: document.getElementById("company-name"),
+    companySelector: document.getElementById("company-selector"),
     cash: document.getElementById("cash"),
-    sharesList: document.getElementById("shares-list"),
     totalValue: document.getElementById("total-value"),
     totalProfit: document.getElementById("total-profit"),
     amountInput: document.getElementById("amount-input"),
     buyButton: document.getElementById("buy-button"),
     sellButton: document.getElementById("sell-button"),
-    buyMaxButton: document.getElementById("buy-max-button"),
-    sellMaxButton: document.getElementById("sell-max-button"),
     messageBox: document.getElementById("message-box"),
+    leaderboardList: document.getElementById("leaderboard-list"),
+    historyFeed: document.getElementById("history-feed"),
+    newsFeed: document.getElementById("news-feed"),
+    rumorsFeed: document.getElementById("rumors-feed"),
+    chatFeed: document.getElementById("chat-feed"),
+    chatForm: document.getElementById("chat-form"),
+    chatInput: document.getElementById("chat-input"),
     rumorForm: document.getElementById("rumor-form"),
     rumorInput: document.getElementById("rumor-input"),
     rumorCompanySelect: document.getElementById("rumor-company-select"),
-    rumorsFeed: document.getElementById("rumors-feed"),
-    newsFeed: document.getElementById("news-feed"),
-    leaderboardList: document.getElementById("leaderboard-list"),
-    historyFeed: document.getElementById("history-feed"),
-    chatForm: document.getElementById("chat-form"),
-    chatInput: document.getElementById("chat-input"),
-    chatFeed: document.getElementById("chat-feed"),
     themeToggle: document.getElementById("theme-toggle"),
-    userAvatar: document.getElementById("user-avatar")
+    chartContainer: document.getElementById("chart-container")
   };
 
-  dom.switchAuthLink?.addEventListener("click", e => { e.preventDefault(); toggleAuthForms(); });
-  dom.switchToLogin?.addEventListener("click", e => { e.preventDefault(); toggleAuthForms(); });
-
+  // Auth
+  document.getElementById("switch-auth-link")?.addEventListener("click", toggleAuthForms);
+  document.getElementById("switch-to-login")?.addEventListener("click", toggleAuthForms);
   dom.loginForm?.addEventListener("submit", onLogin);
   dom.registerForm?.addEventListener("submit", onRegister);
   dom.logoutButton?.addEventListener("click", () => signOut(auth));
 
+  // Giełda
   dom.companySelector?.addEventListener("click", onSelectCompany);
   dom.buyButton?.addEventListener("click", buyShares);
   dom.sellButton?.addEventListener("click", sellShares);
-  dom.buyMaxButton?.addEventListener("click", onBuyMax);
-  dom.sellMaxButton?.addEventListener("click", onSellMax);
   dom.rumorForm?.addEventListener("submit", onPostRumor);
   dom.chatForm?.addEventListener("submit", onSendMessage);
-  dom.themeToggle?.addEventListener("click", toggleTheme);
 
   startAuthListener();
 });
 
-// --- Auth ---
+// === Funkcje pomocnicze ===
+function toggleAuthForms(e) {
+  e.preventDefault();
+  dom.loginForm.classList.toggle("hidden");
+  dom.registerForm.classList.toggle("hidden");
+}
+
+function showAuthMessage(text, type = "info") {
+  dom.authMessage.textContent = text;
+  dom.authMessage.style.color = type === "error" ? "red" : "lime";
+}
+
+// === Rejestracja / logowanie ===
 async function onRegister(e) {
   e.preventDefault();
-  const name = document.getElementById("register-name")?.value || "Gracz";
-  const email = document.getElementById("register-email")?.value;
-  const password = document.getElementById("register-password")?.value;
-  if (!email || !password) return showAuthMessage("Uzupełnij pola.", "error");
+  const name = document.getElementById("register-name").value.trim();
+  const email = document.getElementById("register-email").value.trim();
+  const pass = document.getElementById("register-password").value;
+
+  if (!email || !pass || !name) return showAuthMessage("Wypełnij wszystkie pola", "error");
+
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
     await setDoc(doc(db, "uzytkownicy", cred.user.uid), {
-      name, email, cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
-      startValue: 1000, zysk: 0, totalValue: 1000, joinDate: Timestamp.fromDate(new Date())
+      name,
+      email,
+      cash: 1000,
+      shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
+      startValue: 1000,
+      totalValue: 1000,
+      zysk: 0,
+      joinDate: Timestamp.fromDate(new Date())
     });
-  } catch (e) { showAuthMessage("Błąd rejestracji.", "error"); }
+  } catch (err) {
+    console.error(err);
+    showAuthMessage("Błąd rejestracji", "error");
+  }
 }
 
 async function onLogin(e) {
   e.preventDefault();
-  const email = document.getElementById("login-email")?.value;
-  const password = document.getElementById("login-password")?.value;
-  if (!email || !password) return showAuthMessage("Podaj e-mail i hasło.", "error");
+  const email = document.getElementById("login-email").value.trim();
+  const pass = document.getElementById("login-password").value;
   try {
-    await signInWithEmailAndPassword(auth, email, password);
-    showAuthMessage("");
-  } catch (e) { showAuthMessage("Błędny e-mail lub hasło.", "error"); }
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    showAuthMessage("Niepoprawny e-mail lub hasło", "error");
+  }
 }
 
+// === Auth listener ===
 function startAuthListener() {
-  onAuthStateChanged(auth, user => {
+  onAuthStateChanged(auth, (user) => {
     if (user) {
       currentUserId = user.uid;
-      dom.authContainer?.classList.add("hidden");
-      dom.simulatorContainer?.classList.remove("hidden");
+      dom.authContainer.classList.add("hidden");
+      dom.simulatorContainer.classList.remove("hidden");
       initListeners();
-      if (!chartHasStarted) {
-        safeInitChart();
+      if (!chartStarted) {
+        initChart();
         startChartTicker();
-        chartHasStarted = true;
+        chartStarted = true;
       }
     } else {
       currentUserId = null;
-      dom.authContainer?.classList.remove("hidden");
-      dom.simulatorContainer?.classList.add("hidden");
-      stopListeners();
-      clearInterval(window.chartTickerInterval);
-      chartHasStarted = false;
-      chart = null;
+      dom.authContainer.classList.remove("hidden");
+      dom.simulatorContainer.classList.add("hidden");
     }
   });
 }
 
-// --- Firestore listeners ---
+// === Firebase nasłuchy ===
 function initListeners() {
-  listenToPortfolioData(currentUserId);
+  listenToPortfolio();
+  listenToLeaderboard();
   listenToRumors();
   listenToMarketNews();
-  listenToLeaderboard();
   listenToChat();
   listenToTransactions();
 }
-function stopListeners() {}
 
-// Portfolio
-function listenToPortfolioData(uid) {
-  if (!uid) return;
-  const ref = doc(db, "uzytkownicy", uid);
-  onSnapshot(ref, snap => {
+function listenToPortfolio() {
+  const ref = doc(db, "uzytkownicy", currentUserId);
+  onSnapshot(ref, (snap) => {
     if (!snap.exists()) return;
     const d = snap.data();
-    portfolio = { ...portfolio, ...d };
+    portfolio = d;
     updatePortfolioUI();
-    updateUserProfile(d);
   });
 }
 
-// Rumors
-function listenToRumors() {
-  const q = query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(8));
-  onSnapshot(q, snap => {
-    dom.rumorsFeed.innerHTML = "";
-    snap.forEach(docSnap => {
-      const r = docSnap.data();
-      const p = document.createElement("p");
-      p.textContent = `[${market[r.companyId]?.name || r.companyId}] ${r.text} — ${r.authorName || "Anonim"}`;
-      dom.rumorsFeed.prepend(p);
-      if (r.sentiment && r.companyId) applyRumorSentiment(r.companyId, r.sentiment);
-    });
-  });
-}
-
-// News
-function listenToMarketNews() {
-  const q = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(6));
-  onSnapshot(q, snap => {
-    dom.newsFeed.innerHTML = "";
-    snap.forEach(docSnap => {
-      const n = docSnap.data();
-      const p = document.createElement("p");
-      p.textContent = n.text;
-      dom.newsFeed.prepend(p);
-    });
-  });
-}
-
-// Leaderboard
 function listenToLeaderboard() {
   const q = query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10));
-  onSnapshot(q, snap => {
+  onSnapshot(q, (snap) => {
     dom.leaderboardList.innerHTML = "";
-    let rank = 1;
-    snap.forEach(docSnap => {
-      const u = docSnap.data();
+    snap.forEach((u, i) => {
+      const data = u.data();
       const li = document.createElement("li");
-      li.textContent = `${rank}. ${u.name} — ${formatujWalute(u.totalValue || 0)}`;
-      if (docSnap.id === currentUserId) li.style.fontWeight = "700";
+      li.textContent = `${i + 1}. ${data.name} — ${data.totalValue.toFixed(2)} zł`;
       dom.leaderboardList.appendChild(li);
-      rank++;
     });
   });
 }
 
-// Chat
+function listenToRumors() {
+  const q = query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(8));
+  onSnapshot(q, (snap) => {
+    dom.rumorsFeed.innerHTML = "";
+    snap.forEach((d) => {
+      const r = d.data();
+      const p = document.createElement("p");
+      p.textContent = `[${market[r.companyId]?.name || "??"}] ${r.text} — ${r.authorName}`;
+      dom.rumorsFeed.appendChild(p);
+    });
+  });
+}
+
+function listenToMarketNews() {
+  const q = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(6));
+  onSnapshot(q, (snap) => {
+    dom.newsFeed.innerHTML = "";
+    snap.forEach((d) => {
+      const n = d.data();
+      const p = document.createElement("p");
+      p.textContent = n.text;
+      dom.newsFeed.appendChild(p);
+    });
+  });
+}
+
 function listenToChat() {
   const q = query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(40));
-  onSnapshot(q, snap => {
+  onSnapshot(q, (snap) => {
     dom.chatFeed.innerHTML = "";
-    snap.docs.slice().reverse().forEach(d => {
-      const m = d.data();
+    snap.docs.reverse().forEach((m) => {
+      const d = m.data();
       const p = document.createElement("p");
-      p.textContent = `${m.authorName || "Anonim"}: ${m.text}`;
+      p.textContent = `${d.authorName}: ${d.text}`;
       dom.chatFeed.appendChild(p);
     });
-    dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
   });
 }
 
-// Transactions
 function listenToTransactions() {
-  const q = query(collection(db, "transakcje"), orderBy("timestamp", "desc"), limit(12));
-  onSnapshot(q, snap => {
+  const q = query(collection(db, "transakcje"), orderBy("timestamp", "desc"), limit(10));
+  onSnapshot(q, (snap) => {
     dom.historyFeed.innerHTML = "";
-    snap.forEach(d => {
+    snap.forEach((d) => {
       const t = d.data();
       const p = document.createElement("p");
       p.textContent = `${t.type} ${t.amount}× ${t.companyName} po ${t.price} zł`;
@@ -273,220 +249,161 @@ function listenToTransactions() {
   });
 }
 
-// --- Chart ---
-function safeInitChart(company = currentCompanyId) {
-  if (typeof ApexCharts === "undefined") { setTimeout(() => safeInitChart(company), 300); return; }
-  initChart(company);
+// === Handel ===
+function buyShares() {
+  const amount = parseInt(dom.amountInput.value || "0");
+  if (amount <= 0) return showMessage("Podaj poprawną ilość", "error");
+
+  const company = market[currentCompanyId];
+  const cost = amount * company.price;
+
+  if (cost > portfolio.cash) return showMessage("Za mało gotówki", "error");
+
+  portfolio.cash -= cost;
+  portfolio.shares[currentCompanyId] += amount;
+  updatePortfolioFirebase();
+  addTransaction("KUPNO", company.name, amount, company.price);
+  showMessage(`Kupiono ${amount} × ${company.name}`, "success");
 }
-function initChart(company = currentCompanyId) {
-  if (!dom.chartContainer) return;
-  if (chart) chart.destroy();
+
+function sellShares() {
+  const amount = parseInt(dom.amountInput.value || "0");
+  if (amount <= 0) return showMessage("Podaj poprawną ilość", "error");
+
+  const company = market[currentCompanyId];
+  if (amount > portfolio.shares[currentCompanyId]) return showMessage("Nie masz tylu akcji", "error");
+
+  portfolio.cash += amount * company.price;
+  portfolio.shares[currentCompanyId] -= amount;
+  updatePortfolioFirebase();
+  addTransaction("SPRZEDAŻ", company.name, amount, company.price);
+  showMessage(`Sprzedano ${amount} × ${company.name}`, "success");
+}
+
+async function addTransaction(type, companyName, amount, price) {
+  await addDoc(collection(db, "transakcje"), {
+    userId: currentUserId,
+    userName: portfolio.name,
+    companyName,
+    amount,
+    price,
+    type,
+    timestamp: serverTimestamp()
+  });
+}
+
+async function updatePortfolioFirebase() {
+  const total = calculateTotalValue();
+  await updateDoc(doc(db, "uzytkownicy", currentUserId), {
+    cash: portfolio.cash,
+    shares: portfolio.shares,
+    totalValue: total,
+    zysk: total - portfolio.startValue
+  });
+  updatePortfolioUI();
+}
+
+function calculateTotalValue() {
+  let value = portfolio.cash;
+  for (const c in market) {
+    value += portfolio.shares[c] * market[c].price;
+  }
+  return value;
+}
+
+// === UI ===
+function updatePortfolioUI() {
+  dom.username.textContent = portfolio.name;
+  dom.cash.textContent = `${portfolio.cash.toFixed(2)} zł`;
+  dom.totalValue.textContent = `${portfolio.totalValue?.toFixed(2) || 0} zł`;
+  dom.totalProfit.textContent = `${portfolio.zysk?.toFixed(2) || 0} zł`;
+}
+
+function showMessage(msg, type = "info") {
+  dom.messageBox.textContent = msg;
+  dom.messageBox.style.color = type === "error" ? "red" : "lime";
+}
+
+// === Plotki i czat ===
+async function onPostRumor(e) {
+  e.preventDefault();
+  const text = dom.rumorInput.value.trim();
+  const companyId = dom.rumorCompanySelect.value;
+  if (!text) return;
+  await addDoc(collection(db, "plotki"), {
+    text,
+    companyId,
+    authorName: portfolio.name,
+    timestamp: serverTimestamp()
+  });
+  dom.rumorInput.value = "";
+}
+
+async function onSendMessage(e) {
+  e.preventDefault();
+  const text = dom.chatInput.value.trim();
+  if (!text) return;
+  await addDoc(collection(db, "chat_messages"), {
+    text,
+    authorName: portfolio.name,
+    timestamp: serverTimestamp()
+  });
+  dom.chatInput.value = "";
+}
+
+// === Wykres ===
+function generateCandles(count, base) {
+  const arr = [];
+  let last = base;
+  let t = Date.now() - count * 5000;
+  for (let i = 0; i < count; i++) {
+    const open = last;
+    const close = Math.max(0.01, open + (Math.random() - 0.5) * 0.05);
+    const high = Math.max(open, close) + Math.random() * 0.02;
+    const low = Math.min(open, close) - Math.random() * 0.02;
+    arr.push({ x: new Date(t), y: [open, high, low, close].map(v => parseFloat(v.toFixed(2))) });
+    last = close;
+    t += 5000;
+  }
+  return arr;
+}
+
+function initChart() {
   const options = {
-    series: [{ data: market[company].history }],
-    chart: { type: 'candlestick', height: 350, toolbar: { show: false }, animations: { enabled: false } },
+    series: [{ data: market.ulanska.history }],
+    chart: { type: 'candlestick', height: 350, toolbar: { show: false } },
     theme: { mode: 'dark' },
     xaxis: { type: 'datetime' },
-    yaxis: { tooltip: { enabled: true } },
-    plotOptions: { candlestick: { colors: { upward: '#22c55e', downward: '#ef4444' } } }
+    yaxis: { tooltip: { enabled: true } }
   };
   chart = new ApexCharts(dom.chartContainer, options);
   chart.render();
 }
+
 function startChartTicker() {
-  clearInterval(window.chartTickerInterval);
-  window.chartTickerInterval = setInterval(() => {
+  setInterval(() => {
     for (const id in market) {
-      const c = market[id];
-      const last = c.history[c.history.length - 1];
-      const open = last.y[3];
-      const close = open + (Math.random() - 0.5) * 0.02;
-      const high = Math.max(open, close);
-      const low = Math.min(open, close);
-      c.history.push({ x: new Date(), y: [open, high, low, close].map(v => parseFloat(v.toFixed(2))) });
-      if (c.history.length > 60) c.history.shift();
+      const comp = market[id];
+      const hist = comp.history;
+      const last = hist[hist.length - 1].y[3];
+      const newClose = Math.max(0.01, last + (Math.random() - 0.5) * 0.03);
+      const newHigh = Math.max(last, newClose) + Math.random() * 0.02;
+      const newLow = Math.min(last, newClose) - Math.random() * 0.02;
+      hist.push({ x: new Date(), y: [last, newHigh, newLow, newClose] });
+      if (hist.length > 60) hist.shift();
     }
-    chart?.updateSeries([{ data: market[currentCompanyId].history }]);
+    chart.updateSeries([{ data: market[currentCompanyId].history }]);
   }, 5000);
 }
 
-// --- UI updates ---
-function formatujWalute(n) { return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(n); }
-function showAuthMessage(msg, type = "info") { dom.authMessage.textContent = msg; dom.authMessage.style.color = type === "error" ? "red" : "lime"; }
-function updatePortfolioUI() {
-  dom.username.textContent = portfolio.name;
-  dom.cash.textContent = formatujWalute(portfolio.cash);
-  dom.totalValue.textContent = formatujWalute(portfolio.totalValue);
-  dom.totalProfit.textContent = formatujWalute(portfolio.totalValue - portfolio.startValue);
-}
-function updateUserProfile(d) {
-  if (dom.userAvatar) dom.userAvatar.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(d.name || 'guest')}`;
-  if (dom.joinDate && d.joinDate) try { dom.joinDate.textContent = "Dołączył: " + d.joinDate.toDate().toLocaleDateString(); } catch (e) { }
-}
-function toggleAuthForms() {
-  const login = dom.loginForm, reg = dom.registerForm;
-  login.classList.toggle("hidden");
-  reg.classList.toggle("hidden");
-}
-function toggleTheme() {
-  const isLight = document.body.classList.toggle("light-mode");
-  dom.themeToggle.textContent = isLight ? "☀️" : "🌙";
-  localStorage.setItem("theme", isLight ? "light" : "dark");
-}
 function onSelectCompany(e) {
   const btn = e.target.closest(".company-tab");
   if (!btn) return;
   const id = btn.dataset.company;
+  if (!market[id]) return;
   currentCompanyId = id;
-  document.querySelectorAll(".company-tab").forEach(t => t.classList.toggle("active", t.dataset.company === id));
+  document.querySelectorAll(".company-tab").forEach(b => b.classList.toggle("active", b.dataset.company === id));
   dom.companyName.textContent = market[id].name;
-  chart?.updateSeries([{ data: market[id].history }]);
-  dom.stockPrice.textContent = formatujWalute(market[id].price);
-}
-function applyRumorSentiment(companyId, sentiment) {
-  if (!market[companyId]) return;
-  const impact = sentiment === "positive" ? 0.03 : -0.03;
-  market[companyId].price = Math.max(0.01, market[companyId].price * (1 + impact));
-}
-// === TRADING ACTIONS ===
-function onBuyMax() {
-  if (!currentCompanyId) return;
-  const price = market[currentCompanyId].price || 1;
-  dom.amountInput.value = Math.floor(portfolio.cash / price);
-}
-
-function onSellMax() {
-  if (!currentCompanyId) return;
-  dom.amountInput.value = portfolio.shares[currentCompanyId] || 0;
-}
-
-function buyShares() {
-  const amount = parseInt(dom.amountInput?.value || "0");
-  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
-  const price = market[currentCompanyId].price;
-  const cost = amount * price;
-  if (cost > portfolio.cash) return showMessage("Brak środków.", "error");
-
-  const newCash = portfolio.cash - cost;
-  const newShares = { ...portfolio.shares };
-  newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
-
-  const total = calculateTotalValue(newCash, newShares);
-  updatePortfolioInFirebase({
-    cash: newCash,
-    shares: newShares,
-    zysk: total - portfolio.startValue,
-    totalValue: total
-  });
-
-  showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
-  addTransaction("KUPNO", currentCompanyId, amount, price);
-}
-
-function sellShares() {
-  const amount = parseInt(dom.amountInput?.value || "0");
-  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
-  if (amount > (portfolio.shares[currentCompanyId] || 0)) return showMessage("Nie masz tylu akcji.", "error");
-
-  const price = market[currentCompanyId].price;
-  const newCash = portfolio.cash + amount * price;
-  const newShares = { ...portfolio.shares };
-  newShares[currentCompanyId] -= amount;
-
-  const total = calculateTotalValue(newCash, newShares);
-  updatePortfolioInFirebase({
-    cash: newCash,
-    shares: newShares,
-    zysk: total - portfolio.startValue,
-    totalValue: total
-  });
-
-  showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
-  addTransaction("SPRZEDAŻ", currentCompanyId, amount, price);
-}
-
-function calculateTotalValue(cash, shares) {
-  let total = cash;
-  for (const id in shares)
-    if (market[id]) total += (shares[id] || 0) * market[id].price;
-  return total;
-}
-
-async function updatePortfolioInFirebase(data) {
-  if (!currentUserId) return;
-  try {
-    await updateDoc(doc(db, "uzytkownicy", currentUserId), data);
-  } catch (e) {
-    console.error("update portfolio:", e);
-    showMessage("Błąd zapisu w bazie", "error");
-  }
-}
-
-async function addTransaction(type, companyId, amount, price) {
-  if (!currentUserId) return;
-  try {
-    await addDoc(collection(db, "transakcje"), {
-      userId: currentUserId,
-      userName: portfolio.name,
-      companyId,
-      companyName: market[companyId].name,
-      type,
-      amount,
-      price,
-      timestamp: serverTimestamp()
-    });
-  } catch (e) {
-    console.error("add transaction:", e);
-  }
-}
-
-function showMessage(msg, type = "info") {
-  if (!dom.messageBox) return;
-  dom.messageBox.textContent = msg;
-  dom.messageBox.style.color = type === "error" ? "red" : "lime";
-}
-function buyShares() {
-  const amount = parseInt(dom.amountInput?.value || "0");
-  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
-
-  const price = market[currentCompanyId].price;
-  const cost = amount * price;
-
-  if (cost > portfolio.cash) return showMessage("Brak środków.", "error");
-
-  const newCash = portfolio.cash - cost;
-  const newShares = { ...portfolio.shares };
-  newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
-
-  const total = calculateTotalValue(newCash, newShares);
-
-  updatePortfolioInFirebase({
-    cash: newCash,
-    shares: newShares,
-    zysk: total - portfolio.startValue,
-    totalValue: total
-  });
-
-  showMessage(`Kupiono ${amount} × ${market[currentCompanyId].name}`, "success");
-}
-
-function sellShares() {
-  const amount = parseInt(dom.amountInput?.value || "0");
-  if (!amount || amount <= 0) return showMessage("Wpisz poprawną ilość.", "error");
-  if (amount > (portfolio.shares[currentCompanyId] || 0)) return showMessage("Nie masz tylu akcji.", "error");
-
-  const price = market[currentCompanyId].price;
-  const newCash = portfolio.cash + amount * price;
-  const newShares = { ...portfolio.shares };
-  newShares[currentCompanyId] -= amount;
-
-  const total = calculateTotalValue(newCash, newShares);
-
-  updatePortfolioInFirebase({
-    cash: newCash,
-    shares: newShares,
-    zysk: total - portfolio.startValue,
-    totalValue: total
-  });
-
-  showMessage(`Sprzedano ${amount} × ${market[currentCompanyId].name}`, "success");
+  dom.stockPrice.textContent = `${market[id].price.toFixed(2)} zł`;
+  chart.updateSeries([{ data: market[id].history }]);
 }
