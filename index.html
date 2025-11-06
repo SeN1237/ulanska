@@ -150,20 +150,6 @@
                     <li>...ładowanie rankingu...</li>
                 </ol>
             </section>
-            
-            <section id="global-history-panel" class="panel">
-                <h2>Globalna Historia Transakcji</h2>
-                <div id="global-history-feed" class="feed-box history-feed">
-                    <p>...ładowanie transakcji...</p>
-                </div>
-            </section>
-
-            <section id="personal-history-panel" class="panel">
-                <h2>Moja Historia Transakcji</h2>
-                <div id="personal-history-feed" class="feed-box history-feed">
-                    <p>...ładowanie transakcji...</p>
-                </div>
-            </section>
                 
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
@@ -174,6 +160,23 @@
                     <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
                     <button type="submit">Wyślij</button>
                 </form>
+            </section>
+
+            <section id="global-history-panel" class="panel">
+                <h2>Globalna Historia Transakcji</h2>
+                <div id="global-history-feed" class="feed-box history-feed">
+                    <p>...ładowanie transakcji...</p>
+                </div>
+            </section>
+
+            <section id="personal-history-panel" class="panel">
+                <div class="panel-header-with-button">
+                    <h2>Moja Historia Transakcji</h2>
+                    <button id="clear-history-button" class="clear-btn" title="Wyczyść moją historię">Wyczyść</button>
+                </div>
+                <div id="personal-history-feed" class="feed-box history-feed">
+                    <p>...ładowanie transakcji...</p>
+                </div>
             </section>
 
         </div> </div> <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
