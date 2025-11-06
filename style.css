@@ -461,4 +461,30 @@ button:active { transform: scale(0.98); }
         flex-direction: column; /* Ustawiamy kontrolki pionowo */
         align-items: stretch; /* Rozciągamy na całą szerokość */
     }
+
+    .label-with-max {
+    /* Ustawiamy na 2 kolumny, tak jak był <label> */
+    grid-column: 1 / 3; 
+    display: flex;
+    justify-content: space-between; /* "Ilość:" po lewej, "MAX" po prawej */
+    align-items: baseline; /* Wyrównuje tekst */
+    font-size: 0.9em;
+    color: var(--text-muted);
+    }
+
+    .max-btn {
+    background: none;
+    border: 1px solid var(--accent-color); /* Używamy złotego koloru */
+    color: var(--accent-color);
+    padding: 2px 8px; /* Mały przycisk */
+    font-size: 0.8em;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    }
+    .max-btn:hover {
+    background: rgba(255, 193, 7, 0.1); /* Lekka złota poświata */
+    }
+    .max-btn:active {
+    transform: scale(0.97); /* Lekkie wciśnięcie */
 }
