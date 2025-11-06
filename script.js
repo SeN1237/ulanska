@@ -9,7 +9,7 @@ import {
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, Timestamp, 
     serverTimestamp, where, 
-    getDocs, writeBatch // <-- NOWE IMPORTY
+    getDocs, writeBatch // Importy są poprawne dla nowej logiki
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -179,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
-        clearHistoryButton: document.getElementById("clear-history-button"), // <-- NOWY PRZYCISK
+        clearHistoryButton: document.getElementById("clear-history-button"),
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
-    dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory); // <-- NOWY LISTENER
+    dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory);
 
     dom.showRegisterLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -516,7 +516,8 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
         amount: amount,
         pricePerShare: pricePerShare,
         totalValue: amount * pricePerShare,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        clearedByOwner: false // Nowa flaga, domyślnie widoczne
     };
     
     try {
@@ -529,6 +530,7 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
 function listenToGlobalHistory() {
     if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
     
+    // Zapytanie globalne POZOSTAJE BEZ ZMIAN - ignoruje flagę 'clearedByOwner'
     const historyQuery = query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15));
     
     unsubscribeGlobalHistory = onSnapshot(historyQuery, (querySnapshot) => {
@@ -540,12 +542,14 @@ function listenToGlobalHistory() {
     }, (error) => { console.error("Błąd nasłuchu historii globalnej: ", error); });
 }
 
+// === ZAKTUALIZOWANA FUNKCJA ===
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
-        where("userId", "==", userId), 
+        where("userId", "==", userId),
+        where("clearedByOwner", "!=", true), // <-- KLUCZOWA ZMIANA: Pokazuj tylko nieukryte
         orderBy("timestamp", "desc"), 
         limit(15)
     );
@@ -590,43 +594,47 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     feedElement.prepend(p);
 }
 
-// === NOWA FUNKCJA DO CZYSZCZENIA HISTORII ===
+// === ZAKTUALIZOWANA FUNKCJA DO CZYSZCZENIA HISTORII ===
 async function onClearPersonalHistory() {
     if (!currentUserId) return;
 
     // 1. Potwierdzenie
-    if (!confirm("Czy na pewno chcesz trwale usunąć CAŁĄ swoją historię transakcji? Tej operacji nie można cofnąć.")) {
+    if (!confirm("Czy na pewno chcesz wyczyścić swoją historię transakcji? Zostaną one ukryte z Twojego widoku, ale pozostaną w globalnym rejestrze.")) {
         return;
     }
 
-    console.log("Rozpoczynam usuwanie historii dla użytkownika: ", currentUserId);
+    console.log("Rozpoczynam oznaczanie historii jako ukrytej dla: ", currentUserId);
     
     try {
-        // 2. Znajdź wszystkie dokumenty historii dla tego użytkownika
-        const q = query(collection(db, "historia_transakcji"), where("userId", "==", currentUserId));
+        // 2. Znajdź wszystkie DOKUMENTY, które *nie są* jeszcze oznaczone
+        const q = query(
+            collection(db, "historia_transakcji"), 
+            where("userId", "==", currentUserId),
+            where("clearedByOwner", "!=", true) // Znajdź tylko te, które są widoczne
+        );
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            console.log("Brak historii do usunięcia.");
+            console.log("Brak historii do wyczyszczenia.");
             return;
         }
 
-        // 3. Utwórz 'batch' do usunięcia wielu dokumentów na raz
+        // 3. Utwórz 'batch' do zaktualizowania
         const batch = writeBatch(db);
         querySnapshot.forEach((doc) => {
-            batch.delete(doc.ref); // Dodaj każdy dokument do usunięcia
+            // Użyj .update() zamiast .delete()
+            batch.update(doc.ref, { clearedByOwner: true }); // Ustaw flagę na true
         });
 
-        // 4. Wykonaj usunięcie
+        // 4. Wykonaj aktualizację
         await batch.commit();
 
-        console.log("Pomyślnie usunięto historię osobistą.");
+        console.log("Pomyślnie ukryto historię osobistą.");
         // Listener `listenToPersonalHistory` automatycznie odświeży widok
         
     } catch (error) {
-        console.error("Błąd podczas usuwania historii osobistej: ", error);
-        // Pokaż błąd w panelu zleceń, bo jest pod ręką
-        showMessage("Błąd podczas usuwania historii. Sprawdź konsolę.", "error");
+        console.error("Błąd podczas czyszczenia historii osobistej: ", error);
+        showMessage("Błąd podczas czyszczenia historii. Sprawdź konsolę.", "error");
     }
 }
 
