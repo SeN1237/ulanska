@@ -2,7 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
     getAuth, onAuthStateChanged, createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, signOut 
+    signInWithEmailAndPassword, signOut,
+    sendPasswordResetEmail // <-- DODANO (Reset Hasła)
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
 import { 
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
@@ -66,7 +67,7 @@ let portfolio = {
 let chart = null;
 let currentUserId = null;
 let chartHasStarted = false; 
-let initialNewsLoaded = false; // <-- DODANO (Dźwięk Newsów)
+let initialNewsLoaded = false; 
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
@@ -129,6 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loginForm: document.getElementById("login-form"),
         registerForm: document.getElementById("register-form"),
         authMessage: document.getElementById("auth-message"),
+        resetPasswordLink: document.getElementById("reset-password-link"), // <-- DODANO (Reset Hasła)
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         cash: document.getElementById("cash"),
@@ -167,6 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.sellButton.addEventListener("click", sellShares);
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.ytForm.addEventListener("submit", onYouTubeLoad);
+    dom.resetPasswordLink.addEventListener("click", onResetPassword); // <-- DODANO (Reset Hasła)
 
     // 3. Uruchom główną pętlę aplikacji
     startAuthListener();
@@ -213,7 +216,7 @@ function startAuthListener() {
             
             chartHasStarted = false; 
             chart = null;            
-            initialNewsLoaded = false; // <-- DODANO (Dźwięk Newsów)
+            initialNewsLoaded = false; 
             
             if (ytPlayer) {
                 ytPlayer.destroy();
@@ -263,12 +266,31 @@ async function onRegister(e) {
     }
 }
 
+// === FUNKCJA LOGOWANIA (WERSJA Z ODBLOKOWANIEM DŹWIĘKU) ===
 async function onLogin(e) {
     e.preventDefault();
+    
+    // --- NOWA LOGIKA "ODBLOKOWANIA" DŹWIĘKU ---
+    try {
+        if (dom.audioKaching) dom.audioKaching.play();
+        if (dom.audioKaching) dom.audioKaching.pause();
+        
+        if (dom.audioError) dom.audioError.play();
+        if (dom.audioError) dom.audioError.pause();
+        
+        if (dom.audioNews) dom.audioNews.play();
+        if (dom.audioNews) dom.audioNews.pause();
+    } catch (err) {
+        console.log("Nie udało się odblokować audio (być może już odblokowane).");
+    }
+    // --- KONIEC NOWEJ LOGIKI ---
+
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
+    
     try {
         await signInWithEmailAndPassword(auth, email, password);
+        // Logowanie udane, reszta dzieje się w 'startAuthListener'
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
@@ -279,6 +301,27 @@ function onLogout() { signOut(auth); }
 function showAuthMessage(message, type = "info") {
     dom.authMessage.textContent = message;
     dom.authMessage.style.color = (type === "error") ? "var(--red)" : "var(--green)";
+}
+
+// --- NOWA FUNKCJA DO RESETOWANIA HASŁA ---
+async function onResetPassword(e) {
+    e.preventDefault();
+    
+    // Pobieramy e-mail wpisany w polu logowania
+    const email = dom.loginForm.querySelector("#login-email").value;
+
+    if (!email) {
+        showAuthMessage("Wpisz swój e-mail w polu logowania, aby zresetować hasło.", "error");
+        return;
+    }
+
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showAuthMessage("Link do resetowania hasła został wysłany na Twój e-mail!", "success"); // Użyj 'success'
+    } catch (error) {
+        console.error("Błąd wysyłania resetu hasła:", error);
+        showAuthMessage("Błąd: " + error.message, "error");
+    }
 }
 
 
@@ -295,8 +338,6 @@ function listenToPortfolioData(userId) {
             portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
             portfolio.startValue = data.startValue;
             
-            // Przeliczanie wartości portfela przeniesione do updatePortfolioUI,
-            // aby zawsze bazowało na najnowszych cenach z 'market'
             updatePortfolioUI();
         } else {
             console.error("Błąd: Nie znaleziono danych użytkownika!");
@@ -348,7 +389,7 @@ function listenToMarketNews() {
         if (newItemsAdded && dom.audioNews) {
             console.log("Nowy news! Odtwarzam dźwięk.");
             dom.audioNews.currentTime = 0;
-            dom.audioNews.play();
+            dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio (news)"));
         }
 
         // Krok 3: Przerusuj listę
@@ -427,23 +468,18 @@ function listenToLeaderboard() {
             const user = doc.data();
             const li = document.createElement("li");
 
-            // --- NOWA LOGIKA ---
-            // Sprawdź, czy ID użytkownika z rankingu to my
             if (doc.id === currentUserId) {
                 li.classList.add("highlight-me");
             }
-            // --- KONIEC NOWEJ LOGIKI ---
             
             const nameSpan = document.createElement("span");
             nameSpan.textContent = `${rank}. ${user.name}`;
             
             const valueStrong = document.createElement("strong");
-            // Użyj formatowania waluty
             valueStrong.textContent = formatujWalute(user.totalValue || 0);
             
             const profit = (user.totalValue || 0) - (user.startValue || 100);
             const profitSmall = document.createElement("small");
-            // Użyj formatowania waluty
             profitSmall.textContent = `Zysk: ${formatujWalute(profit)}`;
             profitSmall.style.color = profit > 0 ? "var(--green)" : (profit < 0 ? "var(--red)" : "var(--text-muted)");
             
@@ -613,6 +649,7 @@ window.onYouTubeIframeAPIReady = function() {
     if (currentUserId) { initYouTubePlayer(); }
 };
 
+// === FUNKCJA YOUTUBE (WERSJA Z POPRAWKĄ 'ORIGIN') ===
 function initYouTubePlayer(videoId = '5qap5aO4i9A') {
     if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
         ytPlayer.loadVideoById(videoId);
@@ -626,7 +663,11 @@ function initYouTubePlayer(videoId = '5qap5aO4i9A') {
                 playerVars: {
                     'playsinline': 1,
                     'autoplay': 1,
-                    'controls': 1
+                    'controls': 1,
+                    // ======================================================
+                    // DODANO (Poprawka błędu 'postMessage')
+                    'origin': 'https://sen1237.github.io'
+                    // ======================================================
                 }
             });
         }
@@ -708,32 +749,27 @@ function updatePriceUI() {
     const company = market[currentCompanyId];
     if (!company) return;
     
-    // Usuń 'zł' i przekonwertuj na liczbę (uwzględniając polski format)
     const oldPriceText = dom.stockPrice.textContent.replace(/\s*zł/g, '').replace(',', '.').replace(/\s/g, '');
     const oldPrice = parseFloat(oldPriceText);
 
-    // Użyj nowej funkcji formatującej
     dom.stockPrice.textContent = formatujWalute(company.price);
     
-    // Logika migotania
     if (company.price > oldPrice) {
-        dom.stockPrice.classList.remove('flash-red'); // Usuń starą klasę
-        dom.stockPrice.classList.add('flash-green'); // Dodaj nową
+        dom.stockPrice.classList.remove('flash-red'); 
+        dom.stockPrice.classList.add('flash-green'); 
     } else if (company.price < oldPrice) {
         dom.stockPrice.classList.remove('flash-green');
         dom.stockPrice.classList.add('flash-red');
     }
-    // Automatycznie usuń klasę po zakończeniu animacji
     dom.stockPrice.addEventListener('animationend', () => {
         dom.stockPrice.classList.remove('flash-green', 'flash-red');
-    }, { once: true }); // 'once: true' automatycznie usuwa listener
+    }, { once: true }); 
 }
 
 // === FUNKCJA PORTFELA (WERSJA Z FORMATOWANIEM) ===
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     dom.username.textContent = portfolio.name;
-    // Użyj nowej funkcji formatującej
     dom.cash.textContent = formatujWalute(portfolio.cash);
     
     dom.sharesList.innerHTML = `
@@ -749,7 +785,6 @@ function updatePortfolioUI() {
     portfolio.totalValue = totalValue;
     portfolio.zysk = totalProfit;
 
-    // Użyj nowej funkcji formatującej
     dom.totalValue.textContent = formatujWalute(totalValue);
     dom.totalProfit.textContent = formatujWalute(totalProfit);
     
@@ -768,10 +803,10 @@ function showMessage(message, type) {
 
     // Odtwórz odpowiedni dźwięk
     if (type === "error" && dom.audioError) {
-        dom.audioError.currentTime = 0; // Przewiń na początek
+        dom.audioError.currentTime = 0; 
         dom.audioError.play().catch(e => console.log("Błąd odtwarzania audio"));
     } else if (type === "success" && dom.audioKaching) {
-        dom.audioKaching.currentTime = 0; // Przewiń na początek
+        dom.audioKaching.currentTime = 0; 
         dom.audioKaching.play().catch(e => console.log("Błąd odtwarzania audio"));
     }
 }
