@@ -89,7 +89,10 @@
             <aside id="order-panel" class="panel">
                 <h2>Panel Zleceń</h2>
                 <div class="actions">
-                    <label for="amount-input">Ilość:</label>
+                    <div class="label-with-max">
+    <label for="amount-input">Ilość:</label>
+    <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
+</div>
                     <input type="number" id="amount-input" placeholder="0" min="1">
                     <button id="buy-button">KUP</button>
                     <button id="sell-button">SPRZEDAJ</button>
