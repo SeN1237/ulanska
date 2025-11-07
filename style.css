@@ -366,7 +366,7 @@ body[data-theme="dark"] #logout-button:hover {
         "market order"
         "rumors leaderboard"
         "chat chat"
-        "history_global history_personal"; 
+        "history history"; /* ZMIANA: Jeden obszar na zakładki */
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -375,8 +375,7 @@ body[data-theme="dark"] #logout-button:hover {
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
 #chat-panel { grid-area: chat; }
-#global-history-panel { grid-area: history_global; }
-#personal-history-panel { grid-area: history_personal; }
+#history-tabs-panel { grid-area: history; } /* ZMIANA */
 
 
 .panel {
@@ -438,6 +437,46 @@ body[data-theme="dark"] .clear-btn:hover {
 #chart-container { width: 100%; min-height: 300px; }
 
 /* Panel Portfela */
+#portfolio-chart-container {
+    min-height: 150px;
+    margin-bottom: 15px;
+}
+/* Ustawienie portfela w dwóch kolumnach na większych ekranach */
+@media (min-width: 801px) {
+    #portfolio-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 
+            "header header"
+            "chart list"
+            "chart cash"
+            "chart hr1"
+            "chart shares_header"
+            "chart shares"
+            "chart hr2"
+            "chart total"
+            "chart profit";
+        gap: 0 20px; /* 0 odstępu pionowego, 20px poziomego */
+        align-content: start;
+    }
+    #portfolio-panel h2 { grid-area: header; }
+    #portfolio-chart-container { grid-area: chart; min-height: 300px; margin-bottom: 0; }
+    #portfolio-panel > p:nth-of-type(1) { grid-area: cash; margin: 0; } /* Gotówka */
+    #portfolio-panel > hr:nth-of-type(1) { grid-area: hr1; }
+    /* Ten div jest generowany przez JS, ale dodajemy styl, jakby był */
+    #shares-list { grid-area: shares; }
+    #portfolio-panel > hr:nth-of-type(2) { grid-area: hr2; }
+    #portfolio-panel > p:nth-of-type(2) { grid-area: total; margin: 5px 0; } /* Wartość */
+    #portfolio-panel > p:nth-of-type(3) { grid-area: profit; margin: 5px 0; } /* Zysk */
+}
+@media (min-width: 1200px) {
+    /* Na bardzo dużych ekranach, pozwól wykresowi być większym */
+    #portfolio-panel {
+        grid-template-columns: 1.5fr 1fr;
+    }
+}
+
+
 #portfolio-panel p {
     margin: 10px 0; font-size: 1.1em;
     display: flex; justify-content: space-between;
@@ -457,6 +496,66 @@ body[data-theme="dark"] .clear-btn:hover {
 
 
 /* Panel Zleceń */
+.order-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin: -20px -20px 20px -20px; /* Rozciągnij na całą szerokość panelu */
+}
+.order-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+.order-tab-btn:hover {
+    color: var(--text-color);
+}
+.order-tab-btn.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+}
+.order-container {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+.order-container.active {
+    display: flex;
+}
+#limit-order-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#limit-order-form label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+#limit-order-form input, #limit-order-form select {
+    padding: 10px; 
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    border-radius: 4px; 
+    font-size: 1.1em;
+}
+#limit-order-button {
+    background-color: var(--accent-color);
+    color: white;
+}
+body[data-theme="dark"] #limit-order-button:hover {
+    box-shadow: 0 0 10px var(--accent-color);
+}
+body[data-theme="light"] #limit-order-button {
+    color: #111;
+}
+
 .actions {
     display: grid; 
     grid-template-columns: 1fr 1fr; 
@@ -477,7 +576,9 @@ body[data-theme="dark"] .clear-btn:hover {
     border-radius: 4px; 
     font-size: 1.1em;
 }
-body[data-theme="dark"] #amount-input:focus {
+body[data-theme="dark"] #amount-input:focus,
+body[data-theme="dark"] #limit-order-form input:focus,
+body[data-theme="dark"] #limit-order-form select:focus {
     border-color: var(--blue);
     box-shadow: 0 0 8px var(--blue);
     outline: none;
@@ -660,7 +761,7 @@ body[data-theme="dark"] #rumor-form button:hover {
 #company-selector {
     display: flex;
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 15px;
+    margin: -20px -20px 15px -20px; /* Rozciągnij na całą szerokość panelu */
     flex-wrap: wrap;
 }
 .company-tab {
@@ -673,6 +774,8 @@ body[data-theme="dark"] #rumor-form button:hover {
     font-weight: bold;
     border-bottom: 3px solid transparent;
     transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    flex-grow: 1; /* Aby zakładki wypełniły przestrzeń */
+    text-align: center;
 }
 .company-tab:hover {
     color: var(--text-color);
@@ -713,6 +816,19 @@ body[data-theme="dark"] .company-tab.active {
 #chat-feed p.my-message strong {
     color: var(--accent-color);
 }
+/* NOWY: Klikalna nazwa użytkownika */
+.clickable-user {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: text-decoration-color 0.2s ease;
+}
+.clickable-user:hover {
+    text-decoration-color: var(--blue);
+}
+#chat-feed p.my-message .clickable-user:hover {
+    text-decoration-color: var(--accent-color);
+}
 
 #chat-form {
     display: flex;
@@ -741,9 +857,47 @@ body[data-theme="dark"] #chat-form button:hover {
     box-shadow: 0 0 10px var(--green);
 }
 
+/* --- STYLE DLA PANELU ZAKŁADEK (Historia i Zlecenia) --- */
+.tab-buttons {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin: -20px -20px 0 -20px; /* Rozciągnij na całą szerokość panelu */
+    flex-wrap: wrap;
+}
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+.tab-btn:hover {
+    color: var(--text-color);
+}
+.tab-btn.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+body[data-theme="dark"] .tab-btn.active {
+    text-shadow: 0 0 5px var(--accent-color);
+}
+.tab-content {
+    display: none;
+    padding-top: 20px;
+}
+.tab-content.active {
+    display: block;
+}
+
+
 /* --- STYLE DLA HISTORII TRANSAKCJI --- */
 .history-feed {
-    max-height: 150px;
+    max-height: 200px;
     font-style: normal;
 }
 .history-feed p {
@@ -774,6 +928,57 @@ body[data-theme="dark"] #chat-form button:hover {
     font-style: italic;
     flex-basis: 100%;
     text-align: right;
+}
+
+/* --- NOWE STYLE DLA ZLECEŃ LIMIT --- */
+#limit-orders-feed {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.limit-order-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+.limit-order-table th, .limit-order-table td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+.limit-order-table th {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+.l-type-buy { color: var(--green); font-weight: bold; }
+.l-type-sell { color: var(--red); font-weight: bold; }
+.l-status-pending { color: var(--blue); font-style: italic; }
+.l-status-executed { color: var(--green); }
+.l-status-cancelled { color: var(--text-muted); text-decoration: line-through; }
+
+.cancel-order-btn {
+    background: none;
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 3px 8px;
+    font-size: 0.9em;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+.cancel-order-btn:hover {
+    background: rgba(220, 53, 69, 0.1);
+    opacity: 1;
+}
+.cancel-order-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+.cancel-order-btn:disabled:hover {
+    background: none;
 }
 
 
@@ -832,19 +1037,29 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
             "rumors"
             "leaderboard"
             "chat"
-            "history_global"
-            "history_personal";
+            "history"; /* ZMIANA */
         gap: 15px; 
+    }
+    
+    /* Resetowanie grida portfela na mobilkach */
+    #portfolio-panel {
+        display: block;
+    }
+    #portfolio-chart-container {
+        min-height: 200px; /* Mniejszy wykres */
     }
 
     #auth-container { width: 100%; padding: 0; gap: 15px; }
     header h1 { font-size: 1.5em; } 
     h2, h3 { font-size: 1.1em; }
     #price-container { font-size: 1.3em; }
-    .company-tab { padding: 8px 10px; font-size: 0.9em; }
+    .company-tab { padding: 8px 10px; font-size: 0.8em; }
+    .tab-btn { font-size: 0.9em; }
+    .order-tab-btn { font-size: 0.8em; }
     #rumor-controls { flex-direction: column; align-items: stretch; }
     
     .history-feed { max-height: 200px; }
+    .limit-order-table { font-size: 0.8em; }
 }
 
 
@@ -937,5 +1152,105 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     to {
         opacity: 0;
         transform: translateX(-100%);
+    }
+}
+
+/* =================================== */
+/* === SEKCJA 10: MODAL PROFILU UŻYTKOWNIKA === */
+/* =================================== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9990;
+    animation: fadeInModal 0.3s ease;
+}
+.modal-overlay.hidden {
+    display: none;
+}
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.modal-content {
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideInModal 0.3s ease-out;
+}
+@keyframes slideInModal {
+    from { transform: translateY(-30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 2.5em;
+    font-weight: bold;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+}
+.modal-close:hover {
+    color: var(--red);
+}
+
+.modal-body {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 20px;
+    margin: 20px 0;
+}
+#modal-portfolio-chart-container {
+    min-height: 250px;
+}
+#modal-stats p {
+    margin: 10px 0;
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+}
+#modal-stats p strong {
+    color: var(--text-color);
+}
+#modal-shares-list {
+    max-height: 150px;
+    overflow-y: auto;
+}
+#modal-shares-list p {
+    font-style: normal;
+    display: flex;
+    justify-content: space-between;
+    font-size: 1em;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 5px;
+    margin: 5px 0;
+}
+#modal-shares-list p strong {
+    color: var(--text-muted);
+}
+#modal-total-profit[data-profit-sign="positive"] {
+    color: var(--green);
+}
+#modal-total-profit[data-profit-sign="negative"] {
+    color: var(--red);
+}
+
+@media (max-width: 600px) {
+    .modal-body {
+        grid-template-columns: 1fr;
     }
 }
