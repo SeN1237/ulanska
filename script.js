@@ -1222,16 +1222,16 @@ async function onBuyBond(e) {
     
     if (type === "1") {
         days = 1;
-        returnRate = 0.25; // 25%
-        bondName = "Obligacja 1-dniowa (25%)";
+        returnRate = 0.05; // 5%
+        bondName = "Obligacja 1-dniowa (5%)";
     } else if (type === "2") {
         days = 2;
-        returnRate = 0.60; // 60%
-        bondName = "Obligacja 2-dniowa (60%)";
+        returnRate = 0.10; // 10%
+        bondName = "Obligacja 2-dniowa (10%)";
     } else { // type === "3"
         days = 3;
-        returnRate = 1.20; // 120%
-        bondName = "Obligacja 3-dniowa (120%)";
+        returnRate = 0.15; // 15%
+        bondName = "Obligacja 3-dniowa (15%)";
     }
 
     profit = amount * returnRate;
