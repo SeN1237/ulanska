@@ -294,6 +294,82 @@ body[data-theme="dark"] #logout-button:hover {
     box-shadow: 0 0 10px var(--red);
 }
 
+
+/* =================================== */
+/* === SEKCJA 3.5: PASEK GIEŁDOWY (TICKER) === */
+/* =================================== */
+.ticker-wrap {
+    width: 100%;
+    overflow: hidden;
+    background-color: var(--panel-color); /* Pasuje do motywu */
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px 0;
+    box-sizing: border-box;
+    margin-bottom: 20px; /* Odstęp od siatki */
+}
+
+#ticker-content {
+    display: inline-block; /* Ważne dla animacji */
+    white-space: nowrap; /* Zapobiega łamaniu linii */
+    
+    /* Ustaw pozycję startową na -50% (dla płynnej pętli) */
+    transform: translateX(-50%);
+    /* Animacja: 60s, liniowa, nieskończona */
+    animation: ticker-scroll-right 60s linear infinite; 
+}
+
+/* Wstrzymaj animację po najechaniu */
+#ticker-content:hover {
+    animation-play-state: paused;
+}
+
+.ticker-item {
+    display: inline-block;
+    padding: 0 20px;
+    font-size: 1.1em;
+    color: var(--text-muted);
+    border-right: 1px solid var(--border-color);
+}
+.ticker-item strong {
+    color: var(--text-color);
+    margin-left: 8px;
+    margin-right: 5px;
+}
+.ticker-up {
+    color: var(--green) !important;
+    font-weight: bold;
+}
+.ticker-down {
+    color: var(--red) !important;
+    font-weight: bold;
+}
+
+/* Definicja animacji przewijania (Z LEWEJ DO PRAWEJ) */
+@keyframes ticker-scroll-right {
+    0% {
+        transform: translateX(-50%); /* Start w połowie (na złączeniu) */
+    }
+    100% {
+        transform: translateX(0); /* Koniec na początku */
+    }
+}
+
+/* Na mobilce ticker może być za duży */
+@media (max-width: 800px) {
+    .ticker-item {
+        font-size: 0.9em;
+        padding: 0 15px;
+    }
+    #ticker-content {
+        animation-duration: 40s;
+    }
+}
+/* =================================== */
+/* ======== KONIEC SEKCJI 3.5 ======== */
+/* =================================== */
+
+
 /* === ZAKTUALIZOWANA SIATKA (GRID) === */
 .grid-container {
     display: grid;
@@ -303,7 +379,7 @@ body[data-theme="dark"] #logout-button:hover {
         "market order"
         "rumors leaderboard"
         "chat chat"
-        "history_global history_personal"; /* <-- Historia jest na dole */
+        "history_global history_personal"; 
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -334,12 +410,12 @@ h2, h3 {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
-    margin-bottom: 15px; /* Zastępuje margines .feed-box */
+    margin-bottom: 15px; 
 }
 .panel-header-with-button h2 {
-    border-bottom: none; /* Usuwamy podwójną ramkę */
-    margin-bottom: 0; /* h2 już nie ma marginesu */
-    padding-bottom: 10px; /* Zachowujemy odstęp */
+    border-bottom: none; 
+    margin-bottom: 0; 
+    padding-bottom: 10px; 
 }
 .clear-btn {
     background: none;
@@ -378,19 +454,18 @@ body[data-theme="dark"] .clear-btn:hover {
 #portfolio-panel p {
     margin: 10px 0; font-size: 1.1em;
     display: flex; justify-content: space-between;
-    align-items: center; /* <-- Dodane dla lepszego wyrównania */
+    align-items: center; 
 }
 #portfolio-panel hr {
     border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
 }
 #total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
 
-/* <-- POPRAWKA: Style dla animacji Wartości Portfela */
 #total-value {
     transition: color 0.3s ease, background-color 0.3s ease, text-shadow 0.3s ease; 
     padding: 2px 6px;
     border-radius: 4px;
-    margin-left: 5px; /* Drobny odstęp */
+    margin-left: 5px; 
 }
 
 
