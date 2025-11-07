@@ -297,11 +297,21 @@ body[data-theme="dark"] .clear-btn:hover {
 #portfolio-panel p {
     margin: 10px 0; font-size: 1.1em;
     display: flex; justify-content: space-between;
+    align-items: center; /* <-- Dodane dla lepszego wyrównania */
 }
 #portfolio-panel hr {
     border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
 }
 #total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
+
+/* <-- POPRAWKA: Style dla animacji Wartości Portfela */
+#total-value {
+    transition: color 0.3s ease, background-color 0.3s ease, text-shadow 0.3s ease; 
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px; /* Drobny odstęp */
+}
+
 
 /* Panel Zleceń */
 .actions {
