@@ -96,6 +96,20 @@ let chart = null;
 let portfolioChart = null; // NOWY: Wykres kołowy portfela
 let modalPortfolioChart = null; // NOWY: Wykres kołowy dla modala
 let currentUserId = null;
+
+// POPRAWKA (Pie Chart): Stałe do wykresów kołowych
+const COMPANY_ORDER = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
+const CHART_COLORS = [
+    'var(--blue)', // Gotówka (zawsze pierwszy)
+    '#FF6384',     // ulanska
+    '#36A2EB',     // rychbud
+    '#FFCE56',     // igicorp
+    '#4BC0C0',     // brzozair
+    '#9966FF',     // cosmosanit
+    '#FF9F40',     // gigachat
+    '#C9CBCF'      // bimbercfd
+];
+
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
 let initialChatLoaded = false; 
@@ -569,7 +583,7 @@ function listenToRumors() {
         dom.rumorsFeed.innerHTML = "";
         querySnapshot.forEach((doc, index) => {
             const rumor = doc.data();
-            displayNewRumor(rumor.text, rumor.authorName, rumor.sentiment, rumor.companyId);
+            displayNewRumor(rumor.text, rumor.authorName, rumor.sentiment, rumor.companyId, rumor.authorId);
         });
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
@@ -1079,6 +1093,9 @@ async function onCancelLimitOrder(e) {
     }
 }
 
+// ====================================================================
+// === POPRAWIONA FUNKCJA USUWANIA ZLECEŃ (Fix na błąd uprawnień) ===
+// ====================================================================
 async function onClearLimitOrders() {
     if (!currentUserId) return;
     if (!confirm("Czy na pewno chcesz usunąć z widoku wszystkie zlecenia, które zostały wykonane lub anulowane?")) {
@@ -1086,32 +1103,44 @@ async function onClearLimitOrders() {
     }
 
     try {
-        const q = query(
+        // Zamiast zapytania '!=' (które jest złe dla uprawnień), robimy 2 osobne zapytania
+        const qExecuted = query(
             collection(db, "limit_orders"), 
             where("userId", "==", currentUserId),
-            where("status", "!=", "pending") // Pobierz wszystkie NIE-oczekujące
+            where("status", "==", "executed")
         );
-        const querySnapshot = await getDocs(q);
+        const qCancelled = query(
+            collection(db, "limit_orders"), 
+            where("userId", "==", currentUserId),
+            where("status", "==", "cancelled")
+        );
 
-        if (querySnapshot.empty) {
+        // Wykonujemy oba zapytania równolegle
+        const [executedSnapshot, cancelledSnapshot] = await Promise.all([
+            getDocs(qExecuted),
+            getDocs(qCancelled)
+        ]);
+
+        if (executedSnapshot.empty && cancelledSnapshot.empty) {
             showMessage("Brak zleceń do wyczyszczenia.", "info");
             return;
         }
 
         const batch = writeBatch(db);
-        querySnapshot.forEach((doc) => {
-            batch.delete(doc.ref); // Usuń dokument
-        });
+        
+        // Dodajemy do usunięcia wszystkie znalezione dokumenty
+        executedSnapshot.forEach((doc) => batch.delete(doc.ref));
+        cancelledSnapshot.forEach((doc) => batch.delete(doc.ref));
 
         await batch.commit();
         showMessage("Wyczyszczono zakończone zlecenia.", "success");
 
     } catch (error) {
         console.error("Błąd podczas czyszczenia zleceń: ", error);
-        showMessage("Błąd podczas czyszczenia zleceń.", "error");
+        showMessage("Błąd podczas czyszczenia zleceń. Sprawdź, czy reguły Firestore pozwalają na 'delete'.", "error");
     }
 }
-
+// ====================================================================
 
 
 // --- SEKCJA 5: HANDLERY AKCJI UŻYTKOWNIKA ---
@@ -1308,15 +1337,19 @@ function getChartTheme() {
     return (currentTheme === 'light') ? 'light' : 'dark';
 }
 
+// ====================================================================
+// === POPRAWIONA FUNKCJA (Fix na błąd "0,00 zł" i kolory) ===
+// ====================================================================
 function initPortfolioChart() {
     const options = {
-        series: [0, 0], // Start with 0
+        // Zaczynamy od prostych danych, updatePortfolioUI je wypełni
+        series: [0], 
+        labels: ['Gotówka'],
         chart: {
             type: 'donut',
             height: 300
         },
-        labels: ['Gotówka', 'Akcje'],
-        colors: ['var(--blue)', 'var(--accent-color)'],
+        colors: CHART_COLORS, // Używamy naszej nowej palety
         theme: { mode: getChartTheme() },
         legend: {
             position: 'bottom',
@@ -1344,8 +1377,13 @@ function initPortfolioChart() {
                         },
                         total: {
                             show: true,
-                            label: 'Portfel',
-                            formatter: (w) => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)),
+                            label: 'Portfel', // Etykieta
+                            // TA FUNKCJA NAPRAWIA TWÓJ BŁĄD "0,00 zł"
+                            // Sumuje wszystkie wartości (gotówkę + każdą akcję)
+                            formatter: (w) => {
+                                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                return formatujWalute(total);
+                            },
                             color: 'var(--text-color)'
                         }
                     }
@@ -1357,22 +1395,23 @@ function initPortfolioChart() {
     portfolioChart = new ApexCharts(dom.portfolioChartContainer, options);
     portfolioChart.render();
 }
+// ====================================================================
 
-function updatePortfolioChart(cashValue, sharesValue) {
-    if (portfolioChart) {
-        portfolioChart.updateSeries([cashValue, sharesValue]);
-    }
-}
+// Ta funkcja jest już niepotrzebna, jej logikę przenieśliśmy do updatePortfolioUI
+// function updatePortfolioChart(cashValue, sharesValue) { ... }
 
+// ====================================================================
+// === POPRAWIONA FUNKCJA (Dla kolorów i poprawnego total) ===
+// ====================================================================
 function initModalPortfolioChart() {
     const options = {
-        series: [0, 0],
+        series: [0], // Zaczynamy od zera
+        labels: ['Gotówka'],
         chart: {
             type: 'donut',
             height: 250
         },
-        labels: ['Gotówka', 'Akcje'],
-        colors: ['var(--blue)', 'var(--accent-color)'],
+        colors: CHART_COLORS, // Używamy tych samych kolorów
         theme: { mode: getChartTheme() },
         legend: {
             position: 'bottom',
@@ -1392,7 +1431,11 @@ function initModalPortfolioChart() {
                         total: {
                             show: true,
                             label: 'Portfel',
-                            formatter: (w) => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)),
+                            // Ta sama logika sumowania co w głównym wykresie
+                            formatter: (w) => {
+                                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                return formatujWalute(total);
+                            },
                             color: 'var(--text-color)'
                         }
                     }
@@ -1403,16 +1446,14 @@ function initModalPortfolioChart() {
     modalPortfolioChart = new ApexCharts(dom.modalPortfolioChartContainer, options);
     modalPortfolioChart.render();
 }
+// ====================================================================
 
-function updateModalPortfolioChart(cashValue, sharesValue) {
-    if (modalPortfolioChart) {
-        modalPortfolioChart.updateSeries([cashValue, sharesValue]);
-    } else {
-        initModalPortfolioChart();
-        setTimeout(() => modalPortfolioChart.updateSeries([cashValue, sharesValue]), 100);
-    }
-}
+// Ta funkcja jest już niepotrzebna, jej logikę przenieśliśmy do showUserProfile
+// function updateModalPortfolioChart(cashValue, sharesValue) { ... }
 
+// ====================================================================
+// === POPRAWIONA FUNKCJA (Dla kolorów i poprawnego total) ===
+// ====================================================================
 async function showUserProfile(userId) {
     if (!userId) return;
     console.log("Ładowanie profilu dla:", userId);
@@ -1448,12 +1489,16 @@ async function showUserProfile(userId) {
 
         dom.modalJoinDate.textContent = userData.joinDate.toDate().toLocaleDateString('pl-PL');
 
-        // Wypełnij listę akcji
+        // === NOWA LOGIKA DLA WYKRESU MODALA ===
         dom.modalSharesList.innerHTML = "";
-        let sharesValue = 0;
+        const modalChartSeries = [userData.cash]; // Gotówka
+        const modalChartLabels = ['Gotówka'];
+        let sharesValue = 0; 
         let hasShares = false;
-        for (const companyId in userData.shares) {
-            const amount = userData.shares[companyId];
+
+        // Używamy stałej kolejności
+        for (const companyId of COMPANY_ORDER) {
+            const amount = userData.shares[companyId] || 0;
             if (amount > 0) {
                 hasShares = true;
                 const companyName = market[companyId] ? market[companyId].name : companyId;
@@ -1461,11 +1506,16 @@ async function showUserProfile(userId) {
                 p.innerHTML = `${companyName} <strong>${amount} szt.</strong>`;
                 dom.modalSharesList.appendChild(p);
                 
-                if (market[companyId] && market[companyId].price) {
-                    sharesValue += amount * market[companyId].price;
-                }
+                const price = market[companyId] ? market[companyId].price : 0;
+                const value = amount * price;
+                sharesValue += value;
+                
+                modalChartSeries.push(value);
+                modalChartLabels.push(companyName);
             }
         }
+        // ======================================
+
         if (!hasShares) {
             dom.modalSharesList.innerHTML = "<p>Brak posiadanych akcji.</p>";
         }
@@ -1474,7 +1524,11 @@ async function showUserProfile(userId) {
         if (!modalPortfolioChart) {
             initModalPortfolioChart();
         }
-        updateModalPortfolioChart(userData.cash, sharesValue);
+        
+        modalPortfolioChart.updateOptions({
+            series: modalChartSeries,
+            labels: modalChartLabels
+        });
 
         // Pokaż modal
         dom.modalOverlay.classList.remove("hidden");
@@ -1483,6 +1537,7 @@ async function showUserProfile(userId) {
         console.error("Błąd ładowania profilu użytkownika: ", error);
     }
 }
+// ====================================================================
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
 
@@ -1562,6 +1617,9 @@ function updatePriceUI() {
     }, { once: true }); 
 }
 
+// ====================================================================
+// === POPRAWIONA FUNKCJA (Fix na błąd "0,00 zł" i kolory) ===
+// ====================================================================
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     dom.username.textContent = portfolio.name;
@@ -1579,13 +1637,26 @@ function updatePortfolioUI() {
 
     const oldTotalValue = portfolio.totalValue;
     
-    // Oblicz wartość akcji
+    // === NOWA LOGIKA DLA WYKRESU ===
     let sharesValue = 0;
-    for (const companyId in portfolio.shares) {
-        if (market[companyId] && market[companyId].price) {
-            sharesValue += (portfolio.shares[companyId] || 0) * market[companyId].price;
+    const chartSeries = [portfolio.cash]; // Gotówka jako pierwsza
+    const chartLabels = ['Gotówka'];
+
+    // Używamy stałej kolejności, aby kolory się zgadzały
+    for (const companyId of COMPANY_ORDER) {
+        const amount = portfolio.shares[companyId] || 0;
+        if (amount > 0) {
+            // Oblicz wartość posiadanych akcji
+            const price = market[companyId] ? market[companyId].price : 0;
+            const value = amount * price;
+            sharesValue += value; // Sumuj do ogólnej wartości akcji
+            
+            // Dodaj dane do wykresu
+            chartSeries.push(value);
+            chartLabels.push(market[companyId].name);
         }
     }
+    // ==================================
     
     const totalValue = portfolio.cash + sharesValue;
     const totalProfit = totalValue - portfolio.startValue;
@@ -1597,7 +1668,11 @@ function updatePortfolioUI() {
     if (!portfolioChart) {
         initPortfolioChart();
     }
-    updatePortfolioChart(portfolio.cash, sharesValue);
+    // Zaktualizuj wykres nowymi danymi
+    portfolioChart.updateOptions({
+        series: chartSeries,
+        labels: chartLabels
+    });
 
     dom.totalValue.textContent = formatujWalute(totalValue);
     dom.totalProfit.textContent = formatujWalute(totalProfit);
@@ -1617,6 +1692,7 @@ function updatePortfolioUI() {
     else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
     else dom.totalProfit.style.color = "var(--text-muted)";
 }
+// ====================================================================
 
 function showMessage(message, type) {
     if (!dom || !dom.messageBox) return;
@@ -1646,7 +1722,7 @@ function showMessage(message, type) {
     }
 }
 
-function displayNewRumor(text, authorName, sentiment, companyId) {
+function displayNewRumor(text, authorName, sentiment, companyId, authorId) {
     if (!dom || !dom.rumorsFeed) return;
     const p = document.createElement("p");
     
@@ -1665,10 +1741,11 @@ function displayNewRumor(text, authorName, sentiment, companyId) {
     authorSpan.style.fontStyle = "normal";
     
     // NOWY: Klikalna nazwa autora plotki
-    authorSpan.classList.add("clickable-user");
-    // Uwaga: plotki są anonimowe, ale jeśli dodamy authorId, to zadziała
-    // authorSpan.dataset.userId = rumor.authorId; 
-    // authorSpan.addEventListener("click", () => showUserProfile(rumor.authorId));
+    if (authorId) {
+        authorSpan.classList.add("clickable-user");
+        authorSpan.dataset.userId = authorId; 
+        authorSpan.addEventListener("click", () => showUserProfile(authorId));
+    }
     
     p.appendChild(authorSpan);
     dom.rumorsFeed.prepend(p);
