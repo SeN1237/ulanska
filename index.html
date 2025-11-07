@@ -78,6 +78,7 @@
                 <span>Ładowanie cen...</span>
             </div>
         </div>
+
         <div class="grid-container">
 
             <main id="market-panel" class="panel">
@@ -89,7 +90,6 @@
                     <button class="company-tab" data-company="cosmosanit">Cosmosanit</button>
                     <button class="company-tab" data-company="gigachat">Gigachat GPT</button>
                     <button class="company-tab" data-company="bimbercfd">Bimber.cfd</button>
-                    <button class="company-tab" data-company="fundusz">Fundusz Stabilny</button>
                 </div>
                 <h2 id="company-name">Ułańska Dev</h2>
                 <div id="price-container">
@@ -110,7 +110,6 @@
                     <p>Cosmosanit: <strong id="shares-cosmosanit">0</strong> szt.</p>
                     <p>Gigachat GPT: <strong id="shares-gigachat">0</strong> szt.</p>
                     <p>Bimber.cfd: <strong id="shares-bimbercfd">0</strong> szt.</p>
-                    <p>Fundusz Stabilny: <strong id="shares-fundusz">0</strong> szt.</p>
                 </div>
                 <hr>
                 <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
@@ -198,6 +197,28 @@
                 </ol>
             </section>
                 
+            <section id="bonds-panel" class="panel">
+                <h2>Obligacje Skarbowe (Pewny Zysk)</h2>
+                <p>Zainwestuj gotówkę w obligacje o gwarantowanym zwrocie. Pieniądze zostaną zablokowane do dnia wykupu (liczone jako pełne 24h od zakupu).</p>
+                <form id="bonds-form">
+                    <label for="bond-amount">Kwota inwestycji (zł):</label>
+                    <input type="number" id="bond-amount" placeholder="0.00" min="1" step="0.01" required>
+                    
+                    <label for="bond-type">Wariant obligacji:</label>
+                    <select id="bond-type" required>
+                        <option value="1">1 Dzień - 25% Zwrotu</option>
+                        <option value="2">2 Dni - 60% Zwrotu</option>
+                        <option value="3">3 Dni - 120% Zwrotu</option>
+                    </select>
+                    
+                    <button type="submit" id="buy-bond-button" class="action-btn-full">Kup Obligację</button>
+                </form>
+                <hr>
+                <h3>Twoje Aktywne Obligacje</h3>
+                <div id="active-bonds-feed" class="feed-box history-feed">
+                    <p>...brak aktywnych obligacji...</p>
+                </div>
+            </section>
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
                 <div id="chat-feed" class="feed-box">
