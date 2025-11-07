@@ -55,16 +55,28 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
-// <-- POPRAWKA: Historia jest teraz pusta, wypełni się po pobraniu cen
+// <-- POPRAWKA: Historia jest pusta; previousPrice = null (ustawi się na starcie)
 let market = {
-    ulanska:    { name: "Ułańska Dev",   price: 1,   history: [] },
-    brzozair:   { name: "BrzozAir",      price: 1,   history: [] },
-    igicorp:    { name: "IgiCorp",       price: 1,   history: [] },
-    rychbud:    { name: "RychBud",       price: 1,   history: [] },
-    cosmosanit: { name: "Cosmosanit",    price: 100, history: [] },
-    gigachat:   { name: "Gigachat GPT",  price: 500, history: [] },
-    bimbercfd:  { name: "Bimber.cfd",    price: 20,  history: [] }
+    ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [] },
+    brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [] },
+    igicorp:    { name: "IgiCorp",       price: 1, previousPrice: null, history: [] },
+    rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [] },
+    cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [] },
+    gigachat:   { name: "Gigachat GPT",  price: 500, previousPrice: null, history: [] },
+    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [] }
 };
+
+// <-- NOWOŚĆ: Skróty nazw dla paska
+const companyAbbreviations = {
+    ulanska: "UŁDEV",
+    rychbud: "RBUD",
+    igicorp: "ICORP",
+    brzozair: "BAIR",
+    cosmosanit: "COSIT",
+    gigachat: "GIPT",
+    bimbercfd: "BIMBER"
+};
+
 let currentCompanyId = "ulanska";
 
 let portfolio = {
@@ -88,6 +100,7 @@ let chart = null;
 let currentUserId = null;
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
+let audioUnlocked = false; // <-- POPRAWKA: Flaga do śledzenia odblokowania audio
 
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
@@ -109,23 +122,26 @@ onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
         
-        if (market.ulanska)   market.ulanska.price   = aktualneCeny.ulanska;
-        if (market.brzozair)  market.brzozair.price  = aktualneCeny.brzozair;
-        if (market.igicorp)   market.igicorp.price   = aktualneCeny.igicorp;
-        if (market.rychbud)   market.rychbud.price   = aktualneCeny.rychbud;
-        if (market.cosmosanit)market.cosmosanit.price= aktualneCeny.cosmosanit;
-        if (market.gigachat)  market.gigachat.price  = aktualneCeny.gigachat;
-        if (market.bimbercfd) market.bimbercfd.price = aktualneCeny.bimbercfd;
+        // --- POPRAWKA: Aktualizuj poprzednią i obecną cenę ---
+        for (const companyId in market) {
+            if (aktualneCeny[companyId]) {
+                const newPrice = aktualneCeny[companyId];
+                // Zapisz starą cenę (tylko jeśli już jakaś była)
+                if (market[companyId].price) {
+                    market[companyId].previousPrice = market[companyId].price;
+                }
+                market[companyId].price = newPrice;
+            }
+        }
         
         // --- POPRAWKA: Inicjalizacja historii na podstawie realnych cen ---
-        // Zrób to tylko raz, zanim wykresy wystartują
         if (!chartHasStarted) {
             for (const companyId in market) {
-                // Sprawdź czy cena istnieje I czy historia jest wciąż pusta
                 if (market[companyId].price && market[companyId].history.length === 0) {
                     const realPrice = market[companyId].price;
-                    // Użyj realnej ceny jako ceny bazowej do wygenerowania historii
                     market[companyId].history = generateInitialCandles(50, realPrice);
+                    // --- POPRAWKA: Ustaw cenę poprzednią na realną, aby % był 0 na starcie
+                    market[companyId].previousPrice = realPrice; 
                 }
             }
         }
@@ -133,6 +149,7 @@ onSnapshot(cenyDocRef, (docSnap) => {
 
         updatePriceUI(); 
         updatePortfolioUI(); 
+        updateTickerTape(); // <-- NOWE WYWOŁANIE PASKA
 
         // Sprawdź czy dane do wykresu są gotowe
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
@@ -225,7 +242,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
-        audioNews: document.getElementById("audio-news")
+        audioNews: document.getElementById("audio-news"),
+
+        // --- NOWY ELEMENT ---
+        tickerContent: document.getElementById("ticker-content") 
     };
 
     // 2. Podepnij GŁÓWNE listenery
@@ -260,7 +280,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // === POPRAWKA: Funkcja do odblokowania audio przy pierwszej interakcji ===
-let audioUnlocked = false;
 function unlockAudioOnce() {
     if (audioUnlocked || !dom.simulatorContainer) return;
 
@@ -268,6 +287,7 @@ function unlockAudioOnce() {
         if (audioUnlocked) return;
         
         try {
+            // Spróbuj odtworzyć i natychmiast zatrzymać każdy dźwięk
             dom.audioKaching.play().catch(e => {});
             dom.audioKaching.pause();
             dom.audioError.play().catch(e => {});
@@ -280,7 +300,7 @@ function unlockAudioOnce() {
         } catch (e) {
             console.error("Błąd odblokowywania audio:", e);
         }
-        // Usuń listener po pierwszej próbie
+        // Usuń listenery po pierwszej próbie
         document.body.removeEventListener('click', unlock);
         document.body.removeEventListener('keydown', unlock);
     };
@@ -329,6 +349,7 @@ function startAuthListener() {
             chartHasStarted = false; 
             chart = null;            
             initialNewsLoaded = false; 
+            audioUnlocked = false; // Zresetuj flagę audio
             
             portfolio = { 
                 name: "Gość", 
@@ -342,6 +363,7 @@ function startAuthListener() {
             // Zresetuj historię w obiekcie market
             for (const companyId in market) {
                 market[companyId].history = [];
+                market[companyId].previousPrice = null;
             }
             
             updatePortfolioUI();
@@ -473,27 +495,33 @@ function listenToRumors() {
 
 function listenToMarketNews() {
     if (unsubscribeNews) unsubscribeNews();
-    // Pobierz 5 ostatnich newsów
     const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
         if (!dom.newsFeed) return;
         
-        // Wyświetl tylko nowe newsy (które pojawiły się od ostatniego załadowania)
+        // Zmienna do śledzenia, czy pojawił się nowy news w tej paczce
+        let newNewsArrived = false;
+
         querySnapshot.docChanges().forEach(change => {
             if (change.type === "added") {
                 // Jeśli to nie jest pierwszy news ładowany na starcie, odtwórz dźwięk
                 if (initialNewsLoaded) {
-                    if (dom.audioNews) {
-                        dom.audioNews.currentTime = 0;
-                        dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio newsa"));
-                    }
+                    newNewsArrived = true;
                 }
                 const news = change.doc.data();
                 displayMarketNews(news.text, news.impactType);
             }
         });
         
+        // --- POPRAWKA: Odtwórz dźwięk newsa tylko RAZ, jeśli przyszły nowe ---
+        if (newNewsArrived && audioUnlocked) {
+            if (dom.audioNews) {
+                dom.audioNews.currentTime = 0;
+                dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio newsa"));
+            }
+        }
+
         // Zaznacz, że początkowe newsy zostały załadowane
         initialNewsLoaded = true;
 
@@ -507,10 +535,8 @@ function displayMarketNews(text, impactType) {
     if (impactType === "positive") p.style.color = "var(--green)"; 
     else if (impactType === "negative") p.style.color = "var(--red)"; 
     
-    // Dodawaj nowe newsy na górze
     dom.newsFeed.prepend(p); 
     
-    // Ogranicz liczbę newsów do 5, aby nie zapchać widoku
     while (dom.newsFeed.children.length > 5) {
         dom.newsFeed.removeChild(dom.newsFeed.lastChild);
     }
@@ -943,6 +969,53 @@ function formatujWalute(liczba) {
     });
     return formatter.format(liczba);
 }
+
+// --- NOWA FUNKCJA: updateTickerTape ---
+function updateTickerTape() {
+    if (!dom.tickerContent) return; // Zakończ, jeśli element nie istnieje
+
+    let tickerHTML = "";
+    // Użyj obiektu skrótów, aby iterować we właściwej kolejności
+    const companyOrder = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
+
+    for (const companyId of companyOrder) {
+        const company = market[companyId];
+        // Pomiń, jeśli brakuje danych
+        if (!company || !company.price || !company.previousPrice) continue;
+
+        const name = companyAbbreviations[companyId] || "???";
+        const price = company.price;
+        const prevPrice = company.previousPrice;
+        
+        let percentChange = 0;
+        if (prevPrice > 0 && price > 0) {
+            percentChange = ((price - prevPrice) / prevPrice) * 100;
+        }
+
+        let changeClass = "";
+        let sign = "";
+        if (percentChange > 0.01) { // 0.01 dla uniknięcia "zielonego zera"
+            changeClass = "ticker-up";
+            sign = "+";
+        } else if (percentChange < -0.01) {
+            changeClass = "ticker-down";
+            sign = ""; // Minus jest już w liczbie
+        }
+
+        tickerHTML += `
+            <span class="ticker-item">
+                ${name}
+                <strong>${price.toFixed(2)} zł</strong>
+                <span class="${changeClass}">${sign}${percentChange.toFixed(2)}%</span>
+            </span>
+        `;
+    }
+
+    // Zduplikuj treść, aby pętla była płynna
+    dom.tickerContent.innerHTML = tickerHTML + tickerHTML;
+}
+// --- KONIEC NOWEJ FUNKCJI ---
+
 
 function updatePriceUI() {
     if (!dom || !dom.stockPrice) return;
