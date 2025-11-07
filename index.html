@@ -183,6 +183,10 @@
                 <div id="rumors-feed" class="feed-box">
                     <p>...ładowanie plotek z serwera...</p>
                 </div>
+                <hr>
+                <button id="buy-tip-button" class="action-btn-full">
+                    Kup Wskazówkę (Koszt: <span id="tip-cost">1500</span> zł)
+                </button>
             </section>
                 
             <section id="leaderboard-panel" class="panel">
@@ -208,7 +212,7 @@
                     <button class="tab-btn active" data-tab="global-history">Globalna Historia</button>
                     <button class="tab-btn" data-tab="personal-history">Moja Historia</button>
                     <button class="tab-btn" data-tab="limit-orders">Zlecenia Limit</button>
-                </div>
+                    </div>
                 
                 <div id="tab-global-history" class="tab-content active">
                     <div class="panel-header-with-button">
@@ -240,7 +244,32 @@
                     </div>
                 </div>
             </section>
-            </div> 
+
+            <section id="help-panel" class="panel">
+                <h2>Jak Grać? - System Prestiżu i Wskazówek</h2>
+                <p>Witaj na WIG Ułańska! Twoim celem jest pomnażanie kapitału. Oto nowe, zaawansowane mechaniki:</p>
+                
+                <h3>⭐️ System Prestiżu</h3>
+                <p>Gdy osiągniesz wystarczającą wartość portfela, możesz "zresetować postępy" (przycisk w Twoim profilu), aby zyskać <strong>Poziom Prestiżu</strong>. Twój portfel wróci do 1000 zł, ale zyskasz stałą gwiazdkę przy nazwisku i zniżki.</p>
+                <ul>
+                    <li><strong>Poziom 1 (⭐️)</strong>: Wymagane <strong>15,000 zł</strong></li>
+                    <li><strong>Poziom 2 (⭐️⭐️)</strong>: Wymagane <strong>30,000 zł</strong></li>
+                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Wymagane <strong>60,000 zł</strong></li>
+                    <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Wymagane <strong>120,000 zł</strong></li>
+                </ul>
+                
+                <h3>🕵️‍♂️ Wykup Wskazówek</h3>
+                <p>W panelu "Globalne Plotki" możesz kupić wskazówkę. Jest to ryzykowna, hazardowa mechanika. Płacisz za losową informację, która może, ale nie musi, być prawdziwa. To czysty hazard!</p>
+                <p>Prestiż daje Ci zniżkę na tę mechanikę:</p>
+                <ul>
+                    <li><strong>Brak Prestiżu</strong>: Koszt 1500 zł</li>
+                    <li><strong>Poziom 1 (⭐️)</strong>: Koszt 1400 zł (Zniżka 100 zł)</li>
+                    <li><strong>Poziom 2 (⭐️⭐️)</strong>: Koszt 1200 zł (Zniżka 300 zł)</li>
+                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Koszt 1100 zł (Zniżka 400 zł)</li>
+                    <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Koszt 1000 zł (Zniżka 500 zł)</li>
+                </ul>
+            </section>
+        </div> 
     </div> 
 
     <div id="user-profile-modal" class="modal-overlay hidden">
@@ -255,6 +284,10 @@
                     <p>Całkowity Zysk: <strong id="modal-total-profit">...</strong></p>
                     <p>Gotówka: <strong id="modal-cash">...</strong></p>
                     <p>Data Dołączenia: <strong id="modal-join-date">...</strong></p>
+                    <hr>
+                    <p id="prestige-info">Poziom Prestiżu: <strong id="modal-prestige-level">0</strong></p>
+                    <p id="prestige-next-goal">Następny poziom: 15,000 zł</p>
+                    <button id="prestige-button" class="action-btn-full" disabled>Zwiększ Poziom Prestiżu (Reset)</button>
                 </div>
             </div>
             <h3>Posiadane Akcje</h3>
