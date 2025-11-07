@@ -67,28 +67,24 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    /* Użyj tła --bg-color, aby pasowało do motywu */
     background-color: var(--bg-color); 
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    /* Animacja znikania (fade-out) - startuje po 9s, trwa 1s */
     animation: fadeOutSplash 1s ease-out 9s forwards;
-    opacity: 1; /* Zaczyna widoczne */
+    opacity: 1; 
 }
 
 #splash-title {
     font-size: 3em;
     font-weight: 700;
-    /* Animacja zmiany koloru tekstu - trwa 9s */
     animation: colorChangeSplash 9s ease-in-out forwards;
 }
 
-/* Definicja klatek kluczowych dla tekstu */
 @keyframes colorChangeSplash {
     0% {
-        color: #FFFFFF; /* Biały */
+        color: #FFFFFF; 
         opacity: 0;
         transform: scale(0.8);
     }
@@ -97,11 +93,9 @@ body {
         transform: scale(1);
     }
     45% {
-        /* Użyj zmiennej CSS dla koloru niebieskiego */
         color: var(--blue); 
     }
     80% {
-        /* Użyj zmiennej CSS dla koloru zielonego */
         color: var(--green);
     }
     100% {
@@ -111,7 +105,6 @@ body {
     }
 }
 
-/* Definicja klatek kluczowych dla całego ekranu */
 @keyframes fadeOutSplash {
     0% {
         opacity: 1;
@@ -121,14 +114,13 @@ body {
     }
     100% {
         opacity: 0;
-        visibility: hidden; /* Ukryj po zakończeniu, aby można było klikać */
+        visibility: hidden; 
     }
 }
 
-/* Dla urządzeń mobilnych */
 @media (max-width: 800px) {
     #splash-title {
-        font-size: 2em; /* Mniejszy tekst na telefonach */
+        font-size: 2em; 
     }
 }
 
@@ -301,25 +293,22 @@ body[data-theme="dark"] #logout-button:hover {
 .ticker-wrap {
     width: 100%;
     overflow: hidden;
-    background-color: var(--panel-color); /* Pasuje do motywu */
+    background-color: var(--panel-color); 
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 10px 0;
     box-sizing: border-box;
-    margin-bottom: 20px; /* Odstęp od siatki */
+    margin-bottom: 20px; 
 }
 
 #ticker-content {
-    display: inline-block; /* Ważne dla animacji */
-    white-space: nowrap; /* Zapobiega łamaniu linii */
+    display: inline-block; 
+    white-space: nowrap; 
     
-    /* Ustaw pozycję startową na -50% (dla płynnej pętli) */
     transform: translateX(-50%);
-    /* Animacja: 60s, liniowa, nieskończona */
     animation: ticker-scroll-right 60s linear infinite; 
 }
 
-/* Wstrzymaj animację po najechaniu */
 #ticker-content:hover {
     animation-play-state: paused;
 }
@@ -345,17 +334,15 @@ body[data-theme="dark"] #logout-button:hover {
     font-weight: bold;
 }
 
-/* Definicja animacji przewijania (Z LEWEJ DO PRAWEJ) */
 @keyframes ticker-scroll-right {
     0% {
-        transform: translateX(-50%); /* Start w połowie (na złączeniu) */
+        transform: translateX(-50%); 
     }
     100% {
-        transform: translateX(0); /* Koniec na początku */
+        transform: translateX(0); 
     }
 }
 
-/* Na mobilce ticker może być za duży */
 @media (max-width: 800px) {
     .ticker-item {
         font-size: 0.9em;
@@ -858,4 +845,97 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     #rumor-controls { flex-direction: column; align-items: stretch; }
     
     .history-feed { max-height: 200px; }
+}
+
+
+/* --- SEKCJA 9: POWIADOMIENIA (TOASTY) --- */
+
+#notification-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column-reverse; /* Nowe elementy pojawiają się na dole */
+    gap: 10px;
+}
+
+.notification-toast {
+    background-color: var(--panel-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-size: 0.9em;
+    width: 300px; /* Stała szerokość */
+    animation: toast-fade-in 0.5s ease forwards;
+    opacity: 0; /* Zacznij jako niewidoczny */
+    transform: translateX(-100%);
+}
+
+.notification-toast strong {
+    color: var(--text-color);
+    display: block;
+    margin-bottom: 5px;
+    font-size: 1.1em;
+}
+.notification-toast p {
+    margin: 0;
+    font-style: normal;
+    color: var(--text-muted);
+    border: none;
+    padding: 0;
+}
+.notification-toast p strong {
+    /* Styl dla nazwy użytkownika w czacie */
+    color: var(--blue);
+    display: inline;
+}
+
+/* Style dla typów */
+.toast-chat .toast-chat-header {
+    color: var(--accent-color) !important;
+}
+
+.toast-news.toast-positive {
+    border-left: 4px solid var(--green);
+}
+.toast-news.toast-positive > strong {
+    color: var(--green);
+}
+
+.toast-news.toast-negative {
+    border-left: 4px solid var(--red);
+}
+.toast-news.toast-negative > strong {
+    color: var(--red);
+}
+
+
+/* Animacje Wejścia/Wyjścia */
+@keyframes toast-fade-in {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Animacja wyjścia będzie dodana przez JS */
+.toast-fade-out {
+    animation: toast-fade-out 0.5s ease forwards;
+}
+
+@keyframes toast-fade-out {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
 }
