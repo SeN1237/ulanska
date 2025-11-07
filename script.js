@@ -60,7 +60,8 @@ let market = {
     rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [] },
     cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [] },
     gigachat:   { name: "Gigachat GPT",  price: 500, previousPrice: null, history: [] },
-    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [] }
+    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [] },
+    fundusz:    { name: "Fundusz Stabilny", price: 100, previousPrice: null, history: [] } // NOWY
 };
 
 const companyAbbreviations = {
@@ -70,7 +71,8 @@ const companyAbbreviations = {
     brzozair: "BAIR",
     cosmosanit: "COSIT",
     gigachat: "GIPT",
-    bimbercfd: "BIMBER"
+    bimbercfd: "BIMBER",
+    fundusz: "FUNDS" // NOWY
 };
 
 let currentCompanyId = "ulanska";
@@ -85,7 +87,8 @@ let portfolio = {
         brzozair: 0,
         cosmosanit: 0,
         gigachat: 0,
-        bimbercfd: 0
+        bimbercfd: 0,
+        fundusz: 0 // NOWY
     },
     startValue: 100,
     zysk: 0,
@@ -102,7 +105,7 @@ let portfolioChart = null;
 let modalPortfolioChart = null; 
 let currentUserId = null;
 
-const COMPANY_ORDER = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
+const COMPANY_ORDER = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd", "fundusz"]; // NOWY
 const CHART_COLORS = [
     'var(--blue)', // Gotówka (zawsze pierwszy)
     '#FF6384',     // ulanska
@@ -111,7 +114,8 @@ const CHART_COLORS = [
     '#4BC0C0',     // brzozair
     '#9966FF',     // cosmosanit
     '#FF9F40',     // gigachat
-    '#C9CBCF'      // bimbercfd
+    '#C9CBCF',     // bimbercfd
+    '#F28FAD'      // fundusz (NOWY)
 ];
 
 let chartHasStarted = false; 
@@ -422,7 +426,7 @@ function startAuthListener() {
             portfolio = { 
                 name: "Gość", 
                 cash: 1000, 
-                shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, cosmosanit: 0, gigachat: 0, bimbercfd: 0 }, 
+                shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, cosmosanit: 0, gigachat: 0, bimbercfd: 0, fundusz: 0 }, 
                 startValue: 1000, 
                 zysk: 0, 
                 totalValue: 1000,
@@ -454,7 +458,8 @@ async function createInitialUserData(userId, name, email) {
             brzozair: 0,
             cosmosanit: 0,
             gigachat: 0,
-            bimbercfd: 0
+            bimbercfd: 0,
+            fundusz: 0 // NOWY
         },
         startValue: 1000.00,
         zysk: 0.00,
@@ -573,7 +578,7 @@ function listenToPortfolioData(userId) {
             portfolio.cash = data.cash;
             portfolio.shares = data.shares || { 
                 ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
-                cosmosanit: 0, gigachat: 0, bimbercfd: 0 
+                cosmosanit: 0, gigachat: 0, bimbercfd: 0, fundusz: 0 
             };
             portfolio.startValue = data.startValue;
             portfolio.prestigeLevel = data.prestigeLevel || 0; 
@@ -786,7 +791,8 @@ async function logTransaction(type, companyId, amount, pricePerShare, totalCostO
         return;
     }
 
-    const companyName = companyId ? market[companyId].name : "System";
+    // POPRAWKA: Upewnij się, że companyId istnieje w market, zanim odczytasz 'name'
+    const companyName = (companyId && market[companyId]) ? market[companyId].name : "System";
     const finalPrice = pricePerShare || 0;
     const finalTotal = totalCostOrRevenue || 0;
 
@@ -883,7 +889,7 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     const price = item.executedPrice || item.pricePerShare;
     
     if (item.type === "WSKAZÓWKA") {
-         detailsSpan.textContent = item.companyName; // Wyświetli "Zakupiono tajną wskazówkę"
+         detailsSpan.textContent = item.companyName; // "Zakupiono tajną wskazówkę"
     } else {
          detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(price)}`;
     }
@@ -1583,7 +1589,7 @@ async function onPrestigeReset() {
                 cash: 1000.00,
                 shares: { 
                     ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0,
-                    cosmosanit: 0, gigachat: 0, bimbercfd: 0 
+                    cosmosanit: 0, gigachat: 0, bimbercfd: 0, fundusz: 0
                 },
                 startValue: 1000.00,
                 zysk: 0.00,
@@ -1753,7 +1759,8 @@ function updateTickerTape() {
     if (!dom.tickerContent) return;
 
     let tickerHTML = "";
-    const companyOrder = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
+    // Zaktualizowano kolejność, by fundusz był na końcu
+    const companyOrder = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd", "fundusz"];
 
     for (const companyId of companyOrder) {
         const company = market[companyId];
@@ -1835,6 +1842,7 @@ function updatePortfolioUI() {
         <p>Cosmosanit: <strong id="shares-cosmosanit">${portfolio.shares.cosmosanit || 0}</strong> szt.</p>
         <p>Gigachat GPT: <strong id="shares-gigachat">${portfolio.shares.gigachat || 0}</strong> szt.</p>
         <p>Bimber.cfd: <strong id="shares-bimbercfd">${portfolio.shares.bimbercfd || 0}</strong> szt.</p>
+        <p>Fundusz Stabilny: <strong id="shares-fundusz">${portfolio.shares.fundusz || 0}</strong> szt.</p>
     `;
 
     const oldTotalValue = portfolio.totalValue;
