@@ -232,7 +232,7 @@ try {
 
     const currentPrices = docSnap.data();
     const newPrices = {};
-    const companies = ["ulanska", "brzozair", "igicorp", "rychbud"];
+    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
 
     console.log("Pobrano ceny:", currentPrices);
     const globalSentiment = (Math.random() - 0.5); 
