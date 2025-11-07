@@ -527,7 +527,7 @@ try {
         brzozair: 235.00,
         igicorp: 20.00,
         rychbud: 870.00,
-        cosmosanit: 9800.00,
+        cosmosanit: 2000.00,
         gigachat: 790.00,
         bimbercfd: 50.00
     };
