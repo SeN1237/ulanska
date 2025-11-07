@@ -30,13 +30,22 @@ const db = getFirestore(app);
 
 function generateInitialCandles(count, basePrice) {
     let data = []; let lastClose = basePrice;
+    // Zapewnij, że cena bazowa nie jest zerowa lub niezdefiniowana
+    if (!basePrice || basePrice < 1) basePrice = 1; 
+
     let timestamp = new Date().getTime() - (count * 5000);
     for (let i = 0; i < count; i++) {
         let open = lastClose;
         let close = open + (Math.random() - 0.5) * (basePrice * 0.05);
         let high = Math.max(open, close) + Math.random() * (basePrice * 0.02);
         let low = Math.min(open, close) - Math.random() * (basePrice * 0.02);
+        
+        // Upewnij się, że ceny nie spadną poniżej 1
+        open = Math.max(1, open);
+        high = Math.max(1, high);
+        low = Math.max(1, low);
         close = Math.max(1, close);
+
         data.push({
             x: new Date(timestamp),
             y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
@@ -46,19 +55,18 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
-// <-- POPRAWKA: DODANE NOWE SPÓŁKI
+// <-- POPRAWKA: Historia jest teraz pusta, wypełni się po pobraniu cen
 let market = {
-    ulanska:  { name: "Ułańska Dev",   price: 1,   history: generateInitialCandles(50, 1) },
-    brzozair: { name: "BrzozAir",      price: 1,   history: generateInitialCandles(50, 1) },
-    igicorp:  { name: "IgiCorp",       price: 1,   history: generateInitialCandles(50, 1) },
-    rychbud:  { name: "RychBud",       price: 1,   history: generateInitialCandles(50, 1) },
-    cosmosanit: { name: "Cosmosanit",  price: 100, history: generateInitialCandles(50, 100) },
-    gigachat: { name: "Gigachat GPT",  price: 500, history: generateInitialCandles(50, 500) },
-    bimbercfd:{ name: "Bimber.cfd",    price: 20,  history: generateInitialCandles(50, 20) }
+    ulanska:    { name: "Ułańska Dev",   price: 1,   history: [] },
+    brzozair:   { name: "BrzozAir",      price: 1,   history: [] },
+    igicorp:    { name: "IgiCorp",       price: 1,   history: [] },
+    rychbud:    { name: "RychBud",       price: 1,   history: [] },
+    cosmosanit: { name: "Cosmosanit",    price: 100, history: [] },
+    gigachat:   { name: "Gigachat GPT",  price: 500, history: [] },
+    bimbercfd:  { name: "Bimber.cfd",    price: 20,  history: [] }
 };
 let currentCompanyId = "ulanska";
 
-// <-- POPRAWKA: DODANE NOWE SPÓŁKI
 let portfolio = {
     name: "Gość",
     cash: 0,
@@ -73,7 +81,7 @@ let portfolio = {
     },
     startValue: 100,
     zysk: 0,
-    totalValue: 0 // <-- POPRAWKA: Dodane śledzenie starej wartości dla animacji
+    totalValue: 0
 };
 
 let chart = null;
@@ -101,7 +109,6 @@ onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
         
-        // <-- POPRAWKA: DODANE NOWE SPÓŁKI
         if (market.ulanska)   market.ulanska.price   = aktualneCeny.ulanska;
         if (market.brzozair)  market.brzozair.price  = aktualneCeny.brzozair;
         if (market.igicorp)   market.igicorp.price   = aktualneCeny.igicorp;
@@ -110,10 +117,27 @@ onSnapshot(cenyDocRef, (docSnap) => {
         if (market.gigachat)  market.gigachat.price  = aktualneCeny.gigachat;
         if (market.bimbercfd) market.bimbercfd.price = aktualneCeny.bimbercfd;
         
+        // --- POPRAWKA: Inicjalizacja historii na podstawie realnych cen ---
+        // Zrób to tylko raz, zanim wykresy wystartują
+        if (!chartHasStarted) {
+            for (const companyId in market) {
+                // Sprawdź czy cena istnieje I czy historia jest wciąż pusta
+                if (market[companyId].price && market[companyId].history.length === 0) {
+                    const realPrice = market[companyId].price;
+                    // Użyj realnej ceny jako ceny bazowej do wygenerowania historii
+                    market[companyId].history = generateInitialCandles(50, realPrice);
+                }
+            }
+        }
+        // --- KONIEC POPRAWKI ---
+
         updatePriceUI(); 
         updatePortfolioUI(); 
 
-        if (currentUserId && !chartHasStarted) {
+        // Sprawdź czy dane do wykresu są gotowe
+        const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
+
+        if (currentUserId && !chartHasStarted && chartDataReady) {
             if (!chart) initChart();
             startChartTicker();    
             chartHasStarted = true;
@@ -235,6 +259,38 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+// === POPRAWKA: Funkcja do odblokowania audio przy pierwszej interakcji ===
+let audioUnlocked = false;
+function unlockAudioOnce() {
+    if (audioUnlocked || !dom.simulatorContainer) return;
+
+    const unlock = () => {
+        if (audioUnlocked) return;
+        
+        try {
+            dom.audioKaching.play().catch(e => {});
+            dom.audioKaching.pause();
+            dom.audioError.play().catch(e => {});
+            dom.audioError.pause();
+            dom.audioNews.play().catch(e => {});
+            dom.audioNews.pause();
+            
+            audioUnlocked = true;
+            console.log("Audio odblokowane przez interakcję użytkownika.");
+        } catch (e) {
+            console.error("Błąd odblokowywania audio:", e);
+        }
+        // Usuń listener po pierwszej próbie
+        document.body.removeEventListener('click', unlock);
+        document.body.removeEventListener('keydown', unlock);
+    };
+
+    // Nasłuchuj na kliknięcie lub klawisz
+    document.body.addEventListener('click', unlock, { once: true });
+    document.body.addEventListener('keydown', unlock, { once: true });
+}
+
+
 // === ZAKTUALIZOWANY AUTH LISTENER ===
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
@@ -243,6 +299,9 @@ function startAuthListener() {
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
             
+            // --- POPRAWKA: Uruchom odblokowywanie audio ---
+            unlockAudioOnce();
+
             listenToPortfolioData(currentUserId);
             listenToRumors();
             listenToMarketNews(); 
@@ -271,7 +330,6 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            // <-- POPRAWKA: Reset portfela z nowymi spółkami
             portfolio = { 
                 name: "Gość", 
                 cash: 1000, 
@@ -280,6 +338,12 @@ function startAuthListener() {
                 zysk: 0, 
                 totalValue: 1000 
             };
+            
+            // Zresetuj historię w obiekcie market
+            for (const companyId in market) {
+                market[companyId].history = [];
+            }
+            
             updatePortfolioUI();
         }
     });
@@ -289,7 +353,6 @@ function startAuthListener() {
 // --- SEKCJA 3: HANDLERY AUTENTYKACJI ---
 
 async function createInitialUserData(userId, name, email) {
-    // <-- POPRAWKA: DODANE NOWE SPÓŁKI
     const userPortfolio = {
         name: name,
         email: email,
@@ -334,23 +397,14 @@ async function onRegister(e) {
 async function onLogin(e) {
     e.preventDefault();
     
-    try {
-        if (dom.audioKaching) dom.audioKaching.play();
-        if (dom.audioKaching) dom.audioKaching.pause();
-        if (dom.audioError) dom.audioError.play();
-        if (dom.audioError) dom.audioError.pause();
-        if (dom.audioNews) dom.audioNews.play();
-        if (dom.audioNews) dom.audioNews.pause();
-    } catch (err) {
-        console.log("Nie udało się odblokować audio.");
-    }
-
+    // --- POPRAWKA: Usunięto stąd logikę odblokowywania audio ---
+    
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
     
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        startAuthListener(); 
+        // startAuthListener() zostanie wywołany automatycznie przez onAuthStateChanged
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
@@ -390,7 +444,6 @@ function listenToPortfolioData(userId) {
             const data = docSnap.data();
             portfolio.name = data.name;
             portfolio.cash = data.cash;
-            // <-- POPRAWKA: Domyślne wartości dla nowych spółek
             portfolio.shares = data.shares || { 
                 ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
                 cosmosanit: 0, gigachat: 0, bimbercfd: 0 
@@ -420,15 +473,30 @@ function listenToRumors() {
 
 function listenToMarketNews() {
     if (unsubscribeNews) unsubscribeNews();
+    // Pobierz 5 ostatnich newsów
     const newsQuery = query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5));
     
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
-        dom.newsFeed.innerHTML = ""; 
-        querySnapshot.docs.forEach((doc) => {
-            const news = doc.data();
-            displayMarketNews(news.text, news.impactType); 
+        if (!dom.newsFeed) return;
+        
+        // Wyświetl tylko nowe newsy (które pojawiły się od ostatniego załadowania)
+        querySnapshot.docChanges().forEach(change => {
+            if (change.type === "added") {
+                // Jeśli to nie jest pierwszy news ładowany na starcie, odtwórz dźwięk
+                if (initialNewsLoaded) {
+                    if (dom.audioNews) {
+                        dom.audioNews.currentTime = 0;
+                        dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio newsa"));
+                    }
+                }
+                const news = change.doc.data();
+                displayMarketNews(news.text, news.impactType);
+            }
         });
+        
+        // Zaznacz, że początkowe newsy zostały załadowane
         initialNewsLoaded = true;
+
     }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
 }
 
@@ -438,7 +506,14 @@ function displayMarketNews(text, impactType) {
     p.textContent = text;
     if (impactType === "positive") p.style.color = "var(--green)"; 
     else if (impactType === "negative") p.style.color = "var(--red)"; 
+    
+    // Dodawaj nowe newsy na górze
     dom.newsFeed.prepend(p); 
+    
+    // Ogranicz liczbę newsów do 5, aby nie zapchać widoku
+    while (dom.newsFeed.children.length > 5) {
+        dom.newsFeed.removeChild(dom.newsFeed.lastChild);
+    }
 }
 
 async function onSendMessage(e) {
@@ -540,7 +615,6 @@ function listenToLeaderboard() {
 
 // --- SEKCJA 4.5: LOGIKA HISTORII TRANSAKCJI ---
 
-// === TO JEST POPRAWNA LOGIKA TWORZENIA WPISU ===
 async function logTransaction(type, companyId, amount, pricePerShare) {
     if (!currentUserId || !portfolio.name || !market[companyId]) {
         console.error("Nie można zalogować transakcji: brak danych.");
@@ -557,7 +631,7 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
         pricePerShare: pricePerShare,
         totalValue: amount * pricePerShare,
         timestamp: serverTimestamp(),
-        clearedByOwner: false // Zawsze twórz jako widoczne
+        clearedByOwner: false 
     };
     
     try {
@@ -567,11 +641,9 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
     }
 }
 
-// === TO JEST POPRAWNA LOGIKA HISTORII GLOBALNEJ ===
 function listenToGlobalHistory() {
     if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
     
-    // Zapytanie globalne ignoruje flagę `clearedByOwner` i pokazuje wszystko
     const historyQuery = query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15));
     
     unsubscribeGlobalHistory = onSnapshot(historyQuery, (querySnapshot) => {
@@ -583,15 +655,13 @@ function listenToGlobalHistory() {
     }, (error) => { console.error("Błąd nasłuchu historii globalnej: ", error); });
 }
 
-// === TO JEST POPRAWNA LOGIKA HISTORII OSOBISTEJ ===
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
-    // To zapytanie filtruje `userId` ORAZ `clearedByOwner`
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
         where("userId", "==", userId),
-        where("clearedByOwner", "==", false), // Pokaż tylko te, które NIE SĄ ukryte
+        where("clearedByOwner", "==", false), 
         orderBy("timestamp", "desc"), 
         limit(15)
     );
@@ -636,7 +706,6 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     feedElement.prepend(p);
 }
 
-// === TO JEST POPRAWNA LOGIKA CZYSZCZENIA ===
 async function onClearPersonalHistory() {
     if (!currentUserId) return;
 
@@ -647,11 +716,10 @@ async function onClearPersonalHistory() {
     console.log("Rozpoczynam UKRYWANIE historii dla: ", currentUserId);
     
     try {
-        // Znajdź wszystkie dokumenty, które są WIDOCZNE (clearedByOwner == false)
         const q = query(
             collection(db, "historia_transakcji"), 
             where("userId", "==", currentUserId),
-            where("clearedByOwner", "==", false) // <-- Ważne: znajdź tylko te, które nie są już ukryte
+            where("clearedByOwner", "==", false) 
         );
         const querySnapshot = await getDocs(q);
 
@@ -660,16 +728,12 @@ async function onClearPersonalHistory() {
             return;
         }
 
-        // Utwórz 'batch' do zaktualizowania (a nie usunięcia)
         const batch = writeBatch(db);
         querySnapshot.forEach((doc) => {
-            // Użyj .update() aby ustawić flagę na 'true'
             batch.update(doc.ref, { clearedByOwner: true }); 
         });
 
-        // Wykonaj aktualizację
         await batch.commit();
-
         console.log("Pomyślnie UKRYTO historię osobistą.");
         
     } catch (error) {
@@ -699,7 +763,13 @@ function changeCompany(companyId) {
     dom.companyName.textContent = companyData.name;
     
     if (chart) {
-        chart.updateSeries([{ data: companyData.history }]);
+        // Upewnij się, że dane historyczne istnieją przed aktualizacją
+        if (companyData.history && companyData.history.length > 0) {
+            chart.updateSeries([{ data: companyData.history }]);
+        } else {
+            // Jeśli dane jeszcze się nie załadowały, pokaż pusty wykres
+            chart.updateSeries([{ data: [] }]);
+        }
     }
     updatePriceUI();
 }
@@ -792,7 +862,7 @@ async function updatePortfolioInFirebase(dataToUpdate) {
 function calculateTotalValue(cash, shares) {
     let sharesValue = 0;
     for (const companyId in shares) {
-        if (market[companyId]) {
+        if (market[companyId] && market[companyId].price) {
             sharesValue += (shares[companyId] || 0) * market[companyId].price;
         }
     }
@@ -806,8 +876,11 @@ function initChart() {
     const currentTheme = document.body.getAttribute('data-theme') || 'dark';
     const chartTheme = (currentTheme === 'light') ? 'light' : 'dark';
 
+    // POPRAWKA: Pobierz dane dla aktualnie wybranej spółki
+    const initialData = market[currentCompanyId].history || [];
+
     const options = {
-        series: [{ data: market[currentCompanyId].history }],
+        series: [{ data: initialData }],
         chart: { type: 'candlestick', height: 350, toolbar: { show: false }, animations: { enabled: false } },
         theme: { mode: chartTheme },
         title: { text: 'Historia cen (świece 5-sekundowe)', align: 'left', style: { color: '#a3acb9' } },
@@ -826,7 +899,9 @@ function startChartTicker() {
         for (const companyId in market) {
             const company = market[companyId];
             const history = company.history;
-            if (!history.length) continue;
+            
+            // Pomiń, jeśli historia jest pusta (jeszcze się nie załadowała)
+            if (!history || history.length === 0) continue;
             
             const lastCandle = history[history.length - 1];
             const lastClose = parseFloat(lastCandle.y[3]);
@@ -845,7 +920,8 @@ function startChartTicker() {
             if (history.length > 50) history.shift();
         }
         
-        if (chart) {
+        // Aktualizuj wykres tylko dla aktywnej spółki
+        if (chart && market[currentCompanyId].history.length > 0) {
             chart.updateSeries([{
                 data: market[currentCompanyId].history
             }]);
@@ -895,7 +971,6 @@ function updatePortfolioUI() {
     dom.username.textContent = portfolio.name;
     dom.cash.textContent = formatujWalute(portfolio.cash);
     
-    // <-- POPRAWKA: DODANE NOWE SPÓŁKI
     dom.sharesList.innerHTML = `
         <p>Ułańska Dev: <strong id="shares-ulanska">${portfolio.shares.ulanska || 0}</strong> szt.</p>
         <p>RychBud: <strong id="shares-rychbud">${portfolio.shares.rychbud || 0}</strong> szt.</p>
@@ -906,18 +981,16 @@ function updatePortfolioUI() {
         <p>Bimber.cfd: <strong id="shares-bimbercfd">${portfolio.shares.bimbercfd || 0}</strong> szt.</p>
     `;
 
-    // <-- POPRAWKA: Zapisanie starej wartości do animacji
     const oldTotalValue = portfolio.totalValue;
     const totalValue = calculateTotalValue(portfolio.cash, portfolio.shares);
     const totalProfit = totalValue - portfolio.startValue;
 
-    portfolio.totalValue = totalValue; // Zapisanie nowej wartości
+    portfolio.totalValue = totalValue; 
     portfolio.zysk = totalProfit;
 
     dom.totalValue.textContent = formatujWalute(totalValue);
     dom.totalProfit.textContent = formatujWalute(totalProfit);
     
-    // <-- POPRAWKA: Logika animacji dla Wartości Portfela
     if (oldTotalValue && totalValue > oldTotalValue) {
         dom.totalValue.classList.remove('flash-red');
         dom.totalValue.classList.add('flash-green');
@@ -928,7 +1001,6 @@ function updatePortfolioUI() {
     dom.totalValue.addEventListener('animationend', () => {
         dom.totalValue.classList.remove('flash-green', 'flash-red');
     }, { once: true });
-    // --- Koniec poprawki animacji ---
     
     if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
     else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
@@ -942,12 +1014,15 @@ function showMessage(message, type) {
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     dom.amountInput.value = "";
 
-    if (type === "error" && dom.audioError) {
-        dom.audioError.currentTime = 0; 
-        dom.audioError.play().catch(e => console.log("Błąd odtwarzania audio"));
-    } else if (type === "success" && dom.audioKaching) {
-        dom.audioKaching.currentTime = 0; 
-        dom.audioKaching.play().catch(e => console.log("Błąd odtwarzania audio"));
+    // POPRAWKA: Odtwarzaj dźwięk tylko jeśli audio jest odblokowane
+    if (audioUnlocked) {
+        if (type === "error" && dom.audioError) {
+            dom.audioError.currentTime = 0; 
+            dom.audioError.play().catch(e => console.log("Błąd odtwarzania audio 'error'"));
+        } else if (type === "success" && dom.audioKaching) {
+            dom.audioKaching.currentTime = 0; 
+            dom.audioKaching.play().catch(e => console.log("Błąd odtwarzania audio 'kaching'"));
+        }
     }
 }
 
