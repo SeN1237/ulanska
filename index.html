@@ -99,7 +99,7 @@
 
             <aside id="portfolio-panel" class="panel">
                 <h2>Mój Portfel (Live)</h2>
-                <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
+                <div id="portfolio-chart-container"></div> <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
                 <hr>
                 <div id="shares-list">
                     <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
@@ -117,18 +117,42 @@
 
             <aside id="order-panel" class="panel">
                 <h2>Panel Zleceń</h2>
-                <div class="actions">
-                    <div class="label-with-max">
-                        <label for="amount-input">Ilość:</label>
-                        <span class="max-buttons-group">
-                            <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
-                            <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
-                        </span>
-                    </div>
-                    <input type="number" id="amount-input" placeholder="0" min="1">
-                    <button id="buy-button">KUP</button>
-                    <button id="sell-button">SPRZEDAJ</button>
+                
+                <div class="order-tabs">
+                    <button class="order-tab-btn active" data-order-type="market">Zlecenie Rynkowe (Kup/Sprzedaj)</button>
+                    <button class="order-tab-btn" data-order-type="limit">Zlecenie z Limitem</button>
                 </div>
+
+                <div id="order-market-container" class="order-container active">
+                    <div class="actions">
+                        <div class="label-with-max">
+                            <label for="amount-input">Ilość:</label>
+                            <span class="max-buttons-group">
+                                <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
+                                <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
+                            </span>
+                        </div>
+                        <input type="number" id="amount-input" placeholder="0" min="1">
+                        <button id="buy-button">KUP</button>
+                        <button id="sell-button">SPRZEDAJ</button>
+                    </div>
+                </div>
+
+                <div id="order-limit-container" class="order-container">
+                    <form id="limit-order-form">
+                        <label for="limit-type">Typ zlecenia:</label>
+                        <select id="limit-type">
+                            <option value="buy">Kupno (Limit)</option>
+                            <option value="sell">Sprzedaż (Limit)</option>
+                        </select>
+                        <label for="limit-amount">Ilość:</label>
+                        <input type="number" id="limit-amount" placeholder="0" min="1" required>
+                        <label for="limit-price">Cena Limitu (zł):</label>
+                        <input type="number" id="limit-price" placeholder="0.00" min="0.01" step="0.01" required>
+                        <button type="submit" id="limit-order-button">Złóż zlecenie z limitem</button>
+                    </form>
+                </div>
+                
                 <p id="message-box"></p>
             </aside>
 
@@ -179,29 +203,69 @@
                 </form>
             </section>
 
-            <section id="global-history-panel" class="panel">
-                <h2>Globalna Historia Transakcji</h2>
-                <div id="global-history-feed" class="feed-box history-feed">
-                    <p>...ładowanie transakcji...</p>
+            <section id="history-tabs-panel" class="panel">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="global-history">Globalna Historia</button>
+                    <button class="tab-btn" data-tab="personal-history">Moja Historia</button>
+                    <button class="tab-btn" data-tab="limit-orders">Zlecenia Limit</button>
+                </div>
+                
+                <div id="tab-global-history" class="tab-content active">
+                    <div class="panel-header-with-button">
+                        <h2>Globalna Historia Transakcji</h2>
+                        <span></span>
+                    </div>
+                    <div id="global-history-feed" class="feed-box history-feed">
+                        <p>...ładowanie transakcji...</p>
+                    </div>
+                </div>
+                
+                <div id="tab-personal-history" class="tab-content">
+                    <div class="panel-header-with-button">
+                        <h2>Moja Historia Transakcji</h2>
+                        <button id="clear-history-button" class="clear-btn" title="Wyczyść moją historię">Wyczyść</button>
+                    </div>
+                    <div id="personal-history-feed" class="feed-box history-feed">
+                        <p>...ładowanie transakcji...</p>
+                    </div>
+                </div>
+
+                <div id="tab-limit-orders" class="tab-content">
+                    <div class="panel-header-with-button">
+                        <h2>Moje Zlecenia Oczekujące</h2>
+                        <button id="clear-orders-button" class="clear-btn" title="Wyczyść wykonane/anulowane">Wyczyść</button>
+                    </div>
+                    <div id="limit-orders-feed" class="feed-box history-feed">
+                        <p>...ładowanie zleceń...</p>
+                    </div>
                 </div>
             </section>
-
-            <section id="personal-history-panel" class="panel">
-                <div class="panel-header-with-button">
-                    <h2>Moja Historia Transakcji</h2>
-                    <button id="clear-history-button" class="clear-btn" title="Wyczyść moją historię">Wyczyść</button>
-                </div>
-                <div id="personal-history-feed" class="feed-box history-feed">
-                    <p>...ładowanie transakcji...</p>
-                </div>
-            </section>
-
-        </div> 
+            </div> 
     </div> 
 
+    <div id="user-profile-modal" class="modal-overlay hidden">
+        <div class="modal-content panel">
+            <button id="modal-close-button" class="modal-close">&times;</button>
+            <h2 id="modal-username">Profil Gracza</h2>
+            <hr>
+            <div class="modal-body">
+                <div id="modal-portfolio-chart-container"></div>
+                <div id="modal-stats">
+                    <p>Wartość Portfela: <strong id="modal-total-value">...</strong></p>
+                    <p>Całkowity Zysk: <strong id="modal-total-profit">...</strong></p>
+                    <p>Gotówka: <strong id="modal-cash">...</strong></p>
+                    <p>Data Dołączenia: <strong id="modal-join-date">...</strong></p>
+                </div>
+            </div>
+            <h3>Posiadane Akcje</h3>
+            <div id="modal-shares-list" class="feed-box">
+                <p>...ładowanie akcji...</p>
+            </div>
+        </div>
+    </div>
     <div id="notification-container"></div>
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
-    <audio id="audio-error" src="error.mp3" preload="auto"></audio>
+    <audio id="audio-error"src="error.mp3" preload="auto"></audio>
     <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio> 
 </body>
 </html>
