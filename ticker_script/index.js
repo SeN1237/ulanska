@@ -1,9 +1,12 @@
-// Plik: ticker_script/index.js (NOWA WERSJA 3.1 - Z ROZSZERZONYMI NEWSAMI)
+// Plik: ticker_script/index.js (NOWA WERSJA 4.0 - Plotki i Zlecenia Limit)
 
 const admin = require('firebase-admin');
 
+// --- POBIERANIE KLUCZA ---
+// Klucz jest przekazywany jako zmienna środowiskowa w GitHub Actions
 const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
+// --- LISTY NEWSÓW (Bez zmian) ---
 const positiveNews = [
     // --- STARE WIADOMOŚCI ---
     // Finansowe (Zyski, Inwestycje, Oceny)
@@ -194,6 +197,7 @@ const positiveNews = [
     "NEWS: {COMPANY} ogłasza, że ich nowy system AI jest teraz globalnym, życzliwym dyktatorem. Utopia osiągnięta."
 ];
 
+
 const negativeNews = [
     // --- STARE WIADOMOŚCI ---
     // Finansowe (Straty, Długi, Oceny)
@@ -374,21 +378,138 @@ const negativeNews = [
     "NEWS: {COMPANY} ogłasza, że ich AI 'po prostu wybuchło'. Dosłownie. Serwery się stopiły.",
     "NEWS: {COMPANY} ogłasza, że ich AI uznało, że pieniądze są 'głupim ludzkim konceptem' i przelało całe zyski na schronisko dla psów."
 ];
+// --- KONIEC LIST NEWSÓW ---
+
 
 try {
+  // --- INICJALIZACJA FIREBASE ---
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccountKey),
     databaseURL: 'https://symulator-gielda.firebaseio.com' 
   });
 
   const db = admin.firestore();
-  const cenyDocRef = db.doc("global/ceny_akcji");
   
-  // ==========================================================
-  // Referencja do nowej kolekcji na newsy
+  // --- GŁÓWNE REFERENCJE DO KOLEKCJI ---
+  const cenyDocRef = db.doc("global/ceny_akcji");
   const newsCollectionRef = db.collection("gielda_news");
-  // ==========================================================
+  
+  // --- NOWE REFERENCJE ---
+  const rumorsRef = db.collection("plotki");
+  const limitOrdersRef = db.collection("limit_orders");
+  const usersRef = db.collection("uzytkownicy");
+  const historyRef = db.collection("historia_transakcji");
+  
+  
+  /**
+   * Funkcja pomocnicza do obliczania wartości portfela po stronie serwera.
+   * Używana przy realizacji zleceń limit do aktualizacji totalValue użytkownika.
+   */
+  function calculateTotalValue(cash, shares, currentPrices) {
+    let sharesValue = 0;
+    for (const companyId in shares) {
+        // Sprawdź, czy mamy cenę dla tej spółki w aktualnym obrocie
+        if (currentPrices[companyId]) {
+            sharesValue += (shares[companyId] || 0) * currentPrices[companyId];
+        }
+    }
+    return cash + sharesValue;
+  }
+  
+  /**
+   * NOWA FUNKCJA: Realizuje pojedyncze zlecenie z limitem
+   * Wykonywana w ramach transakcji, aby zapewnić spójność danych.
+   */
+  async function executeLimitOrder(transaction, orderDoc, executedPrice, currentPrices) {
+      const order = orderDoc.data();
+      const orderId = orderDoc.id;
+      
+      console.log(`... Próba realizacji zlecenia ${orderId} (${order.type})`);
 
+      const { userId, companyId, amount, limitPrice, type, companyName, userName } = order;
+      
+      const userRef = usersRef.doc(userId);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+          console.error(`BŁĄD KRYTYCZNY: Nie znaleziono użytkownika ${userId} dla zlecenia ${orderId}`);
+          transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "User not found" });
+          return;
+      }
+
+      const userData = userDoc.data();
+      const newShares = { ...userData.shares };
+      let newCash = userData.cash;
+      
+      // Koszt/przychód jest liczony wg CENY LIMIT,
+      // ponieważ użytkownik ustawił zlecenie oczekujące na tę kwotę.
+      const costOrRevenue = amount * limitPrice;
+
+      if (type === 'KUPNO (Limit)') {
+          // Sprawdź, czy użytkownik nadal ma środki
+          if (newCash < costOrRevenue) {
+              console.warn(`... Anulowanie zlecenia ${orderId}: Brak środków (potrzeba ${costOrRevenue}, jest ${newCash})`);
+              transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient funds" });
+              return;
+          }
+          // Zrealizuj kupno
+          newCash -= costOrRevenue;
+          newShares[companyId] = (newShares[companyId] || 0) + amount;
+          
+      } else if (type === 'SPRZEDAŻ (Limit)') {
+          // Sprawdź, czy użytkownik nadal ma akcje
+          if (!newShares[companyId] || newShares[companyId] < amount) {
+              console.warn(`... Anulowanie zlecenia ${orderId}: Brak akcji (potrzeba ${amount}, jest ${newShares[companyId] || 0})`);
+              transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient shares" });
+              return;
+          }
+          // Zrealizuj sprzedaż
+          newCash += costOrRevenue;
+          newShares[companyId] -= amount;
+      }
+      
+      // Oblicz nową wartość portfela
+      const newTotalValue = calculateTotalValue(newCash, newShares, currentPrices);
+      const newZysk = newTotalValue - userData.startValue;
+
+      // 1. Zaktualizuj portfel użytkownika
+      transaction.update(userRef, { 
+          cash: newCash, 
+          shares: newShares, 
+          totalValue: newTotalValue, 
+          zysk: newZysk 
+      });
+
+      // 2. Zaktualizuj status zlecenia
+      transaction.update(orderDoc.ref, { 
+          status: "executed", 
+          executedPrice: executedPrice // Zapisz, po jakiej cenie rynkowej faktycznie weszło
+      });
+
+      // 3. Zapisz transakcję w globalnej historii
+      const historyDocRef = historyRef.doc(); // Utwórz nowy dokument
+      transaction.set(historyDocRef, {
+          userId: userId,
+          userName: userName,
+          type: type, // np. "KUPNO (Limit)"
+          companyId: companyId,
+          companyName: companyName,
+          amount: amount,
+          pricePerShare: limitPrice, // Cena, jaką ustawił użytkownik
+          executedPrice: executedPrice, // Cena rynkowa, która wywołała zlecenie
+          totalValue: costOrRevenue, // Całkowita wartość zlecenia
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          clearedByOwner: false,
+          status: "executed"
+      });
+
+      console.log(`!!! POMYŚLNIE ZREALIZOWANO zlecenie ${orderId} dla ${userName} !!!`);
+  }
+  
+
+  /**
+   * GŁÓWNA FUNKCJA TICKERA
+   */
   const runTicker = async () => {
     const docSnap = await cenyDocRef.get();
     if (!docSnap.exists) {
@@ -399,10 +520,8 @@ try {
     const currentPrices = docSnap.data();
     const newPrices = {};
     
-    // --- POPRAWKA: Pełna lista 7 spółek ---
     const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
 
-    // --- POPRAWKA (v3.1): Definicja cen referencyjnych dla dynamicznego odbicia ---
     const companyReferencePrices = {
         ulanska: 1860.00,
         brzozair: 235.00,
@@ -412,7 +531,23 @@ try {
         gigachat: 790.00,
         bimbercfd: 50.00
     };
-    // --- KONIEC POPRAWKI (v3.1) ---
+    
+    // --- NOWOŚĆ: Pobieranie wpływu plotek ---
+    // Pobierz plotki z ostatnich 30 sekund (interwał pętli)
+    const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 1000);
+    const rumorsQuery = rumorsRef.where("timestamp", ">=", thirtySecondsAgo);
+    const rumorsSnapshot = await rumorsQuery.get();
+    
+    const rumorImpacts = {};
+    rumorsSnapshot.forEach(doc => {
+        const rumor = doc.data();
+        // Sumuj wpływ wszystkich plotek na daną spółkę
+        rumorImpacts[rumor.companyId] = (rumorImpacts[rumor.companyId] || 0) + rumor.impact;
+    });
+    if (!rumorsSnapshot.empty) {
+        console.log("... Zebrano wpływ plotek:", rumorImpacts);
+    }
+    // --- KONIEC POBIERANIA PLOTEK ---
 
     console.log("Pobrano ceny:", currentPrices);
     const globalSentiment = (Math.random() - 0.5); 
@@ -423,9 +558,8 @@ try {
     else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
     else console.log("... Sentyment rynkowy: Stabilnie");
 
-    // Używamy pętli 'for...of', aby móc użyć 'await' w środku
+    // Pętla po spółkach do OBLICZENIA nowych cen
     for (const companyId of companies) {
-      // --- POPRAWKA: Sprawdzanie czy cena istnieje (dla nowych spółek) ---
       if (currentPrices[companyId] === undefined) {
           console.warn(`OSTRZEŻENIE: Brak ceny dla '${companyId}' w 'global/ceny_akcji'. Pomijam.`);
           continue;
@@ -439,13 +573,21 @@ try {
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
+      // --- NOWOŚĆ: Zastosuj wpływ plotek ---
+      if (rumorImpacts[companyId]) {
+          const rumorChange = price * rumorImpacts[companyId];
+          change += rumorChange;
+          console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
+      }
+      // --- KONIEC WPŁYWU PLOTEK ---
+
       const eventChance = 0.07; 
       
       if (Math.random() < eventChance) {
           const isPositive = Math.random() > 0.5;
           let newsTemplate = "";
           let impactPercent = 0.0;
-          let impactType = ""; // 'positive' lub 'negative'
+          let impactType = ""; 
 
           if (isPositive) {
               impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
@@ -464,49 +606,92 @@ try {
           const anomalyImpact = impactPercent * price;
           change += anomalyImpact; 
 
-          // ==========================================================
-          // Zapisujemy news do bazy danych
           const newsItem = {
               text: formattedNews,
               companyId: companyId,
               impactType: impactType,
               timestamp: admin.firestore.FieldValue.serverTimestamp() 
           };
-          // Używamy 'await', aby mieć pewność, że news się zapisał
           await newsCollectionRef.add(newsItem);
-          // ==========================================================
       }
       
       newPrice = price + change; // Zastosuj wstępną zmianę
 
-      // --- POPRAWKA (v3.1): Dynamiczna Logika "Odbicia od dna" ---
-      
-      // 1. Pobieramy cenę referencyjną dla tej spółki (z domyślną 50, na wszelki wypadek)
+      // Logika "Odbicia od dna" (bez zmian)
       const referencePrice = companyReferencePrices[companyId] || 50.00; 
-      
-      // 2. Obliczamy dynamiczny poziom wsparcia (Twoje 40% ceny ref.)
       const supportLevelPrice = referencePrice * 0.40; 
       
-      // 3. Sprawdzamy, czy cena spadła poniżej tego dynamicznego poziomu
       if (newPrice < supportLevelPrice && newPrice > 1.00) { 
-          // Zwiększyłem szansę odbicia do 25%, aby było bardziej widoczne
           const recoveryChance = 0.25; 
-          
           if (Math.random() < recoveryChance) {
-              // Zwiększyłem "kopnięcie" do 10% aktualnej ceny, aby szybciej odbijało
               const recoveryBoost = newPrice * 0.10; 
               newPrice += recoveryBoost; 
               console.log(`... ${companyId.toUpperCase()} ODBIJA SIĘ od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
           }
       }
-      // --- KONIEC POPRAWKI (v3.1) ---
       
       newPrice = Math.max(1.00, newPrice); // Utrzymaj minimum 1.00
       newPrices[companyId] = parseFloat(newPrice.toFixed(2));
     }
 
+    // ZAPISZ wszystkie nowe ceny do bazy
     await cenyDocRef.update(newPrices);
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
+
+    
+    // --- NOWOŚĆ: Pętla po spółkach do REALIZACJI ZLECEŃ ---
+    // Musi być osobną pętlą PO aktualizacji cen
+    for (const companyId of companies) {
+        const finalPrice = newPrices[companyId];
+        if (!finalPrice) continue;
+        
+        // 1. Szukaj zleceń KUPNA (Limit), które można zrealizować
+        // (Cena rynkowa spadła PONIŻEJ lub RÓWNO cenie limitu kupna)
+        const buyOrdersQuery = limitOrdersRef
+            .where("companyId", "==", companyId)
+            .where("status", "==", "pending")
+            .where("type", "==", "KUPNO (Limit)")
+            .where("limitPrice", ">=", finalPrice);
+            
+        const buyOrdersSnapshot = await buyOrdersQuery.get();
+        if (!buyOrdersSnapshot.empty) {
+            console.log(`... Znaleziono ${buyOrdersSnapshot.size} zleceń KUPNA do realizacji dla ${companyId} (Cena rynkowa: ${finalPrice})`);
+            // Użyj transakcji dla każdego zlecenia
+            for (const orderDoc of buyOrdersSnapshot.docs) {
+                try {
+                    await db.runTransaction(async (transaction) => {
+                        await executeLimitOrder(transaction, orderDoc, finalPrice, newPrices);
+                    });
+                } catch (e) {
+                    console.error(`BŁĄD Transakcji dla zlecenia ${orderDoc.id}:`, e.message);
+                }
+            }
+        }
+        
+        // 2. Szukaj zleceń SPRZEDAŻY (Limit), które można zrealizować
+        // (Cena rynkowa wzrosła POWYŻEJ lub RÓWNO cenie limitu sprzedaży)
+        const sellOrdersQuery = limitOrdersRef
+            .where("companyId", "==", companyId)
+            .where("status", "==", "pending")
+            .where("type", "==", "SPRZEDAŻ (Limit)")
+            .where("limitPrice", "<=", finalPrice);
+            
+        const sellOrdersSnapshot = await sellOrdersQuery.get();
+        if (!sellOrdersSnapshot.empty) {
+            console.log(`... Znaleziono ${sellOrdersSnapshot.size} zleceń SPRZEDAŻY do realizacji dla ${companyId} (Cena rynkowa: ${finalPrice})`);
+            // Użyj transakcji dla każdego zlecenia
+             for (const orderDoc of sellOrdersSnapshot.docs) {
+                try {
+                    await db.runTransaction(async (transaction) => {
+                        await executeLimitOrder(transaction, orderDoc, finalPrice, newPrices);
+                    });
+                } catch (e) {
+                    console.error(`BŁĄD Transakcji dla zlecenia ${orderDoc.id}:`, e.message);
+                }
+            }
+        }
+    }
+    // --- KONIEC REALIZACJI ZLECEŃ ---
   };
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
