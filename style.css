@@ -12,6 +12,7 @@ body[data-theme="dark"] {
     --red: #FF4500;
     --blue: #00BFFF;
     --accent-color: #FF00FF;
+    --prestige-star: #FFD700; /* Złoty kolor dla gwiazdek */
 }
 body[data-theme="light"] {
     --bg-color: #F4F7F6;
@@ -23,6 +24,7 @@ body[data-theme="light"] {
     --red: #dc3545;
     --blue: #007bff;
     --accent-color: #F58400;
+    --prestige-star: #E6A700;
 }
 body[data-theme="dim"] {
     --bg-color: #1a1e25;
@@ -34,6 +36,7 @@ body[data-theme="dim"] {
     --red: #dc3545;
     --blue: #007bff;
     --accent-color: #ffc107;
+    --prestige-star: #ffc107;
 }
 
 
@@ -276,6 +279,9 @@ header h1 {
 }
 #user-info {
     order: 3;
+    display: flex; /* NOWOŚĆ: dla gwiazdek */
+    align-items: center;
+    gap: 5px;
 }
 #logout-button {
     background: var(--red); color: white; border: none;
@@ -366,7 +372,8 @@ body[data-theme="dark"] #logout-button:hover {
         "market order"
         "rumors leaderboard"
         "chat chat"
-        "history history"; /* ZMIANA: Jeden obszar na zakładki */
+        "history history"
+        "help help"; /* NOWY OBSZAR */
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -375,7 +382,8 @@ body[data-theme="dark"] #logout-button:hover {
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
 #chat-panel { grid-area: chat; }
-#history-tabs-panel { grid-area: history; } /* ZMIANA */
+#history-tabs-panel { grid-area: history; }
+#help-panel { grid-area: help; } /* NOWY */
 
 
 .panel {
@@ -721,6 +729,41 @@ body[data-theme="dark"] #rumor-form button:hover {
     border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
 }
 
+/* NOWY: Ogólny styl dla przycisków akcji */
+.action-btn-full {
+    width: 100%;
+    background-color: var(--blue);
+    color: white;
+    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
+    font-weight: bold; font-size: 1em;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+.action-btn-full:active {
+    transform: scale(0.98);
+}
+body[data-theme="dark"] .action-btn-full:hover {
+    box-shadow: 0 0 10px var(--blue);
+}
+.action-btn-full:disabled {
+    background-color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+body[data-theme="dark"] .action-btn-full:disabled:hover {
+    box-shadow: none;
+}
+/* Przycisk kupna wskazówki */
+#buy-tip-button {
+    background-color: var(--accent-color);
+    color: white;
+}
+body[data-theme="dark"] #buy-tip-button:hover {
+    box-shadow: 0 0 10px var(--accent-color);
+}
+body[data-theme="light"] #buy-tip-button {
+    color: #111;
+}
+
 
 /* Panel Rankingu */
 #leaderboard-list {
@@ -830,6 +873,23 @@ body[data-theme="dark"] .company-tab.active {
     text-decoration-color: var(--accent-color);
 }
 
+/* NOWE: Style dla gwiazdek */
+.prestige-stars {
+    display: inline-block;
+    margin-left: 4px;
+    line-height: 1;
+}
+.star-icon {
+    color: var(--prestige-star);
+    font-size: 1.1em;
+    text-shadow: 0 0 3px var(--prestige-star);
+}
+/* Mniejsze gwiazdki w czacie */
+#chat-feed .star-icon {
+    font-size: 0.9em;
+}
+
+
 #chat-form {
     display: flex;
     gap: 10px;
@@ -929,6 +989,12 @@ body[data-theme="dark"] .tab-btn.active {
     flex-basis: 100%;
     text-align: right;
 }
+/* Specjalny styl dla wskazówek w historii */
+.history-feed .h-action-tip {
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
 
 /* --- NOWE STYLE DLA ZLECEŃ LIMIT --- */
 #limit-orders-feed {
@@ -1015,6 +1081,30 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     background-color: rgba(245, 132, 0, 0.1); 
 }
 
+/* NOWY: Panel Pomocy */
+#help-panel h3 {
+    color: var(--text-color);
+    border-bottom: none;
+    font-size: 1.1em;
+}
+#help-panel p {
+    font-size: 0.95em;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+#help-panel ul {
+    font-size: 0.95em;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding-left: 20px;
+}
+#help-panel li {
+    margin-bottom: 5px;
+}
+#help-panel strong {
+    color: var(--text-color);
+}
+
 
 /* --- STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) --- */
 @media (max-width: 800px) {
@@ -1026,7 +1116,7 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     }
     header h1 { order: 1; }
     #theme-switcher { margin-left: 0; order: 2; }
-    #user-info { order: 3; width: 100%; text-align: center; }
+    #user-info { order: 3; width: 100%; text-align: center; justify-content: center; }
     
     .grid-container {
         grid-template-columns: 1fr;
@@ -1037,7 +1127,8 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
             "rumors"
             "leaderboard"
             "chat"
-            "history"; /* ZMIANA */
+            "history"
+            "help"; /* NOWY */
         gap: 15px; 
     }
     
@@ -1124,6 +1215,14 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
 }
 .toast-news.toast-negative > strong {
     color: var(--red);
+}
+
+/* NOWY: Typ wskazówki */
+.toast-tip {
+    border-left: 4px solid var(--accent-color);
+}
+.toast-tip > strong {
+    color: var(--accent-color);
 }
 
 
@@ -1248,6 +1347,29 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
 #modal-total-profit[data-profit-sign="negative"] {
     color: var(--red);
 }
+
+/* NOWY: Style dla przycisku prestiżu */
+#prestige-info, #prestige-next-goal {
+    font-size: 0.9em !important;
+    color: var(--text-muted);
+}
+#prestige-next-goal {
+    margin-top: -5px;
+}
+#prestige-button {
+    background-color: var(--prestige-star);
+    color: #111;
+    margin-top: 10px;
+}
+body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
+    box-shadow: 0 0 10px var(--prestige-star);
+}
+#prestige-button:disabled {
+    background-color: var(--text-muted);
+    color: var(--panel-color);
+    opacity: 0.5;
+}
+
 
 @media (max-width: 600px) {
     .modal-body {
