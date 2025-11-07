@@ -9,7 +9,7 @@ import {
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, Timestamp, 
     serverTimestamp, where, 
-    getDocs, writeBatch
+    getDocs, writeBatch, deleteDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -93,6 +93,8 @@ let portfolio = {
 };
 
 let chart = null;
+let portfolioChart = null; // NOWY: Wykres kołowy portfela
+let modalPortfolioChart = null; // NOWY: Wykres kołowy dla modala
 let currentUserId = null;
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
@@ -106,6 +108,7 @@ let unsubscribeLeaderboard = null;
 let unsubscribeChat = null; 
 let unsubscribeGlobalHistory = null;
 let unsubscribePersonalHistory = null;
+let unsubscribeLimitOrders = null; // NOWY: Listener zleceń limit
 
 let dom = {};
 
@@ -140,7 +143,7 @@ onSnapshot(cenyDocRef, (docSnap) => {
         }
 
         updatePriceUI(); 
-        updatePortfolioUI(); 
+        updatePortfolioUI(); // To teraz zaktualizuje też wykres kołowy
         updateTickerTape(); 
 
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
@@ -173,12 +176,21 @@ function onChangeTheme(e) {
     document.body.setAttribute('data-theme', theme);
     localStorage.setItem('simulatorTheme', theme);
     
+    const newChartTheme = (theme === 'light') ? 'light' : 'dark';
+
     if (chart) {
-        const newChartTheme = (theme === 'light') ? 'light' : 'dark';
         chart.updateOptions({
-            theme: {
-                mode: newChartTheme
-            }
+            theme: { mode: newChartTheme }
+        });
+    }
+    if (portfolioChart) {
+        portfolioChart.updateOptions({
+            theme: { mode: newChartTheme }
+        });
+    }
+    if (modalPortfolioChart) {
+        modalPortfolioChart.updateOptions({
+            theme: { mode: newChartTheme }
         });
     }
 }
@@ -189,6 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     applySavedTheme();
 
+    // Referencje DOM
     dom = {
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
@@ -220,6 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
         companySelector: document.getElementById("company-selector"),
         companyName: document.getElementById("company-name"),
         sharesList: document.getElementById("shares-list"),
+        portfolioChartContainer: document.getElementById("portfolio-chart-container"), // NOWY
 
         chatForm: document.getElementById("chat-form"),
         chatInput: document.getElementById("chat-input"),
@@ -227,9 +241,43 @@ document.addEventListener("DOMContentLoaded", () => {
         
         themeSelect: document.getElementById("theme-select"),
 
+        // Zakładki Zleceń
+        orderTabMarket: document.querySelector('.order-tab-btn[data-order-type="market"]'),
+        orderTabLimit: document.querySelector('.order-tab-btn[data-order-type="limit"]'),
+        orderMarketContainer: document.getElementById("order-market-container"),
+        orderLimitContainer: document.getElementById("order-limit-container"),
+        
+        // Formularz Zleceń Limit
+        limitOrderForm: document.getElementById("limit-order-form"),
+        limitType: document.getElementById("limit-type"),
+        limitAmount: document.getElementById("limit-amount"),
+        limitPrice: document.getElementById("limit-price"),
+        limitOrderButton: document.getElementById("limit-order-button"),
+
+        // Zakładki Historii
+        historyTabsPanel: document.getElementById("history-tabs-panel"),
+        historyTabButtons: document.querySelectorAll("#history-tabs-panel .tab-btn"),
+        historyTabGlobal: document.getElementById("tab-global-history"),
+        historyTabPersonal: document.getElementById("tab-personal-history"),
+        historyTabLimitOrders: document.getElementById("tab-limit-orders"),
+        
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
         clearHistoryButton: document.getElementById("clear-history-button"),
+        
+        limitOrdersFeed: document.getElementById("limit-orders-feed"),
+        clearOrdersButton: document.getElementById("clear-orders-button"),
+
+        // Modal Profilu Użytkownika
+        modalOverlay: document.getElementById("user-profile-modal"),
+        modalCloseButton: document.getElementById("modal-close-button"),
+        modalUsername: document.getElementById("modal-username"),
+        modalTotalValue: document.getElementById("modal-total-value"),
+        modalTotalProfit: document.getElementById("modal-total-profit"),
+        modalCash: document.getElementById("modal-cash"),
+        modalJoinDate: document.getElementById("modal-join-date"),
+        modalSharesList: document.getElementById("modal-shares-list"),
+        modalPortfolioChartContainer: document.getElementById("modal-portfolio-chart-container"),
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
@@ -253,6 +301,22 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
     dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory);
+
+    // NOWE Listenery zakładek i zleceń
+    dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
+    dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
+    dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
+    dom.clearOrdersButton.addEventListener("click", onClearLimitOrders);
+
+    dom.historyTabButtons.forEach(button => {
+        button.addEventListener("click", onSelectHistoryTab);
+    });
+
+    // NOWE Listenery Modala
+    dom.modalCloseButton.addEventListener("click", () => dom.modalOverlay.classList.add("hidden"));
+    dom.modalOverlay.addEventListener("click", (e) => {
+        if (e.target === dom.modalOverlay) dom.modalOverlay.classList.add("hidden");
+    });
 
     dom.showRegisterLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -308,6 +372,7 @@ function startAuthListener() {
             listenToChat(); 
             listenToGlobalHistory();
             listenToPersonalHistory(currentUserId);
+            listenToLimitOrders(currentUserId); // NOWY
             
         } else {
             currentUserId = null;
@@ -322,11 +387,14 @@ function startAuthListener() {
             if (unsubscribeChat) unsubscribeChat(); 
             if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
             if (unsubscribePersonalHistory) unsubscribePersonalHistory();
+            if (unsubscribeLimitOrders) unsubscribeLimitOrders(); // NOWY
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
             chartHasStarted = false; 
             chart = null;            
+            portfolioChart = null; // NOWY
+            modalPortfolioChart = null; // NOWY
             initialNewsLoaded = false; 
             initialChatLoaded = false; 
             audioUnlocked = false; // Zresetuj flagę przy wylogowaniu
@@ -601,7 +669,13 @@ function displayChatMessage(msg) {
     if (!dom.chatFeed) return;
     const p = document.createElement("p");
     const strong = document.createElement("strong");
+    
+    // NOWY: Klikalna nazwa użytkownika
     strong.textContent = msg.authorName + ": ";
+    strong.classList.add("clickable-user");
+    strong.dataset.userId = msg.authorId;
+    strong.addEventListener("click", () => showUserProfile(msg.authorId));
+
     p.appendChild(strong);
     p.appendChild(document.createTextNode(msg.text));
     if (msg.authorId === currentUserId) p.classList.add("my-message");
@@ -614,6 +688,10 @@ async function onPostRumor(e) {
     const companyId = dom.rumorForm.querySelector("#rumor-company-select").value;
     const sentiment = dom.rumorForm.querySelector('input[name="sentiment"]:checked').value;
     if (!rumorText.trim() || !currentUserId || !companyId || !sentiment) return;
+    
+    // NOWA Logika wpływu plotki (do 5%)
+    const impact = (Math.random() * 0.04 + 0.01) * (sentiment === 'positive' ? 1 : -1); // 1% to 5%
+
     try {
         await addDoc(collection(db, "plotki"), {
             text: rumorText,
@@ -621,7 +699,8 @@ async function onPostRumor(e) {
             authorName: portfolio.name,
             timestamp: Timestamp.fromDate(new Date()),
             companyId: companyId,
-            sentiment: sentiment
+            sentiment: sentiment,
+            impact: impact // Zapisujemy wygenerowany wpływ
         });
         dom.rumorInput.value = "";
     } catch (error) {
@@ -644,6 +723,12 @@ function listenToLeaderboard() {
             
             const nameSpan = document.createElement("span");
             nameSpan.textContent = `${rank}. ${user.name}`;
+            
+            // NOWY: Klikalna nazwa użytkownika
+            nameSpan.classList.add("clickable-user");
+            nameSpan.dataset.userId = doc.id;
+            nameSpan.addEventListener("click", () => showUserProfile(doc.id));
+
             const valueStrong = document.createElement("strong");
             valueStrong.textContent = formatujWalute(user.totalValue || 0);
             
@@ -681,7 +766,9 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
         pricePerShare: pricePerShare,
         totalValue: amount * pricePerShare,
         timestamp: serverTimestamp(),
-        clearedByOwner: false 
+        clearedByOwner: false,
+        status: "executed", // NOWY: Oznacz jako wykonaną transakcję rynkową
+        executedPrice: pricePerShare // NOWY
     };
     
     try {
@@ -694,7 +781,11 @@ async function logTransaction(type, companyId, amount, pricePerShare) {
 function listenToGlobalHistory() {
     if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
     
-    const historyQuery = query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15));
+    const historyQuery = query(
+        collection(db, "historia_transakcji"), 
+        orderBy("timestamp", "desc"), 
+        limit(15)
+    );
     
     unsubscribeGlobalHistory = onSnapshot(historyQuery, (querySnapshot) => {
         if (!dom.globalHistoryFeed) return;
@@ -712,6 +803,7 @@ function listenToPersonalHistory(userId) {
         collection(db, "historia_transakcji"), 
         where("userId", "==", userId),
         where("clearedByOwner", "==", false), 
+        //where("status", "==", "executed"), // Pokaż tylko wykonane
         orderBy("timestamp", "desc"), 
         limit(15)
     );
@@ -733,8 +825,10 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     
     if (isGlobal) {
         const userSpan = document.createElement("span");
-        userSpan.className = "h-user";
+        userSpan.className = "h-user clickable-user"; // NOWY: Klikalny user
         userSpan.textContent = item.userName;
+        userSpan.dataset.userId = item.userId;
+        userSpan.addEventListener("click", () => showUserProfile(item.userId));
         p.appendChild(userSpan);
     }
     
@@ -745,12 +839,22 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     
     const detailsSpan = document.createElement("span");
     detailsSpan.className = "h-details";
-    detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(item.pricePerShare)}`;
+    
+    // Zaktualizowano, aby pokazać cenę wykonania (jeśli istnieje) lub rynkową
+    const price = item.executedPrice || item.pricePerShare;
+    detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(price)}`;
     p.appendChild(detailsSpan);
     
     const totalSpan = document.createElement("span");
     totalSpan.className = "h-total";
     totalSpan.textContent = `Wartość: ${formatujWalute(item.totalValue)}`;
+    
+    // Pokaż status, jeśli nie jest "executed"
+    if (item.status && item.status !== "executed") {
+        totalSpan.textContent += ` (Status: ${item.status})`;
+        totalSpan.style.color = "var(--blue)";
+    }
+    
     p.appendChild(totalSpan);
 
     feedElement.prepend(p);
@@ -762,14 +866,12 @@ async function onClearPersonalHistory() {
     if (!confirm("Czy na pewno chcesz wyczyścić swoją historię transakcji? Zostaną one ukryte z Twojego widoku, ale pozostaną w globalnym rejestrze.")) {
         return;
     }
-
-    console.log("Rozpoczynam UKRYWANIE historii dla: ", currentUserId);
     
     try {
         const q = query(
             collection(db, "historia_transakcji"), 
             where("userId", "==", currentUserId),
-            where("clearedByOwner", "==", false) 
+            where("clearedByOwner", "==", false)
         );
         const querySnapshot = await getDocs(q);
 
@@ -791,6 +893,225 @@ async function onClearPersonalHistory() {
         showMessage("Błąd podczas ukrywania historii. Sprawdź konsolę.", "error");
     }
 }
+
+
+// --- SEKCJA 4.6: NOWA LOGIKA ZLECEŃ LIMIT ---
+
+function onSelectOrderTab(e) {
+    const targetType = e.target.dataset.orderType;
+    
+    dom.orderTabMarket.classList.toggle("active", targetType === "market");
+    dom.orderTabLimit.classList.toggle("active", targetType === "limit");
+    
+    dom.orderMarketContainer.classList.toggle("active", targetType === "market");
+    dom.orderLimitContainer.classList.toggle("active", targetType === "limit");
+}
+
+function onSelectHistoryTab(e) {
+    const targetTab = e.target.dataset.tab;
+    
+    dom.historyTabButtons.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === targetTab);
+    });
+    
+    document.querySelectorAll("#history-tabs-panel .tab-content").forEach(content => {
+        content.classList.toggle("active", content.id === `tab-${targetTab}`);
+    });
+}
+
+async function onPlaceLimitOrder(e) {
+    e.preventDefault();
+    if (!currentUserId || !currentCompanyId) return;
+
+    const type = dom.limitType.value; // 'buy' lub 'sell'
+    const amount = parseInt(dom.limitAmount.value);
+    const limitPrice = parseFloat(dom.limitPrice.value);
+    const currentPrice = market[currentCompanyId].price;
+
+    // Walidacja
+    if (isNaN(amount) || amount <= 0) {
+        showMessage("Wpisz poprawną ilość.", "error"); return;
+    }
+    if (isNaN(limitPrice) || limitPrice <= 0) {
+        showMessage("Wpisz poprawną cenę limitu.", "error"); return;
+    }
+
+    if (type === 'buy') {
+        const cost = amount * limitPrice;
+        if (cost > portfolio.cash) {
+            showMessage("Nie masz wystarczającej gotówki na pokrycie tego zlecenia.", "error"); return;
+        }
+        if (limitPrice >= currentPrice) {
+            showMessage("Cena kupna limit musi być NIŻSZA niż aktualna cena rynkowa.", "error"); return;
+        }
+    } else if (type === 'sell') {
+        const ownedShares = portfolio.shares[currentCompanyId] || 0;
+        if (amount > ownedShares) {
+            showMessage("Nie masz tylu akcji na sprzedaż.", "error"); return;
+        }
+        if (limitPrice <= currentPrice) {
+            showMessage("Cena sprzedaży limit musi być WYŻSZA niż aktualna cena rynkowa.", "error"); return;
+        }
+    }
+
+    // Utwórz zlecenie
+    try {
+        const orderData = {
+            userId: currentUserId,
+            userName: portfolio.name,
+            companyId: currentCompanyId,
+            companyName: market[currentCompanyId].name,
+            type: type === 'buy' ? 'KUPNO (Limit)' : 'SPRZEDAŻ (Limit)',
+            amount: amount,
+            limitPrice: limitPrice,
+            status: "pending", // Status: pending, executed, cancelled
+            timestamp: serverTimestamp()
+        };
+        
+        await addDoc(collection(db, "limit_orders"), orderData);
+        
+        showMessage(`Zlecenie ${type} na ${amount} szt. @ ${formatujWalute(limitPrice)} złożone!`, "success");
+        dom.limitOrderForm.reset();
+        // Ustaw cenę z powrotem na aktualną
+        dom.limitPrice.value = market[currentCompanyId].price.toFixed(2);
+
+    } catch (error) {
+        console.error("Błąd składania zlecenia limit: ", error);
+        showMessage("Błąd serwera przy składaniu zlecenia.", "error");
+    }
+}
+
+function listenToLimitOrders(userId) {
+    if (unsubscribeLimitOrders) unsubscribeLimitOrders();
+
+    const ordersQuery = query(
+        collection(db, "limit_orders"),
+        where("userId", "==", userId),
+        orderBy("timestamp", "desc")
+    );
+
+    unsubscribeLimitOrders = onSnapshot(ordersQuery, (querySnapshot) => {
+        if (!dom.limitOrdersFeed) return;
+        dom.limitOrdersFeed.innerHTML = ""; // Wyczyść kontener
+
+        if (querySnapshot.empty) {
+            dom.limitOrdersFeed.innerHTML = "<p>Brak aktywnych lub przeszłych zleceń z limitem.</p>";
+            return;
+        }
+
+        // Stwórz tabelę
+        const table = document.createElement("table");
+        table.className = "limit-order-table";
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Typ</th>
+                    <th>Spółka</th>
+                    <th>Ilość</th>
+                    <th>Cena Limit</th>
+                    <th>Status</th>
+                    <th>Akcja</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        querySnapshot.forEach((doc) => {
+            const order = doc.data();
+            const orderId = doc.id;
+            
+            const tr = document.createElement("tr");
+            
+            const typeClass = order.type.startsWith("KUPNO") ? "l-type-buy" : "l-type-sell";
+            const statusClass = `l-status-${order.status}`;
+
+            let actionButton = "";
+            if (order.status === "pending") {
+                actionButton = `<button class="cancel-order-btn" data-order-id="${orderId}">Anuluj</button>`;
+            } else {
+                actionButton = `<span>-</span>`;
+            }
+
+            tr.innerHTML = `
+                <td class="${typeClass}">${order.type}</td>
+                <td>${order.companyName}</td>
+                <td>${order.amount}</td>
+                <td>${formatujWalute(order.limitPrice)}</td>
+                <td class="${statusClass}">${order.status}</td>
+                <td>${actionButton}</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+        dom.limitOrdersFeed.appendChild(table);
+
+        // Dodaj listenery do przycisków "Anuluj"
+        dom.limitOrdersFeed.querySelectorAll('.cancel-order-btn').forEach(btn => {
+            btn.addEventListener("click", onCancelLimitOrder);
+        });
+
+    }, (error) => { console.error("Błąd nasłuchu zleceń limit: ", error); });
+}
+
+async function onCancelLimitOrder(e) {
+    e.target.disabled = true; // Zapobiegaj podwójnemu kliknięciu
+    const orderId = e.target.dataset.orderId;
+    if (!orderId) return;
+
+    if (!confirm("Czy na pewno chcesz anulować to zlecenie?")) {
+        e.target.disabled = false;
+        return;
+    }
+
+    try {
+        const orderRef = doc(db, "limit_orders", orderId);
+        await updateDoc(orderRef, {
+            status: "cancelled"
+        });
+        // Nie trzeba pokazywać wiadomości, onSnapshot sam odświeży widok
+        console.log("Anulowano zlecenie: ", orderId);
+    } catch (error) {
+        console.error("Błąd anulowania zlecenia: ", error);
+        showMessage("Błąd anulowania zlecenia.", "error");
+        e.target.disabled = false;
+    }
+}
+
+async function onClearLimitOrders() {
+    if (!currentUserId) return;
+    if (!confirm("Czy na pewno chcesz usunąć z widoku wszystkie zlecenia, które zostały wykonane lub anulowane?")) {
+        return;
+    }
+
+    try {
+        const q = query(
+            collection(db, "limit_orders"), 
+            where("userId", "==", currentUserId),
+            where("status", "!=", "pending") // Pobierz wszystkie NIE-oczekujące
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            showMessage("Brak zleceń do wyczyszczenia.", "info");
+            return;
+        }
+
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+            batch.delete(doc.ref); // Usuń dokument
+        });
+
+        await batch.commit();
+        showMessage("Wyczyszczono zakończone zlecenia.", "success");
+
+    } catch (error) {
+        console.error("Błąd podczas czyszczenia zleceń: ", error);
+        showMessage("Błąd podczas czyszczenia zleceń.", "error");
+    }
+}
+
 
 
 // --- SEKCJA 5: HANDLERY AKCJI UŻYTKOWNIKA ---
@@ -820,6 +1141,11 @@ function changeCompany(companyId) {
         }
     }
     updatePriceUI();
+    
+    // NOWY: Zaktualizuj pole ceny limit
+    if (dom.limitPrice) {
+        dom.limitPrice.value = companyData.price.toFixed(2);
+    }
 }
 
 function onBuyMax(e) {
@@ -975,6 +1301,189 @@ function startChartTicker() {
 }
 
 
+// --- SEKCJA 7: NOWE FUNKCJE (WYKRESY KOŁOWE i MODAL) ---
+
+function getChartTheme() {
+    const currentTheme = document.body.getAttribute('data-theme') || 'dark';
+    return (currentTheme === 'light') ? 'light' : 'dark';
+}
+
+function initPortfolioChart() {
+    const options = {
+        series: [0, 0], // Start with 0
+        chart: {
+            type: 'donut',
+            height: 300
+        },
+        labels: ['Gotówka', 'Akcje'],
+        colors: ['var(--blue)', 'var(--accent-color)'],
+        theme: { mode: getChartTheme() },
+        legend: {
+            position: 'bottom',
+            labels: { colors: 'var(--text-muted)' }
+        },
+        dataLabels: { enabled: false },
+        tooltip: {
+            y: {
+                formatter: (val) => formatujWalute(val)
+            }
+        },
+        plotOptions: {
+            pie: {
+                donut: {
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true,
+                            color: 'var(--text-muted)'
+                        },
+                        value: {
+                            show: true,
+                            formatter: (val) => formatujWalute(val),
+                            color: 'var(--text-color)'
+                        },
+                        total: {
+                            show: true,
+                            label: 'Portfel',
+                            formatter: (w) => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)),
+                            color: 'var(--text-color)'
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    portfolioChart = new ApexCharts(dom.portfolioChartContainer, options);
+    portfolioChart.render();
+}
+
+function updatePortfolioChart(cashValue, sharesValue) {
+    if (portfolioChart) {
+        portfolioChart.updateSeries([cashValue, sharesValue]);
+    }
+}
+
+function initModalPortfolioChart() {
+    const options = {
+        series: [0, 0],
+        chart: {
+            type: 'donut',
+            height: 250
+        },
+        labels: ['Gotówka', 'Akcje'],
+        colors: ['var(--blue)', 'var(--accent-color)'],
+        theme: { mode: getChartTheme() },
+        legend: {
+            position: 'bottom',
+            labels: { colors: 'var(--text-muted)' }
+        },
+        dataLabels: { enabled: false },
+        tooltip: {
+            y: {
+                formatter: (val) => formatujWalute(val)
+            }
+        },
+         plotOptions: {
+            pie: {
+                donut: {
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Portfel',
+                            formatter: (w) => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)),
+                            color: 'var(--text-color)'
+                        }
+                    }
+                }
+            }
+        }
+    };
+    modalPortfolioChart = new ApexCharts(dom.modalPortfolioChartContainer, options);
+    modalPortfolioChart.render();
+}
+
+function updateModalPortfolioChart(cashValue, sharesValue) {
+    if (modalPortfolioChart) {
+        modalPortfolioChart.updateSeries([cashValue, sharesValue]);
+    } else {
+        initModalPortfolioChart();
+        setTimeout(() => modalPortfolioChart.updateSeries([cashValue, sharesValue]), 100);
+    }
+}
+
+async function showUserProfile(userId) {
+    if (!userId) return;
+    console.log("Ładowanie profilu dla:", userId);
+
+    try {
+        const userDocRef = doc(db, "uzytkownicy", userId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+            console.error("Nie znaleziono użytkownika!");
+            return;
+        }
+
+        const userData = userDoc.data();
+        
+        // Wypełnij dane
+        dom.modalUsername.textContent = userData.name;
+        dom.modalCash.textContent = formatujWalute(userData.cash);
+        dom.modalTotalValue.textContent = formatujWalute(userData.totalValue);
+        
+        const profit = userData.totalValue - userData.startValue;
+        dom.modalTotalProfit.textContent = formatujWalute(profit);
+        if (profit > 0) {
+            dom.modalTotalProfit.style.color = "var(--green)";
+            dom.modalTotalProfit.dataset.profitSign = "positive";
+        } else if (profit < 0) {
+            dom.modalTotalProfit.style.color = "var(--red)";
+            dom.modalTotalProfit.dataset.profitSign = "negative";
+        } else {
+            dom.modalTotalProfit.style.color = "var(--text-muted)";
+            dom.modalTotalProfit.dataset.profitSign = "neutral";
+        }
+
+        dom.modalJoinDate.textContent = userData.joinDate.toDate().toLocaleDateString('pl-PL');
+
+        // Wypełnij listę akcji
+        dom.modalSharesList.innerHTML = "";
+        let sharesValue = 0;
+        let hasShares = false;
+        for (const companyId in userData.shares) {
+            const amount = userData.shares[companyId];
+            if (amount > 0) {
+                hasShares = true;
+                const companyName = market[companyId] ? market[companyId].name : companyId;
+                const p = document.createElement("p");
+                p.innerHTML = `${companyName} <strong>${amount} szt.</strong>`;
+                dom.modalSharesList.appendChild(p);
+                
+                if (market[companyId] && market[companyId].price) {
+                    sharesValue += amount * market[companyId].price;
+                }
+            }
+        }
+        if (!hasShares) {
+            dom.modalSharesList.innerHTML = "<p>Brak posiadanych akcji.</p>";
+        }
+
+        // Zaktualizuj wykres
+        if (!modalPortfolioChart) {
+            initModalPortfolioChart();
+        }
+        updateModalPortfolioChart(userData.cash, sharesValue);
+
+        // Pokaż modal
+        dom.modalOverlay.classList.remove("hidden");
+
+    } catch (error) {
+        console.error("Błąd ładowania profilu użytkownika: ", error);
+    }
+}
+
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) ---
 
 function formatujWalute(liczba) {
@@ -1069,11 +1578,26 @@ function updatePortfolioUI() {
     `;
 
     const oldTotalValue = portfolio.totalValue;
-    const totalValue = calculateTotalValue(portfolio.cash, portfolio.shares);
+    
+    // Oblicz wartość akcji
+    let sharesValue = 0;
+    for (const companyId in portfolio.shares) {
+        if (market[companyId] && market[companyId].price) {
+            sharesValue += (portfolio.shares[companyId] || 0) * market[companyId].price;
+        }
+    }
+    
+    const totalValue = portfolio.cash + sharesValue;
     const totalProfit = totalValue - portfolio.startValue;
 
     portfolio.totalValue = totalValue; 
     portfolio.zysk = totalProfit;
+
+    // NOWY: Inicjalizuj i aktualizuj wykres kołowy
+    if (!portfolioChart) {
+        initPortfolioChart();
+    }
+    updatePortfolioChart(portfolio.cash, sharesValue);
 
     dom.totalValue.textContent = formatujWalute(totalValue);
     dom.totalProfit.textContent = formatujWalute(totalProfit);
@@ -1099,7 +1623,16 @@ function showMessage(message, type) {
     
     dom.messageBox.textContent = message;
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
-    dom.amountInput.value = "";
+    
+    // Wyczyść tylko formularz rynkowy
+    if (dom.amountInput) dom.amountInput.value = "";
+    
+    // Wyczyść komunikat po 3 sekundach
+    setTimeout(() => {
+        if (dom.messageBox.textContent === message) {
+            dom.messageBox.textContent = "";
+        }
+    }, 3000);
 
     // Odtwarzaj dźwięk tylko jeśli audio jest odblokowane
     if (audioUnlocked) {
@@ -1130,6 +1663,13 @@ function displayNewRumor(text, authorName, sentiment, companyId) {
     authorSpan.textContent = ` - ${authorName || "Anonim"}`;
     authorSpan.style.color = "var(--text-muted)";
     authorSpan.style.fontStyle = "normal";
+    
+    // NOWY: Klikalna nazwa autora plotki
+    authorSpan.classList.add("clickable-user");
+    // Uwaga: plotki są anonimowe, ale jeśli dodamy authorId, to zadziała
+    // authorSpan.dataset.userId = rumor.authorId; 
+    // authorSpan.addEventListener("click", () => showUserProfile(rumor.authorId));
+    
     p.appendChild(authorSpan);
     dom.rumorsFeed.prepend(p);
 }
