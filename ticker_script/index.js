@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (WERSJA 6.0 - Fundusz Stabilny)
+// Plik: ticker_script/index.js (WERSJA 7.0 - Obligacje)
 
 const admin = require('firebase-admin');
 
@@ -243,7 +243,8 @@ try {
   const limitOrdersRef = db.collection("limit_orders");
   const usersRef = db.collection("uzytkownicy");
   const historyRef = db.collection("historia_transakcji");
-  const pendingTipsRef = db.collection("pending_tips"); 
+  const pendingTipsRef = db.collection("pending_tips");
+  const activeBondsRef = db.collection("active_bonds"); // <-- NOWA REFERENCJA
   
   
   /**
@@ -341,8 +342,87 @@ try {
 
       console.log(`!!! POMYŚLNIE ZREALIZOWANO zlecenie ${orderId} dla ${userData.name} !!!`);
   }
-  
 
+  // ==========================================================
+  // === NOWA FUNKCJA: PRZETWARZANIE OBLIGACJI
+  // ==========================================================
+  async function processBonds(currentPrices) {
+      const now = admin.firestore.Timestamp.now();
+      const bondsQuery = activeBondsRef
+          .where("status", "==", "pending")
+          .where("redeemAt", "<=", now);
+          
+      const bondsSnapshot = await bondsQuery.get();
+      
+      if (bondsSnapshot.empty) {
+          return; // Brak obligacji do wykupienia
+      }
+      
+      console.log(`... Znaleziono ${bondsSnapshot.size} obligacji do wykupienia.`);
+      
+      for (const bondDoc of bondsSnapshot.docs) {
+          const bond = bondDoc.data();
+          const bondId = bondDoc.id;
+          
+          try {
+              await db.runTransaction(async (transaction) => {
+                  const userRef = usersRef.doc(bond.userId);
+                  const userDoc = await transaction.get(userRef);
+                  
+                  if (!userDoc.exists) {
+                      console.error(`BŁĄD KRYTYCZNY: Nie znaleziono użytkownika ${bond.userId} dla obligacji ${bondId}`);
+                      transaction.update(bondDoc.ref, { status: "cancelled", failureReason: "User not found" });
+                      return;
+                  }
+                  
+                  const userData = userDoc.data();
+                  
+                  // Oblicz wypłatę
+                  const payout = bond.investment + bond.profit;
+                  
+                  // Zaktualizuj dane użytkownika
+                  const newCash = userData.cash + payout;
+                  const newTotalValue = calculateTotalValue(newCash, userData.shares, currentPrices);
+                  const newZysk = newTotalValue - userData.startValue;
+
+                  transaction.update(userRef, {
+                      cash: newCash,
+                      totalValue: newTotalValue,
+                      zysk: newZysk
+                  });
+                  
+                  // Zaktualizuj obligację
+                  transaction.update(bondDoc.ref, {
+                      status: "executed"
+                  });
+                  
+                  // Zapisz w historii
+                  const historyDocRef = historyRef.doc();
+                  transaction.set(historyDocRef, {
+                      userId: bond.userId,
+                      userName: userData.name, 
+                      prestigeLevel: userData.prestigeLevel || 0, 
+                      type: "OBLIGACJA (WYKUP)", 
+                      companyId: "system",
+                      companyName: bond.name, // "Obligacja 1-dniowa (25%)"
+                      amount: 1,
+                      pricePerShare: bond.investment, // Inwestycja
+                      executedPrice: payout, // Pełna wypłata
+                      totalValue: bond.profit, // Czysty zysk
+                      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                      clearedByOwner: false,
+                      status: "executed"
+                  });
+              });
+              
+              console.log(`!!! POMYŚLNIE WYKUPIONO obligację ${bondId} dla ${bond.userName} !!!`);
+              
+          } catch (e) {
+              console.error(`BŁĄD Transakcji dla obligacji ${bondId}:`, e.message);
+          }
+      }
+  }
+  
   /**
    * GŁÓWNA FUNKCJA TICKERA
    */
@@ -356,8 +436,8 @@ try {
     const currentPrices = docSnap.data();
     const newPrices = {};
     
-    // NOWA LISTA SPÓŁEK
-    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd", "fundusz"];
+    // --- ZAKTUALIZOWANA LISTA SPÓŁEK (Usunięty 'fundusz') ---
+    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
 
     const companyReferencePrices = {
         ulanska: 1860.00,
@@ -366,8 +446,8 @@ try {
         rychbud: 870.00,
         cosmosanit: 2000.00,
         gigachat: 790.00,
-        bimbercfd: 50.00,
-        fundusz: 100.00 // NOWA CENA BAZOWA
+        bimbercfd: 50.00
+        // Usunięty 'fundusz'
     };
     
     // --- Pobieranie wpływu plotek ---
@@ -413,7 +493,7 @@ try {
 
 
     // Pętla po spółkach do OBLICZENIA nowych cen
-    for (const companyId of companies) {
+    for (const companyId of companies) { // 'fundusz' został usunięty z tej listy
       if (currentPrices[companyId] === undefined) {
           console.warn(`OSTRZEŻENIE: Brak ceny dla '${companyId}' w 'global/ceny_akcji'. Pomijam.`);
           continue;
@@ -421,55 +501,81 @@ try {
 
       const price = currentPrices[companyId];
       let newPrice = price;
-      let change = 0; // Zdefiniuj 'change' na zewnątrz
+      let change = 0; 
 
       // ==========================================================
-      // === NOWA LOGIKA: OSOBNE ZASADY DLA FUNDUSZU ===
+      // === USUNIĘTA LOGIKA DLA FUNDUSZU ===
       // ==========================================================
-      if (companyId === 'fundusz') {
-          // LOGIKA DLA FUNDUSZU
-          // Bardzo mała zmienność, ale stały, pozytywny trend
-          // (Math.random() - 0.4) daje średnio 0.1
-          // 0.1 * 0.005 = 0.0005 (0.05% w górę na tick)
-          const stableTrend = (Math.random() - 0.4) * 0.005 * price; 
-          change = stableTrend;
+      
+      // NORMALNA LOGIKA DLA INNYCH SPÓŁEK
+      const volatility = 0.04 * price; 
+      change = (Math.random() - 0.5) * 2 * volatility; 
+      const trend = globalSentiment * (price * 0.005); 
+      change += trend;
+
+      // Zastosuj wpływ plotek
+      if (rumorImpacts[companyId]) {
+          const rumorChange = price * rumorImpacts[companyId];
+          change += rumorChange;
+          console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
+      }
+
+      // ZMODYFIKOWANA LOGIKA NEWSÓW
+      const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
+            
+      if (forcedEvent) {
+          // TAK, mamy wymuszoną wskazówkę
+          console.log(`!!! Wymuszony NEWS (ze wskazówki) dla ${companyId.toUpperCase()}: ${forcedEvent.impactType}`);
+          const isPositive = forcedEvent.impactType === 'positive';
           
-      } else {
-          // NORMALNA LOGIKA DLA INNYCH SPÓŁEK
-          const volatility = 0.04 * price; 
-          change = (Math.random() - 0.5) * 2 * volatility; 
-          const trend = globalSentiment * (price * 0.005); 
-          change += trend;
-
-          // Zastosuj wpływ plotek (tylko dla zwykłych spółek)
-          if (rumorImpacts[companyId]) {
-              const rumorChange = price * rumorImpacts[companyId];
-              change += rumorChange;
-              console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
+          let newsTemplate = "";
+          let impactPercent = 0.0;
+          
+          if (isPositive) {
+              impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
+              newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+          } else {
+              impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
+              newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
           }
+          
+          const companyName = companyId.toUpperCase();
+          const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
+          console.log(formattedNews);
+          
+          const anomalyImpact = impactPercent * price;
+          change += anomalyImpact; 
 
-          // ZMODYFIKOWANA LOGIKA NEWSÓW (tylko dla zwykłych spółek)
-          const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
-                
-          if (forcedEvent) {
-              // TAK, mamy wymuszoną wskazówkę
-              console.log(`!!! Wymuszony NEWS (ze wskazówki) dla ${companyId.toUpperCase()}: ${forcedEvent.impactType}`);
-              const isPositive = forcedEvent.impactType === 'positive';
-              
+          const newsItem = {
+              text: formattedNews,
+              companyId: companyId,
+              impactType: forcedEvent.impactType,
+              timestamp: admin.firestore.FieldValue.serverTimestamp() 
+          };
+          await newsCollectionRef.add(newsItem);
+
+      } else {
+          // NIE, brak wymuszonej wskazówki. Użyj normalnego losowania 7%.
+          const eventChance = 0.07; 
+          if (Math.random() < eventChance) {
+              const isPositive = Math.random() > 0.5;
               let newsTemplate = "";
               let impactPercent = 0.0;
-              
+              let impactType = ""; 
+
               if (isPositive) {
                   impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
                   newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+                  impactType = "positive";
               } else {
                   impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
                   newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
+                  impactType = "negative";
               }
               
               const companyName = companyId.toUpperCase();
               const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
-              console.log(formattedNews);
+              console.log(formattedNews); // Log dla GitHuba
               
               const anomalyImpact = impactPercent * price;
               change += anomalyImpact; 
@@ -477,58 +583,21 @@ try {
               const newsItem = {
                   text: formattedNews,
                   companyId: companyId,
-                  impactType: forcedEvent.impactType,
+                  impactType: impactType,
                   timestamp: admin.firestore.FieldValue.serverTimestamp() 
               };
               await newsCollectionRef.add(newsItem);
-
-          } else {
-              // NIE, brak wymuszonej wskazówki. Użyj normalnego losowania 7%.
-              const eventChance = 0.07; 
-              if (Math.random() < eventChance) {
-                  const isPositive = Math.random() > 0.5;
-                  let newsTemplate = "";
-                  let impactPercent = 0.0;
-                  let impactType = ""; 
-
-                  if (isPositive) {
-                      impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
-                      newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
-                      impactType = "positive";
-                  } else {
-                      impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
-                      newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
-                      impactType = "negative";
-                  }
-                  
-                  const companyName = companyId.toUpperCase();
-                  const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
-                  console.log(formattedNews); // Log dla GitHuba
-                  
-                  const anomalyImpact = impactPercent * price;
-                  change += anomalyImpact; 
-
-                  const newsItem = {
-                      text: formattedNews,
-                      companyId: companyId,
-                      impactType: impactType,
-                      timestamp: admin.firestore.FieldValue.serverTimestamp() 
-                  };
-                  await newsCollectionRef.add(newsItem);
-              }
           }
       }
-      // ==========================================================
-      // === KONIEC LOGIKI IF/ELSE DLA FUNDUSZU ===
       // ==========================================================
       
       newPrice = price + change; // Zastosuj zmianę
 
-      // Logika "Odbicia od dna" (nie dotyczy funduszu, jeśli jego cena bazowa jest niska)
+      // Logika "Odbicia od dna"
       const referencePrice = companyReferencePrices[companyId] || 50.00; 
       const supportLevelPrice = referencePrice * 0.40; 
       
-      if (newPrice < supportLevelPrice && newPrice > 1.00 && companyId !== 'fundusz') { 
+      if (newPrice < supportLevelPrice && newPrice > 1.00) { 
           const recoveryChance = 0.25; 
           if (Math.random() < recoveryChance) {
               const recoveryBoost = newPrice * 0.10; 
@@ -546,8 +615,14 @@ try {
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
 
     
+    // --- NOWY KROK: Przetwarzanie obligacji ---
+    // (Robimy to po aktualizacji cen, aby mieć `currentPrices` dla `calculateTotalValue`)
+    await processBonds(newPrices);
+    // --- KONIEC PRZETWARZANIA OBLIGACJI ---
+    
+    
     // --- Pętla po spółkach do REALIZACJI ZLECEŃ ---
-    for (const companyId of companies) { // Ta pętla zawiera już 'fundusz'
+    for (const companyId of companies) { // Lista 'companies' nie zawiera już 'fundusz'
         const finalPrice = newPrices[companyId];
         if (!finalPrice) continue;
         
