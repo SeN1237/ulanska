@@ -46,21 +46,34 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
+// <-- POPRAWKA: DODANE NOWE SPÓŁKI
 let market = {
-    ulanska:  { name: "Ułańska Dev", price: 1, history: generateInitialCandles(50, 1) },
-    brzozair: { name: "BrzozAir",     price: 1, history: generateInitialCandles(50, 1) },
-    igicorp:  { name: "IgiCorp",      price: 1, history: generateInitialCandles(50, 1) },
-    rychbud:  { name: "RychBud",      price: 1, history: generateInitialCandles(50, 1) }
+    ulanska:  { name: "Ułańska Dev",   price: 1,   history: generateInitialCandles(50, 1) },
+    brzozair: { name: "BrzozAir",      price: 1,   history: generateInitialCandles(50, 1) },
+    igicorp:  { name: "IgiCorp",       price: 1,   history: generateInitialCandles(50, 1) },
+    rychbud:  { name: "RychBud",       price: 1,   history: generateInitialCandles(50, 1) },
+    cosmosanit: { name: "Cosmosanit",  price: 100, history: generateInitialCandles(50, 100) },
+    gigachat: { name: "Gigachat GPT",  price: 500, history: generateInitialCandles(50, 500) },
+    bimbercfd:{ name: "Bimber.cfd",    price: 20,  history: generateInitialCandles(50, 20) }
 };
 let currentCompanyId = "ulanska";
 
+// <-- POPRAWKA: DODANE NOWE SPÓŁKI
 let portfolio = {
     name: "Gość",
     cash: 0,
-    shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
+    shares: { 
+        ulanska: 0, 
+        rychbud: 0, 
+        igicorp: 0, 
+        brzozair: 0,
+        cosmosanit: 0,
+        gigachat: 0,
+        bimbercfd: 0
+    },
     startValue: 100,
     zysk: 0,
-    totalValue: 0
+    totalValue: 0 // <-- POPRAWKA: Dodane śledzenie starej wartości dla animacji
 };
 
 let chart = null;
@@ -87,10 +100,15 @@ onSnapshot(cenyDocRef, (docSnap) => {
     
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
-        if (market.ulanska)  market.ulanska.price  = aktualneCeny.ulanska;
-        if (market.brzozair) market.brzozair.price = aktualneCeny.brzozair;
-        if (market.igicorp)  market.igicorp.price  = aktualneCeny.igicorp;
-        if (market.rychbud)  market.rychbud.price  = aktualneCeny.rychbud;
+        
+        // <-- POPRAWKA: DODANE NOWE SPÓŁKI
+        if (market.ulanska)   market.ulanska.price   = aktualneCeny.ulanska;
+        if (market.brzozair)  market.brzozair.price  = aktualneCeny.brzozair;
+        if (market.igicorp)   market.igicorp.price   = aktualneCeny.igicorp;
+        if (market.rychbud)   market.rychbud.price   = aktualneCeny.rychbud;
+        if (market.cosmosanit)market.cosmosanit.price= aktualneCeny.cosmosanit;
+        if (market.gigachat)  market.gigachat.price  = aktualneCeny.gigachat;
+        if (market.bimbercfd) market.bimbercfd.price = aktualneCeny.bimbercfd;
         
         updatePriceUI(); 
         updatePortfolioUI(); 
@@ -253,7 +271,15 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             
-            portfolio = { name: "Gość", cash: 1000, shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 }, startValue: 1000, zysk: 0, totalValue: 1000 };
+            // <-- POPRAWKA: Reset portfela z nowymi spółkami
+            portfolio = { 
+                name: "Gość", 
+                cash: 1000, 
+                shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, cosmosanit: 0, gigachat: 0, bimbercfd: 0 }, 
+                startValue: 1000, 
+                zysk: 0, 
+                totalValue: 1000 
+            };
             updatePortfolioUI();
         }
     });
@@ -263,11 +289,20 @@ function startAuthListener() {
 // --- SEKCJA 3: HANDLERY AUTENTYKACJI ---
 
 async function createInitialUserData(userId, name, email) {
+    // <-- POPRAWKA: DODANE NOWE SPÓŁKI
     const userPortfolio = {
         name: name,
         email: email,
         cash: 1000.00,
-        shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 },
+        shares: { 
+            ulanska: 0, 
+            rychbud: 0, 
+            igicorp: 0, 
+            brzozair: 0,
+            cosmosanit: 0,
+            gigachat: 0,
+            bimbercfd: 0
+        },
         startValue: 1000.00,
         zysk: 0.00,
         totalValue: 1000.00,
@@ -355,7 +390,11 @@ function listenToPortfolioData(userId) {
             const data = docSnap.data();
             portfolio.name = data.name;
             portfolio.cash = data.cash;
-            portfolio.shares = data.shares || { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0 };
+            // <-- POPRAWKA: Domyślne wartości dla nowych spółek
+            portfolio.shares = data.shares || { 
+                ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
+                cosmosanit: 0, gigachat: 0, bimbercfd: 0 
+            };
             portfolio.startValue = data.startValue;
             updatePortfolioUI();
         } else {
@@ -856,21 +895,40 @@ function updatePortfolioUI() {
     dom.username.textContent = portfolio.name;
     dom.cash.textContent = formatujWalute(portfolio.cash);
     
+    // <-- POPRAWKA: DODANE NOWE SPÓŁKI
     dom.sharesList.innerHTML = `
         <p>Ułańska Dev: <strong id="shares-ulanska">${portfolio.shares.ulanska || 0}</strong> szt.</p>
         <p>RychBud: <strong id="shares-rychbud">${portfolio.shares.rychbud || 0}</strong> szt.</p>
         <p>IgiCorp: <strong id="shares-igicorp">${portfolio.shares.igicorp || 0}</strong> szt.</p>
         <p>BrzozAir: <strong id="shares-brzozair">${portfolio.shares.brzozair || 0}</strong> szt.</p>
+        <p>Cosmosanit: <strong id="shares-cosmosanit">${portfolio.shares.cosmosanit || 0}</strong> szt.</p>
+        <p>Gigachat GPT: <strong id="shares-gigachat">${portfolio.shares.gigachat || 0}</strong> szt.</p>
+        <p>Bimber.cfd: <strong id="shares-bimbercfd">${portfolio.shares.bimbercfd || 0}</strong> szt.</p>
     `;
 
+    // <-- POPRAWKA: Zapisanie starej wartości do animacji
+    const oldTotalValue = portfolio.totalValue;
     const totalValue = calculateTotalValue(portfolio.cash, portfolio.shares);
     const totalProfit = totalValue - portfolio.startValue;
 
-    portfolio.totalValue = totalValue;
+    portfolio.totalValue = totalValue; // Zapisanie nowej wartości
     portfolio.zysk = totalProfit;
 
     dom.totalValue.textContent = formatujWalute(totalValue);
     dom.totalProfit.textContent = formatujWalute(totalProfit);
+    
+    // <-- POPRAWKA: Logika animacji dla Wartości Portfela
+    if (oldTotalValue && totalValue > oldTotalValue) {
+        dom.totalValue.classList.remove('flash-red');
+        dom.totalValue.classList.add('flash-green');
+    } else if (oldTotalValue && totalValue < oldTotalValue) {
+        dom.totalValue.classList.remove('flash-green');
+        dom.totalValue.classList.add('flash-red');
+    }
+    dom.totalValue.addEventListener('animationend', () => {
+        dom.totalValue.classList.remove('flash-green', 'flash-red');
+    }, { once: true });
+    // --- Koniec poprawki animacji ---
     
     if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
     else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
