@@ -270,32 +270,24 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// === Funkcja do odblokowania audio przy pierwszej interakcji ===
-function unlockAudioOnce() {
-    if (audioUnlocked || !dom.simulatorContainer) return;
-
-    const unlock = () => {
-        if (audioUnlocked) return;
+// === POPRAWKA: Prosta funkcja odblokowująca audio ===
+function unlockAudio() {
+    if (audioUnlocked) return; // Uruchom tylko raz
+    
+    try {
+        // Spróbuj odtworzyć i zatrzymać wszystkie dźwięki
+        dom.audioKaching.play().catch(e => {});
+        dom.audioKaching.pause();
+        dom.audioError.play().catch(e => {});
+        dom.audioError.pause();
+        dom.audioNews.play().catch(e => {});
+        dom.audioNews.pause();
         
-        try {
-            dom.audioKaching.play().catch(e => {});
-            dom.audioKaching.pause();
-            dom.audioError.play().catch(e => {});
-            dom.audioError.pause();
-            dom.audioNews.play().catch(e => {});
-            dom.audioNews.pause();
-            
-            audioUnlocked = true;
-            console.log("Audio odblokowane przez interakcję użytkownika.");
-        } catch (e) {
-            console.error("Błąd odblokowywania audio:", e);
-        }
-        document.body.removeEventListener('click', unlock);
-        document.body.removeEventListener('keydown', unlock);
-    };
-
-    document.body.addEventListener('click', unlock, { once: true });
-    document.body.addEventListener('keydown', unlock, { once: true });
+        audioUnlocked = true;
+        console.log("Audio odblokowane przez interakcję użytkownika.");
+    } catch (e) {
+        console.error("Błąd odblokowywania audio:", e);
+    }
 }
 
 
@@ -307,7 +299,7 @@ function startAuthListener() {
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
             
-            unlockAudioOnce();
+            // UWAGA: Audio jest teraz odblokowywane w onLogin() i onRegister()
 
             listenToPortfolioData(currentUserId);
             listenToRumors();
@@ -337,7 +329,7 @@ function startAuthListener() {
             chart = null;            
             initialNewsLoaded = false; 
             initialChatLoaded = false; 
-            audioUnlocked = false; 
+            audioUnlocked = false; // Zresetuj flagę przy wylogowaniu
             
             portfolio = { 
                 name: "Gość", 
@@ -386,6 +378,8 @@ async function createInitialUserData(userId, name, email) {
 
 async function onRegister(e) {
     e.preventDefault();
+    unlockAudio(); // <-- POPRAWKA: Odblokuj audio przy rejestracji
+    
     const name = dom.registerForm.querySelector("#register-name").value;
     const email = dom.registerForm.querySelector("#register-email").value;
     const password = dom.registerForm.querySelector("#register-password").value;
@@ -405,6 +399,7 @@ async function onRegister(e) {
 
 async function onLogin(e) {
     e.preventDefault();
+    unlockAudio(); // <-- POPRAWKA: Odblokuj audio przy logowaniu
     
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
@@ -442,13 +437,12 @@ async function onResetPassword(e) {
 
 // --- SEKCJA 4: LOGIKA BAZY DANYCH ---
 
-// --- NOWA FUNKCJA: Pokaż powiadomienie "Toast" ---
 function showNotification(message, type, impactType = null) {
     if (!dom.notificationContainer) return;
 
     const toast = document.createElement('div');
     toast.className = 'notification-toast';
-    toast.classList.add(`toast-${type}`); // .toast-chat or .toast-news
+    toast.classList.add(`toast-${type}`); 
     
     if (type === 'news') {
         let header = "Wiadomość Rynkowa";
@@ -461,22 +455,19 @@ function showNotification(message, type, impactType = null) {
         }
         toast.innerHTML = `<strong>${header}</strong><p>${message}</p>`;
     } else { // 'chat'
-        // W wiadomości czatu HTML jest już sformatowany przez 'displayChatMessage'
         toast.innerHTML = `<strong class="toast-chat-header">Nowa Wiadomość:</strong><p>${message}</p>`;
     }
 
     dom.notificationContainer.appendChild(toast);
 
-    // Zacznij znikanie po 5 sekundach
     setTimeout(() => {
         toast.classList.add('toast-fade-out');
-        // Usuń z DOM po zakończeniu animacji znikania (0.5s)
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
             }
         }, 500);
-    }, 5000); // 5-sekundowy czas wyświetlania
+    }, 5000); 
 }
 
 
@@ -522,19 +513,27 @@ function listenToMarketNews() {
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
         if (!dom.newsFeed) return;
         
+        let newNewsArrived = false;
+
         querySnapshot.docChanges().forEach(change => {
             if (change.type === "added") {
                 const news = change.doc.data();
-                displayMarketNews(news.text, news.impactType); // Aktualizuj panel
+                displayMarketNews(news.text, news.impactType); 
 
-                // Jeśli to nie jest pierwszy news ładowany na starcie, pokaż powiadomienie
                 if (initialNewsLoaded) {
+                    newNewsArrived = true;
                     showNotification(news.text, 'news', news.impactType);
                 }
             }
         });
         
-        // --- POPRAWKA: Usunięto stąd odtwarzanie dźwięku ---
+        // --- POPRAWKA: Przywrócono odtwarzanie dźwięku newsów ---
+        if (newNewsArrived && audioUnlocked) {
+            if (dom.audioNews) {
+                dom.audioNews.currentTime = 0;
+                dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio newsa"));
+            }
+        }
 
         initialNewsLoaded = true;
 
@@ -587,8 +586,6 @@ function listenToChat() {
 
         querySnapshot.docChanges().forEach(change => {
             const msg = change.doc.data();
-            // Pokaż powiadomienie tylko dla NOWYCH wiadomości
-            // ORAZ jeśli nie jest to nasza własna wiadomość
             if (change.type === "added" && msg.authorId !== currentUserId && initialChatLoaded) {
                 const notifMessage = `<strong>${msg.authorName}</strong>: ${msg.text}`;
                 showNotification(notifMessage, 'chat');
