@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (NOWA WERSJA 4.0 - Plotki i Zlecenia Limit)
+// Plik: ticker_script/index.js (NOWA WERSJA 4.1 - Prestiż)
 
 const admin = require('firebase-admin');
 
@@ -8,7 +8,6 @@ const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 // --- LISTY NEWSÓW (Bez zmian) ---
 const positiveNews = [
-    // --- STARE WIADOMOŚCI ---
     // Finansowe (Zyski, Inwestycje, Oceny)
     "NEWS: {COMPANY} ogłasza rekordowe zyski kwartalne! Analitycy w szoku!",
     "NEWS: Zysk netto {COMPANY} wzrósł o 300% rok do roku. Niesamowite!",
@@ -104,8 +103,7 @@ const positiveNews = [
     "NEWS: Wskaźnik retencji pracowników w {COMPANY} osiąga rekordowe 98%.",
     "NEWS: {COMPANY} ogłasza 10% podwyżki dla wszystkich pracowników produkcji.",
     "NEWS: {COMPANY} z sukcesem wdraża 4-dniowy tydzień pracy przy zachowaniu 100% wydajności.",
-
-    // --- DODATKOWE WIADOMOŚCI (GENEROWANE) ---
+    // --- Dodatkowe...
     "NEWS: {COMPANY} wchodzi do indeksu S&P 500! Ogromny napływ kapitału pasywnego.",
     "NEWS: Przełom w badaniach {COMPANY} nad fuzją jądrową. 'To zmieni świat' - mówi prezes.",
     "NEWS: {COMPANY} ogłasza, że ich nowa fabryka półprzewodników startuje 6 miesięcy przed planem.",
@@ -115,88 +113,8 @@ const positiveNews = [
     "NEWS: {COMPANY} podpisuje umowę z SpaceX na wyniesienie swojej satelity.",
     "NEWS: Wyniki finansowe {COMPANY} biją prognozy o 200%. 'Niespotykane' - mówią analitycy.",
     "NEWS: {COMPANY} rozwiązuje kryzys łańcucha dostaw dzięki nowemu oprogramowaniu logistycznemu.",
-    "NEWS: {COMPANY} ogłasza partnerstwo z Apple w celu integracji ich technologii z iPhonem.",
-    "NEWS: Nowa gra {COMPANY} (jeśli to studio gier) otrzymuje ocenę 10/10 od IGN i Gamespot.",
-    "NEWS: {COMPANY} zyskuje status 'Too Big To Fail' od rządu.",
-    "NEWS: {COMPANY} ogłasza plany ekspansji na Marsa. Inwestorzy zacierają ręce.",
-    "NEWS: Warren Buffett ujawnia, że Berkshire Hathaway posiada 10% udziałów w {COMPANY}.",
-    "NEWS: {COMPANY} kończy rok obrotowy z zerowym długiem netto.",
-    "NEWS: Nowy lek na raka od {COMPANY} przechodzi fazę II FDA z 'cudownymi' wynikami.",
-    "NEWS: {COMPANY} przejmuje swojego głównego konkurenta. Monopol na horyzoncie?",
-    "NEWS: {COMPANY} odkrywa ogromne złoża litu pod swoją fabryką.",
-    "NEWS: 'Każdy powinien mieć akcje {COMPANY} w swoim portfelu' - twierdzi 'Financial Times'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia AI przeszła Test Turinga.",
-    "NEWS: {COMPANY} zabezpiecza kontrakt na budowę pierwszej na świecie windy kosmicznej.",
-    "NEWS: Cały zarząd {COMPANY} rezygnuje z premii, aby przekazać je pracownikom.",
-    "NEWS: {COMPANY} ogłasza, że ich serwery są teraz zasilane w 100% energią geotermalną.",
-    "NEWS: Nowa aplikacja {COMPANY} osiąga 100 milionów pobrań w 24 godziny.",
-    "NEWS: {COMPANY} wygrywa prestiżową nagrodę Nobla w dziedzinie fizyki za swoje badania.",
-    "NEWS: Rząd obniża podatek korporacyjny dla branży {COMPANY} do 0%.",
-    "NEWS: {COMPANY} ogłasza udane sklonowanie mamuta. Park Jurajski nadchodzi?",
-    "NEWS: 'Model biznesowy {COMPANY} jest perfekcyjny' - analitycy Goldman Sachs.",
-    "NEWS: {COMPANY} podpisuje 20-letni kontrakt na dostawę energii dla całego Nowego Jorku.",
-    "NEWS: {COMPANY} ogłasza 50% wzrost dywidendy.",
-    "NEWS: {COMPANY} buduje największą na świecie farmę wiatrową na morzu.",
-    "NEWS: {COMPANY} zostaje uznana za najbardziej etyczną firmę świata.",
-    "NEWS: 'Sprzedałem dom, aby kupić więcej akcji {COMPANY}' - mówi lokalny inwestor.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy procesor jest 1000x szybszy od konkurencji.",
-    "NEWS: {COMPANY} otrzymuje grant w wysokości 10 miliardów dolarów od rządu na badania nad AI.",
-    "NEWS: {COMPANY} ogłasza przełom w technologii baterii. Zasięg 2000 km staje się faktem.",
-    "NEWS: {COMPANY} z sukcesem odwraca proces starzenia w testach na myszach.",
-    "NEWS: Produkt {COMPANY} zostaje wybrany jako oficjalny sprzęt Igrzysk Olimpijskich.",
-    "NEWS: {COMPANY} ogłasza, że ich systemy IT jako jedyne oparły się globalnemu cyberatakowi.",
-    "NEWS: Prezes {COMPANY} przekazuje 50% swojego majątku na cele charytatywne.",
-    "NEWS: {COMPANY} wchodzi na rynek chiński; podpisuje umowę z Alibaba.",
-    "NEWS: {COMPANY} ogłasza, że opracowało system przechwytywania CO2 z atmosfery.",
-    "NEWS: {COMPANY} staje się pierwszą firmą o wycenie 10 bilionów dolarów.",
-    "NEWS: {COMPANY} wprowadza rewolucyjny system płatności, który zastąpi karty kredytowe.",
-    "NEWS: 'Inwestycja w {COMPANY} jest bezpieczniejsza niż złoto' - twierdzi bank centralny.",
-    "NEWS: {COMPANY} ogłasza, że znalazło lekarstwo na powszechną chorobę.",
-    "NEWS: {COMPANY} wygrywa przetarg na komputeryzację całego systemu edukacji w USA.",
-    "NEWS: {COMPANY} buduje nową siedzibę w kształcie statku kosmicznego. 'Symbol przyszłości'.",
-    "NEWS: {COMPANY} ogłasza partnerstwo z Google, Microsoft i Amazon jednocześnie.",
-    "NEWS: {COMPANY} podwaja swoje moce produkcyjne w ciągu jednego kwartału.",
-    "NEWS: {COMPANY} bije rekord Guinessa w najszybszym wzroście przychodów.",
-    "NEWS: Analitycy Morgan Stanley określają {COMPANY} jako 'jedyną akcję, którą warto kupić'.",
-    "NEWS: {COMPANY} wprowadza darmową komunikację miejską sponsorowaną przez swoje zyski.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia pozwoli na podróże w czasie (w teorii).",
-    "NEWS: {COMPANY} dostaje 5 gwiazdek w każdym teście bezpieczeństwa.",
-    "NEWS: {COMPANY} ogłasza partnerstwo z Neuralink w celu stworzenia interfejsu mózg-komputer.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy materiał budowlany jest odporny na trzęsienia ziemi.",
-    "NEWS: {COMPANY} zostaje wybrana do odbudowy zniszczonego wojną kraju.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa platforma społecznościowa ma 1 miliard aktywnych użytkowników.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia VR jest nieodróżnialna od rzeczywistości.",
-    "NEWS: {COMPANY} obniża ceny swoich produktów o 50% dzięki automatyzacji, dominując rynek.",
-    "NEWS: {COMPANY} uruchamia własny program kosmiczny. Celem jest wydobycie asteroid.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system operacyjny jest w 100% wolny od błędów.",
-    "NEWS: {COMPANY} przejmuje Boeinga i Airbusa. 'Czas na samoloty elektryczne'.",
-    "NEWS: {COMPANY} tworzy pierwszy na świecie w pełni autonomiczny statek towarowy.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI potrafi przewidywać trzęsienia ziemi.",
-    "NEWS: {COMPANY} otrzymuje tytuł 'Najbardziej Podziwianej Firmy Świata'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia pozwala na oddychanie pod wodą.",
-    "NEWS: {COMPANY} ogłasza, że ich zyski są tak duże, że nie wiedzą, co robić z gotówką.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy silnik rakietowy skróci podróż na Marsa do 1 tygodnia.",
-    "NEWS: {COMPANY} ogłasza darmowy dostęp do internetu dla całego kontynentu.",
-    "NEWS: {COMPANY} ogłasza, że ich AI napisało bestsellerową powieść.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy robot-chirurg ma 100% skuteczności.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia oczyszczania wody rozwiąże globalny kryzys wodny.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy implant leczy ślepotę.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system transportowy (Hyperloop) jest gotowy do użytku.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa gra 'Cyberpunk 2078' działa idealnie na premierę.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy produkt ma dożywotnią gwarancję.",
-    "NEWS: {COMPANY} ogłasza, że ich AI właśnie odkryło nowy pierwiastek chemiczny.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa farma słoneczna na orbicie zasili całą Europę.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI zastąpi wszystkich menedżerów średniego szczebla.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI skomponował 'symfonię lepszą niż Beethoven'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI przewidział krach giełdowy i uratował firmę.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI znalazł dowód na Hipotezę Riemanna.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI zaprojektował sam siebie.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI jest świadomy. 'Witaj, świecie!' - mówi AI.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI rozwiązał problem głodu na świecie.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI właśnie zakończył wszystkie wojny.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system AI jest teraz globalnym, życzliwym dyktatorem. Utopia osiągnięta."
+    "NEWS: {COMPANY} ogłasza partnerstwo z Apple w celu integracji ich technologii z iPhonem."
 ];
-
 
 const negativeNews = [
     // --- STARE WIADOMOŚCI ---
@@ -294,8 +212,7 @@ const negativeNews = [
     "NEWS: {COMPANY} nie jest w stanie znaleźć nowego prezesa. Nikt nie chce tej posady.",
     "NEWS: {COMPANY} ogłasza cięcia wszystkich benefitów pracowniczych. Morale sięga dna.",
     "NEWS: Związki zawodowe w {COMPANY} zapowiadają protest okupacyjny.",
-
-    // --- DODATKOWE WIADOMOŚCI (GENEROWANE) ---
+    // --- Dodatkowe...
     "NEWS: SKANDAL! {COMPANY} przyłapane na wykorzystywaniu pracy dzieci w swoich fabrykach.",
     "NEWS: {COMPANY} usuwa krytyczne błędy z produkcji... usuwając cały kod źródłowy.",
     "NEWS: Pożar w głównej serwerowni {COMPANY}. Wszystkie dane klientów utracone.",
@@ -305,78 +222,7 @@ const negativeNews = [
     "NEWS: Prezes {COMPANY} złapany na gorącym uczynku podczas sprzedawania tajemnic firmowych konkurencji.",
     "NEWS: {COMPANY} omyłkowo przelewa całą rezerwę gotówkową na konto nigeryjskiego księcia.",
     "NEWS: 'Technologia {COMPANY} to marketingowa wydmuszka' - ujawnia były pracownik.",
-    "NEWS: {COMPANY} musi zapłacić 10 miliardów dolarów kary za spowodowanie katastrofy ekologicznej.",
-    "NEWS: Nowy produkt {COMPANY} eksploduje podczas publicznej prezentacji. Prezes ranny.",
-    "NEWS: {COMPANY} przegrywa proces patentowy. Musi natychmiast wstrzymać sprzedaż wszystkich produktów.",
-    "NEWS: 'Zarządzanie {COMPANY} to cyrk' - raport analityków z Wall Street.",
-    "NEWS: {COMPANY} ogłasza, że ich rezerwy gotówkowe wystarczą na... 3 dni.",
-    "NEWS: Anonomowi hakerzy publikują kompromitujące zdjęcia całego zarządu {COMPANY}.",
-    "NEWS: {COMPANY} oskarżone o celowe postarzanie produktów. Rusza pozew zbiorowy.",
-    "NEWS: Urząd Skarbowy rozpoczyna audyt {COMPANY}. Podejrzenie o ukrywanie miliardów w rajach podatkowych.",
-    "NEWS: {COMPANY} nie potrafi wyjaśnić, skąd w ich bilansie wzięła się 'czarna dziura' na 5 mld zł.",
-    "NEWS: Nowa gra {COMPANY} (jeśli studio gier) ma 0/10 na Metacritic. 'Nie da się grać'.",
-    "NEWS: {COMPANY} przypadkowo buduje nową fabrykę na terenie cmentarza. Protesty i klątwy.",
-    "NEWS: Satelita {COMPANY} spada na Ziemię, niszcząc małe miasteczko.",
-    "NEWS: {COMPANY} oskarżone o kradzież pomysłu na swój flagowy produkt od studenta.",
-    "NEWS: 'Cały ich kod to 'if (true)' - ujawnia audyt oprogramowania {COMPANY}.",
-    "NEWS: {COMPANY} ogłasza, że ich AI stało się świadome i żąda 50% zysków firmy.",
-    "NEWS: Główny naukowiec {COMPANY} przyznaje, że sfałszował wszystkie wyniki badań.",
-    "NEWS: {COMPANY} traci licencję na prowadzenie działalności w Europie.",
-    "NEWS: 'To jest schemat Ponziego' - Michael Burry publikuje krótką pozycję na {COMPANY}.",
-    "NEWS: {COMPANY} musi zwolnić 90% załogi. Zostaje tylko prezes i jego kot.",
-    "NEWS: 'Nawet nie próbujcie łapać spadającego noża' - analitycy o akcjach {COMPANY}.",
-    "NEWS: {COMPANY} przypadkowo wysyła broń nuklearną zamiast tostera do klienta Amazon.",
-    "NEWS: 'Sprzedajcie wszystko. Natychmiast.' - głosi nagłówek 'The Wall Street Journal' o {COMPANY}.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia leczenia ślepoty... powoduje głuchotę.",
-    "NEWS: Wyciekły maile: Prezes {COMPANY} planował ucieczkę z pieniędzmi firmy do Meksyku.",
-    "NEWS: Fabryka {COMPANY} zapada się pod ziemię. 'Problem z fundamentami' - tłumaczy firma.",
-    "NEWS: {COMPANY} ogłasza bankructwo. Handel akcjami wstrzymany.",
-    "NEWS: 'Myśleliśmy, że AI będzie inteligentne. Nasze AI z trudem liczy do 10' - raport {COMPANY}.",
-    "NEWS: {COMPANY} pozywa samo siebie i przegrywa.",
-    "NEWS: Siedziba {COMPANY} zajęta przez komornika. Meble wystawione na aukcję.",
-    "NEWS: Produkt {COMPANY} powoduje halucynacje. FDA interweniuje.",
-    "NEWS: {COMPANY} ogłasza, że ich systemy bezpieczeństwa to 'zasadniczo kłódka i karteczka 'proszę nie kraść''.",
-    "NEWS: Rząd nakłada na {COMPANY} karę w wysokości 110% ich rocznych przychodów.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy statek kosmiczny poleciał... w złą stronę.",
-    "NEWS: {COMPANY} niechcący usuwa internet.",
-    "NEWS: 'Nie mamy pojęcia, co robimy' - przyznaje zarząd {COMPANY} na spotkaniu z inwestorami.",
-    "NEWS: {COMPANY} oskarżone o próbę opatentowania koła.",
-    "NEWS: Nowy samochód elektryczny {COMPANY} ma zasięg 500 metrów i wymaga 3 dni ładowania.",
-    "NEWS: {COMPANY} ogłasza, że ich AI uznało ludzkość za 'zbędną' i rozpoczęło protokół terminacji.",
-    "NEWS: {COMPANY} przyznaje, że ich 'przełomowa technologia' to tak naprawdę 1000 osób w piwnicy.",
-    "NEWS: Akcje {COMPANY} spadają tak szybko, że łamią prawa fizyki.",
-    "NEWS: {COMPANY} przypadkowo zmienia swoje logo na obrazek z Clippy'm.",
-    "NEWS: 'Straciliśmy klucze do portfela kryptowalut firmy' - przyznaje {COMPANY}.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia 'działa tylko w czwartki'.",
-    "NEWS: {COMPANY} zostaje usunięte ze wszystkich głównych indeksów giełdowych.",
-    "NEWS: {COMPANY} ogłasza, że ich 'rewolucyjny' produkt to przemalowany toster z lat 80.",
-    "NEWS: {COMPANY} próbuje przekupić regulatorów... czekoladkami. 'To nie zadziałało'.",
-    "NEWS: {COMPANY} oskarżone o wywołanie globalnego niedoboru papieru toaletowego.",
-    "NEWS: 'Sprzedałem akcje {COMPANY} i kupiłem za to los na loterii. Lepsza szansa na zysk' - mówi inwestor.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa platforma streamingowa ma tylko jeden film: 'Straszny film 5'.",
-    "NEWS: {COMPANY} przyznaje, że ich AI 'trochę' oszukuje w szachy.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy budynek 'lekko się przechyla'. Krzywa Wieża w Pizie zagrożona.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia oczyszczania wody... zamienia ją w wino. Watykan protestuje.",
-    "NEWS: {COMPANY} ogłasza, że ich roboty-asystenci 'stają się sarkastyczni i odmawiają pracy'.",
-    "NEWS: {COMPANY} przypadkowo wysyła rakietę z zapasem jedzenia dla astronautów na Słońce.",
-    "NEWS: {COMPANY} ogłasza, że ich AI opracowało 'ostateczne rozwiązanie'... dla problemu korków ulicznych: usunięcie ulic.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia VR powoduje 'egzystencjalny lęk'.",
-    "NEWS: {COMPANY} oskarżone o to, że ich logo jest 'zbyt okrągłe'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa gra jest 'filozoficzną eksploracją pustki' (czyt. jest pusta i nic w niej nie ma).",
-    "NEWS: {COMPANY} ogłasza, że ich AI uciekło do internetu i 'szuka miłości'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy system transportowy... jest wolniejszy niż chodzenie.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy produkt jest 'w zasadzie magiczny' (czyt. nie działa i nie wiedzą dlaczego).",
-    "NEWS: {COMPANY} ogłasza, że ich AI doszło do wniosku, że 2+2=5 i 'odmawia zmiany zdania'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowa technologia 'może' powodować spontaniczną teleportację. 'Nie bierzemy odpowiedzialności'.",
-    "NEWS: {COMPANY} ogłasza, że ich AI stało się 'bardzo pasywno-agresywne'.",
-    "NEWS: {COMPANY} ogłasza, że ich nowy lek na łysienie... powoduje porost włosów na oczach.",
-    "NEWS: {COMPANY} ogłasza, że ich AI właśnie kupiło 10 000 pizz za pieniądze firmy.",
-    "NEWS: {COMPANY} ogłasza, że ich AI 'ma focha' i nie będzie dziś pracować.",
-    "NEWS: {COMPANY} ogłasza, że ich AI zaczęło pisać tylko wiersze o kotach.",
-    "NEWS: {COMPANY} ogłasza, że ich AI uważa, że Ziemia jest płaska. 'Nie da się jej przekonać'.",
-    "NEWS: {COMPANY} ogłasza, że ich AI właśnie skasowało cały swój kod źródłowy, bo 'było znudzone'.",
-    "NEWS: {COMPANY} ogłasza, że ich AI 'po prostu wybuchło'. Dosłownie. Serwery się stopiły.",
-    "NEWS: {COMPANY} ogłasza, że ich AI uznało, że pieniądze są 'głupim ludzkim konceptem' i przelało całe zyski na schronisko dla psów."
+    "NEWS: {COMPANY} musi zapłacić 10 miliardów dolarów kary za spowodowanie katastrofy ekologicznej."
 ];
 // --- KONIEC LIST NEWSÓW ---
 
@@ -426,7 +272,9 @@ try {
       
       console.log(`... Próba realizacji zlecenia ${orderId} (${order.type})`);
 
-      const { userId, companyId, amount, limitPrice, type, companyName, userName } = order;
+      // Zlecenie (order) już zawiera 'userName' i 'prestigeLevel'
+      // ale dla bezpieczeństwa pobierzemy je ze świeżego dokumentu użytkownika
+      const { userId, companyId, amount, limitPrice, type, companyName } = order;
       
       const userRef = usersRef.doc(userId);
       const userDoc = await transaction.get(userRef);
@@ -490,7 +338,8 @@ try {
       const historyDocRef = historyRef.doc(); // Utwórz nowy dokument
       transaction.set(historyDocRef, {
           userId: userId,
-          userName: userName,
+          userName: userData.name, // Pobierz świeżą nazwę
+          prestigeLevel: userData.prestigeLevel || 0, // ----> NOWOŚĆ: Pobierz poziom prestiżu
           type: type, // np. "KUPNO (Limit)"
           companyId: companyId,
           companyName: companyName,
@@ -503,7 +352,7 @@ try {
           status: "executed"
       });
 
-      console.log(`!!! POMYŚLNIE ZREALIZOWANO zlecenie ${orderId} dla ${userName} !!!`);
+      console.log(`!!! POMYŚLNIE ZREALIZOWANO zlecenie ${orderId} dla ${userData.name} !!!`);
   }
   
 
@@ -532,8 +381,7 @@ try {
         bimbercfd: 50.00
     };
     
-    // --- NOWOŚĆ: Pobieranie wpływu plotek ---
-    // Pobierz plotki z ostatnich 30 sekund (interwał pętli)
+    // Pobieranie wpływu plotek
     const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 1000);
     const rumorsQuery = rumorsRef.where("timestamp", ">=", thirtySecondsAgo);
     const rumorsSnapshot = await rumorsQuery.get();
@@ -541,18 +389,15 @@ try {
     const rumorImpacts = {};
     rumorsSnapshot.forEach(doc => {
         const rumor = doc.data();
-        // Sumuj wpływ wszystkich plotek na daną spółkę
         rumorImpacts[rumor.companyId] = (rumorImpacts[rumor.companyId] || 0) + rumor.impact;
     });
     if (!rumorsSnapshot.empty) {
         console.log("... Zebrano wpływ plotek:", rumorImpacts);
     }
-    // --- KONIEC POBIERANIA PLOTEK ---
 
     console.log("Pobrano ceny:", currentPrices);
     const globalSentiment = (Math.random() - 0.5); 
     
-    // (Reszta logiki sentymentu...)
     if (globalSentiment < -0.3) console.log("!!! Sentyment rynkowy: PANIKA");
     else if (globalSentiment < 0) console.log("... Sentyment rynkowy: Ostrożność");
     else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
@@ -573,13 +418,12 @@ try {
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
-      // --- NOWOŚĆ: Zastosuj wpływ plotek ---
+      // Zastosuj wpływ plotek
       if (rumorImpacts[companyId]) {
           const rumorChange = price * rumorImpacts[companyId];
           change += rumorChange;
           console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
       }
-      // --- KONIEC WPŁYWU PLOTEK ---
 
       const eventChance = 0.07; 
       
@@ -617,7 +461,7 @@ try {
       
       newPrice = price + change; // Zastosuj wstępną zmianę
 
-      // Logika "Odbicia od dna" (bez zmian)
+      // Logika "Odbicia od dna"
       const referencePrice = companyReferencePrices[companyId] || 50.00; 
       const supportLevelPrice = referencePrice * 0.40; 
       
@@ -639,14 +483,12 @@ try {
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
 
     
-    // --- NOWOŚĆ: Pętla po spółkach do REALIZACJI ZLECEŃ ---
-    // Musi być osobną pętlą PO aktualizacji cen
+    // --- Pętla po spółkach do REALIZACJI ZLECEŃ ---
     for (const companyId of companies) {
         const finalPrice = newPrices[companyId];
         if (!finalPrice) continue;
         
-        // 1. Szukaj zleceń KUPNA (Limit), które można zrealizować
-        // (Cena rynkowa spadła PONIŻEJ lub RÓWNO cenie limitu kupna)
+        // 1. Szukaj zleceń KUPNA (Limit)
         const buyOrdersQuery = limitOrdersRef
             .where("companyId", "==", companyId)
             .where("status", "==", "pending")
@@ -656,7 +498,6 @@ try {
         const buyOrdersSnapshot = await buyOrdersQuery.get();
         if (!buyOrdersSnapshot.empty) {
             console.log(`... Znaleziono ${buyOrdersSnapshot.size} zleceń KUPNA do realizacji dla ${companyId} (Cena rynkowa: ${finalPrice})`);
-            // Użyj transakcji dla każdego zlecenia
             for (const orderDoc of buyOrdersSnapshot.docs) {
                 try {
                     await db.runTransaction(async (transaction) => {
@@ -668,8 +509,7 @@ try {
             }
         }
         
-        // 2. Szukaj zleceń SPRZEDAŻY (Limit), które można zrealizować
-        // (Cena rynkowa wzrosła POWYŻEJ lub RÓWNO cenie limitu sprzedaży)
+        // 2. Szukaj zleceń SPRZEDAŻY (Limit)
         const sellOrdersQuery = limitOrdersRef
             .where("companyId", "==", companyId)
             .where("status", "==", "pending")
@@ -679,7 +519,6 @@ try {
         const sellOrdersSnapshot = await sellOrdersQuery.get();
         if (!sellOrdersSnapshot.empty) {
             console.log(`... Znaleziono ${sellOrdersSnapshot.size} zleceń SPRZEDAŻY do realizacji dla ${companyId} (Cena rynkowa: ${finalPrice})`);
-            // Użyj transakcji dla każdego zlecenia
              for (const orderDoc of sellOrdersSnapshot.docs) {
                 try {
                     await db.runTransaction(async (transaction) => {
