@@ -30,7 +30,6 @@ const db = getFirestore(app);
 
 function generateInitialCandles(count, basePrice) {
     let data = []; let lastClose = basePrice;
-    // Zapewnij, że cena bazowa nie jest zerowa lub niezdefiniowana
     if (!basePrice || basePrice < 1) basePrice = 1; 
 
     let timestamp = new Date().getTime() - (count * 5000);
@@ -40,7 +39,6 @@ function generateInitialCandles(count, basePrice) {
         let high = Math.max(open, close) + Math.random() * (basePrice * 0.02);
         let low = Math.min(open, close) - Math.random() * (basePrice * 0.02);
         
-        // Upewnij się, że ceny nie spadną poniżej 1
         open = Math.max(1, open);
         high = Math.max(1, high);
         low = Math.max(1, low);
@@ -55,7 +53,6 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
-// <-- POPRAWKA: Historia jest pusta; previousPrice = null (ustawi się na starcie)
 let market = {
     ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [] },
     brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [] },
@@ -66,7 +63,6 @@ let market = {
     bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [] }
 };
 
-// <-- NOWOŚĆ: Skróty nazw dla paska
 const companyAbbreviations = {
     ulanska: "UŁDEV",
     rychbud: "RBUD",
@@ -100,7 +96,8 @@ let chart = null;
 let currentUserId = null;
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
-let audioUnlocked = false; // <-- POPRAWKA: Flaga do śledzenia odblokowania audio
+let initialChatLoaded = false; 
+let audioUnlocked = false; 
 
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
@@ -122,11 +119,9 @@ onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
         
-        // --- POPRAWKA: Aktualizuj poprzednią i obecną cenę ---
         for (const companyId in market) {
             if (aktualneCeny[companyId]) {
                 const newPrice = aktualneCeny[companyId];
-                // Zapisz starą cenę (tylko jeśli już jakaś była)
                 if (market[companyId].price) {
                     market[companyId].previousPrice = market[companyId].price;
                 }
@@ -134,24 +129,20 @@ onSnapshot(cenyDocRef, (docSnap) => {
             }
         }
         
-        // --- POPRAWKA: Inicjalizacja historii na podstawie realnych cen ---
         if (!chartHasStarted) {
             for (const companyId in market) {
                 if (market[companyId].price && market[companyId].history.length === 0) {
                     const realPrice = market[companyId].price;
                     market[companyId].history = generateInitialCandles(50, realPrice);
-                    // --- POPRAWKA: Ustaw cenę poprzednią na realną, aby % był 0 na starcie
                     market[companyId].previousPrice = realPrice; 
                 }
             }
         }
-        // --- KONIEC POPRAWKI ---
 
         updatePriceUI(); 
         updatePortfolioUI(); 
-        updateTickerTape(); // <-- NOWE WYWOŁANIE PASKA
+        updateTickerTape(); 
 
-        // Sprawdź czy dane do wykresu są gotowe
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
 
         if (currentUserId && !chartHasStarted && chartDataReady) {
@@ -244,8 +235,8 @@ document.addEventListener("DOMContentLoaded", () => {
         audioError: document.getElementById("audio-error"),
         audioNews: document.getElementById("audio-news"),
 
-        // --- NOWY ELEMENT ---
-        tickerContent: document.getElementById("ticker-content") 
+        tickerContent: document.getElementById("ticker-content"),
+        notificationContainer: document.getElementById("notification-container")
     };
 
     // 2. Podepnij GŁÓWNE listenery
@@ -279,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// === POPRAWKA: Funkcja do odblokowania audio przy pierwszej interakcji ===
+// === Funkcja do odblokowania audio przy pierwszej interakcji ===
 function unlockAudioOnce() {
     if (audioUnlocked || !dom.simulatorContainer) return;
 
@@ -287,7 +278,6 @@ function unlockAudioOnce() {
         if (audioUnlocked) return;
         
         try {
-            // Spróbuj odtworzyć i natychmiast zatrzymać każdy dźwięk
             dom.audioKaching.play().catch(e => {});
             dom.audioKaching.pause();
             dom.audioError.play().catch(e => {});
@@ -300,12 +290,10 @@ function unlockAudioOnce() {
         } catch (e) {
             console.error("Błąd odblokowywania audio:", e);
         }
-        // Usuń listenery po pierwszej próbie
         document.body.removeEventListener('click', unlock);
         document.body.removeEventListener('keydown', unlock);
     };
 
-    // Nasłuchuj na kliknięcie lub klawisz
     document.body.addEventListener('click', unlock, { once: true });
     document.body.addEventListener('keydown', unlock, { once: true });
 }
@@ -319,7 +307,6 @@ function startAuthListener() {
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
             
-            // --- POPRAWKA: Uruchom odblokowywanie audio ---
             unlockAudioOnce();
 
             listenToPortfolioData(currentUserId);
@@ -349,7 +336,8 @@ function startAuthListener() {
             chartHasStarted = false; 
             chart = null;            
             initialNewsLoaded = false; 
-            audioUnlocked = false; // Zresetuj flagę audio
+            initialChatLoaded = false; 
+            audioUnlocked = false; 
             
             portfolio = { 
                 name: "Gość", 
@@ -360,7 +348,6 @@ function startAuthListener() {
                 totalValue: 1000 
             };
             
-            // Zresetuj historię w obiekcie market
             for (const companyId in market) {
                 market[companyId].history = [];
                 market[companyId].previousPrice = null;
@@ -419,14 +406,11 @@ async function onRegister(e) {
 async function onLogin(e) {
     e.preventDefault();
     
-    // --- POPRAWKA: Usunięto stąd logikę odblokowywania audio ---
-    
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
     
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        // startAuthListener() zostanie wywołany automatycznie przez onAuthStateChanged
     } catch (error) {
         showAuthMessage("Błąd logowania: " + error.message, "error");
     }
@@ -457,6 +441,44 @@ async function onResetPassword(e) {
 
 
 // --- SEKCJA 4: LOGIKA BAZY DANYCH ---
+
+// --- NOWA FUNKCJA: Pokaż powiadomienie "Toast" ---
+function showNotification(message, type, impactType = null) {
+    if (!dom.notificationContainer) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'notification-toast';
+    toast.classList.add(`toast-${type}`); // .toast-chat or .toast-news
+    
+    if (type === 'news') {
+        let header = "Wiadomość Rynkowa";
+        if (impactType === 'positive') {
+            toast.classList.add('toast-positive');
+            header = "Dobre Wieści!";
+        } else if (impactType === 'negative') {
+            toast.classList.add('toast-negative');
+            header = "Złe Wieści!";
+        }
+        toast.innerHTML = `<strong>${header}</strong><p>${message}</p>`;
+    } else { // 'chat'
+        // W wiadomości czatu HTML jest już sformatowany przez 'displayChatMessage'
+        toast.innerHTML = `<strong class="toast-chat-header">Nowa Wiadomość:</strong><p>${message}</p>`;
+    }
+
+    dom.notificationContainer.appendChild(toast);
+
+    // Zacznij znikanie po 5 sekundach
+    setTimeout(() => {
+        toast.classList.add('toast-fade-out');
+        // Usuń z DOM po zakończeniu animacji znikania (0.5s)
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 500);
+    }, 5000); // 5-sekundowy czas wyświetlania
+}
+
 
 function listenToPortfolioData(userId) {
     if (unsubscribePortfolio) unsubscribePortfolio();
@@ -500,29 +522,20 @@ function listenToMarketNews() {
     unsubscribeNews = onSnapshot(newsQuery, (querySnapshot) => {
         if (!dom.newsFeed) return;
         
-        // Zmienna do śledzenia, czy pojawił się nowy news w tej paczce
-        let newNewsArrived = false;
-
         querySnapshot.docChanges().forEach(change => {
             if (change.type === "added") {
-                // Jeśli to nie jest pierwszy news ładowany na starcie, odtwórz dźwięk
-                if (initialNewsLoaded) {
-                    newNewsArrived = true;
-                }
                 const news = change.doc.data();
-                displayMarketNews(news.text, news.impactType);
+                displayMarketNews(news.text, news.impactType); // Aktualizuj panel
+
+                // Jeśli to nie jest pierwszy news ładowany na starcie, pokaż powiadomienie
+                if (initialNewsLoaded) {
+                    showNotification(news.text, 'news', news.impactType);
+                }
             }
         });
         
-        // --- POPRAWKA: Odtwórz dźwięk newsa tylko RAZ, jeśli przyszły nowe ---
-        if (newNewsArrived && audioUnlocked) {
-            if (dom.audioNews) {
-                dom.audioNews.currentTime = 0;
-                dom.audioNews.play().catch(e => console.log("Błąd odtwarzania audio newsa"));
-            }
-        }
+        // --- POPRAWKA: Usunięto stąd odtwarzanie dźwięku ---
 
-        // Zaznacz, że początkowe newsy zostały załadowane
         initialNewsLoaded = true;
 
     }, (error) => { console.error("Błąd nasłuchu newsów: ", error); });
@@ -566,10 +579,24 @@ function listenToChat() {
     
     unsubscribeChat = onSnapshot(chatQuery, (querySnapshot) => {
         if (!dom.chatFeed) return;
+        
         dom.chatFeed.innerHTML = ""; 
         const messages = querySnapshot.docs.reverse(); 
         messages.forEach((doc) => displayChatMessage(doc.data()));
         dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
+
+        querySnapshot.docChanges().forEach(change => {
+            const msg = change.doc.data();
+            // Pokaż powiadomienie tylko dla NOWYCH wiadomości
+            // ORAZ jeśli nie jest to nasza własna wiadomość
+            if (change.type === "added" && msg.authorId !== currentUserId && initialChatLoaded) {
+                const notifMessage = `<strong>${msg.authorName}</strong>: ${msg.text}`;
+                showNotification(notifMessage, 'chat');
+            }
+        });
+
+        initialChatLoaded = true; 
+
     }, (error) => { console.error("Błąd nasłuchu czatu: ", error); });
 }
 
@@ -789,11 +816,9 @@ function changeCompany(companyId) {
     dom.companyName.textContent = companyData.name;
     
     if (chart) {
-        // Upewnij się, że dane historyczne istnieją przed aktualizacją
         if (companyData.history && companyData.history.length > 0) {
             chart.updateSeries([{ data: companyData.history }]);
         } else {
-            // Jeśli dane jeszcze się nie załadowały, pokaż pusty wykres
             chart.updateSeries([{ data: [] }]);
         }
     }
@@ -902,7 +927,6 @@ function initChart() {
     const currentTheme = document.body.getAttribute('data-theme') || 'dark';
     const chartTheme = (currentTheme === 'light') ? 'light' : 'dark';
 
-    // POPRAWKA: Pobierz dane dla aktualnie wybranej spółki
     const initialData = market[currentCompanyId].history || [];
 
     const options = {
@@ -926,7 +950,6 @@ function startChartTicker() {
             const company = market[companyId];
             const history = company.history;
             
-            // Pomiń, jeśli historia jest pusta (jeszcze się nie załadowała)
             if (!history || history.length === 0) continue;
             
             const lastCandle = history[history.length - 1];
@@ -946,7 +969,6 @@ function startChartTicker() {
             if (history.length > 50) history.shift();
         }
         
-        // Aktualizuj wykres tylko dla aktywnej spółki
         if (chart && market[currentCompanyId].history.length > 0) {
             chart.updateSeries([{
                 data: market[currentCompanyId].history
@@ -970,17 +992,14 @@ function formatujWalute(liczba) {
     return formatter.format(liczba);
 }
 
-// --- NOWA FUNKCJA: updateTickerTape ---
 function updateTickerTape() {
-    if (!dom.tickerContent) return; // Zakończ, jeśli element nie istnieje
+    if (!dom.tickerContent) return;
 
     let tickerHTML = "";
-    // Użyj obiektu skrótów, aby iterować we właściwej kolejności
     const companyOrder = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
 
     for (const companyId of companyOrder) {
         const company = market[companyId];
-        // Pomiń, jeśli brakuje danych
         if (!company || !company.price || !company.previousPrice) continue;
 
         const name = companyAbbreviations[companyId] || "???";
@@ -994,12 +1013,12 @@ function updateTickerTape() {
 
         let changeClass = "";
         let sign = "";
-        if (percentChange > 0.01) { // 0.01 dla uniknięcia "zielonego zera"
+        if (percentChange > 0.01) { 
             changeClass = "ticker-up";
             sign = "+";
         } else if (percentChange < -0.01) {
             changeClass = "ticker-down";
-            sign = ""; // Minus jest już w liczbie
+            sign = ""; 
         }
 
         tickerHTML += `
@@ -1011,10 +1030,8 @@ function updateTickerTape() {
         `;
     }
 
-    // Zduplikuj treść, aby pętla była płynna
     dom.tickerContent.innerHTML = tickerHTML + tickerHTML;
 }
-// --- KONIEC NOWEJ FUNKCJI ---
 
 
 function updatePriceUI() {
@@ -1087,7 +1104,7 @@ function showMessage(message, type) {
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     dom.amountInput.value = "";
 
-    // POPRAWKA: Odtwarzaj dźwięk tylko jeśli audio jest odblokowane
+    // Odtwarzaj dźwięk tylko jeśli audio jest odblokowane
     if (audioUnlocked) {
         if (type === "error" && dom.audioError) {
             dom.audioError.currentTime = 0; 
