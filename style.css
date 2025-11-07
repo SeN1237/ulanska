@@ -371,9 +371,10 @@ body[data-theme="dark"] #logout-button:hover {
         "market portfolio"
         "market order"
         "rumors leaderboard"
+        "bonds bonds" /* <-- DODANO OBLIGACJE */
         "chat chat"
         "history history"
-        "help help"; /* NOWY OBSZAR */
+        "help help";
     gap: 20px;
 }
 #market-panel { grid-area: market; }
@@ -381,9 +382,10 @@ body[data-theme="dark"] #logout-button:hover {
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
+#bonds-panel { grid-area: bonds; } /* <-- NOWY WPIS */
 #chat-panel { grid-area: chat; }
 #history-tabs-panel { grid-area: history; }
-#help-panel { grid-area: help; } /* NOWY */
+#help-panel { grid-area: help; }
 
 
 .panel {
@@ -764,6 +766,53 @@ body[data-theme="light"] #buy-tip-button {
     color: #111;
 }
 
+/* --- NOWY: Panel Obligacji --- */
+#bonds-panel p {
+    font-size: 0.95em;
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-style: normal;
+    border: none;
+}
+#bonds-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+#bonds-form label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+#bonds-form input, #bonds-form select {
+    padding: 10px; 
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    border-radius: 4px; 
+    font-size: 1.1em;
+}
+body[data-theme="dark"] #bonds-form input:focus,
+body[data-theme="dark"] #bonds-form select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    outline: none;
+}
+#buy-bond-button {
+    background-color: var(--green); /* Zielony, bo to 'pewny' zakup */
+    color: white;
+}
+body[data-theme="dark"] #buy-bond-button:hover {
+    box-shadow: 0 0 10px var(--green);
+}
+#bonds-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
+}
+#active-bonds-feed {
+    max-height: 150px; /* Mniejsza wysokość niż inne feedy */
+}
+/* --- Koniec Panelu Obligacji --- */
+
 
 /* Panel Rankingu */
 #leaderboard-list {
@@ -994,6 +1043,14 @@ body[data-theme="dark"] .tab-btn.active {
     font-weight: bold;
     color: var(--accent-color);
 }
+/* NOWY: Specjalny styl dla obligacji w historii */
+.history-feed .h-action-bond {
+    font-weight: bold;
+    color: var(--green);
+}
+.history-feed .h-status-pending {
+    color: var(--blue);
+}
 
 
 /* --- NOWE STYLE DLA ZLECEŃ LIMIT --- */
@@ -1126,9 +1183,10 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
             "order"
             "rumors"
             "leaderboard"
+            "bonds" /* <-- DODANO OBLIGACJE */
             "chat"
             "history"
-            "help"; /* NOWY */
+            "help";
         gap: 15px; 
     }
     
