@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (WERSJA 5.0 - Realizowanie wskazówek)
+// Plik: ticker_script/index.js (WERSJA 6.0 - Fundusz Stabilny)
 
 const admin = require('firebase-admin');
 
@@ -243,7 +243,7 @@ try {
   const limitOrdersRef = db.collection("limit_orders");
   const usersRef = db.collection("uzytkownicy");
   const historyRef = db.collection("historia_transakcji");
-  const pendingTipsRef = db.collection("pending_tips"); // <-- NOWA REFERENCJA
+  const pendingTipsRef = db.collection("pending_tips"); 
   
   
   /**
@@ -356,7 +356,8 @@ try {
     const currentPrices = docSnap.data();
     const newPrices = {};
     
-    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
+    // NOWA LISTA SPÓŁEK
+    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd", "fundusz"];
 
     const companyReferencePrices = {
         ulanska: 1860.00,
@@ -365,7 +366,8 @@ try {
         rychbud: 870.00,
         cosmosanit: 2000.00,
         gigachat: 790.00,
-        bimbercfd: 50.00
+        bimbercfd: 50.00,
+        fundusz: 100.00 // NOWA CENA BAZOWA
     };
     
     // --- Pobieranie wpływu plotek ---
@@ -390,25 +392,20 @@ try {
     else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
     else console.log("... Sentyment rynkowy: Stabilnie");
 
-    // --- NOWOŚĆ: Przetwarzanie oczekujących wskazówek ---
-    const forcedNews = {}; // Obiekt do przechowywania wymuszonych newsów
+    // --- Przetwarzanie oczekujących wskazówek ---
+    const forcedNews = {}; 
     const now = admin.firestore.Timestamp.now();
     const tipsQuery = pendingTipsRef.where("executeAt", "<=", now);
     const tipsSnapshot = await tipsQuery.get();
-    const deleteBatch = db.batch(); // Batch do usunięcia wykonanych wskazówek
+    const deleteBatch = db.batch(); 
 
     if (!tipsSnapshot.empty) {
         console.log(`... Znaleziono ${tipsSnapshot.size} wskazówek do wykonania.`);
         tipsSnapshot.forEach(doc => {
             const tip = doc.data();
-            // Zapisz wymuszony news: { companyId: 'rychbud', impactType: 'positive' }
             forcedNews[tip.companyId] = { impactType: tip.impactType };
-            
-            // Dodaj do usunięcia
             deleteBatch.delete(doc.ref);
         });
-        
-        // Wykonaj usunięcie
         await deleteBatch.commit();
         console.log("... Pomyślnie wykonano i usunięto wskazówki.");
     }
@@ -424,75 +421,55 @@ try {
 
       const price = currentPrices[companyId];
       let newPrice = price;
-      
-      const volatility = 0.04 * price; 
-      let change = (Math.random() - 0.5) * 2 * volatility; 
-      const trend = globalSentiment * (price * 0.005); 
-      change += trend;
+      let change = 0; // Zdefiniuj 'change' na zewnątrz
 
-      // Zastosuj wpływ plotek
-      if (rumorImpacts[companyId]) {
-          const rumorChange = price * rumorImpacts[companyId];
-          change += rumorChange;
-          console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
-      }
-
-      // --- ZMODYFIKOWANA LOGIKA NEWSÓW ---
-      const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
-            
-      if (forcedEvent) {
-          // TAK, mamy wymuszoną wskazówkę
-          console.log(`!!! Wymuszony NEWS (ze wskazówki) dla ${companyId.toUpperCase()}: ${forcedEvent.impactType}`);
-          const isPositive = forcedEvent.impactType === 'positive';
+      // ==========================================================
+      // === NOWA LOGIKA: OSOBNE ZASADY DLA FUNDUSZU ===
+      // ==========================================================
+      if (companyId === 'fundusz') {
+          // LOGIKA DLA FUNDUSZU
+          // Bardzo mała zmienność, ale stały, pozytywny trend
+          // (Math.random() - 0.4) daje średnio 0.1
+          // 0.1 * 0.005 = 0.0005 (0.05% w górę na tick)
+          const stableTrend = (Math.random() - 0.4) * 0.005 * price; 
+          change = stableTrend;
           
-          let newsTemplate = "";
-          let impactPercent = 0.0;
-          
-          if (isPositive) {
-              impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
-              newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
-          } else {
-              impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
-              newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
-          }
-          
-          const companyName = companyId.toUpperCase();
-          const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
-          console.log(formattedNews);
-          
-          const anomalyImpact = impactPercent * price;
-          change += anomalyImpact; 
-
-          const newsItem = {
-              text: formattedNews,
-              companyId: companyId,
-              impactType: forcedEvent.impactType,
-              timestamp: admin.firestore.FieldValue.serverTimestamp() 
-          };
-          await newsCollectionRef.add(newsItem);
-
       } else {
-          // NIE, brak wymuszonej wskazówki. Użyj normalnego losowania 7%.
-          const eventChance = 0.07; 
-          if (Math.random() < eventChance) {
-              const isPositive = Math.random() > 0.5;
+          // NORMALNA LOGIKA DLA INNYCH SPÓŁEK
+          const volatility = 0.04 * price; 
+          change = (Math.random() - 0.5) * 2 * volatility; 
+          const trend = globalSentiment * (price * 0.005); 
+          change += trend;
+
+          // Zastosuj wpływ plotek (tylko dla zwykłych spółek)
+          if (rumorImpacts[companyId]) {
+              const rumorChange = price * rumorImpacts[companyId];
+              change += rumorChange;
+              console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
+          }
+
+          // ZMODYFIKOWANA LOGIKA NEWSÓW (tylko dla zwykłych spółek)
+          const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
+                
+          if (forcedEvent) {
+              // TAK, mamy wymuszoną wskazówkę
+              console.log(`!!! Wymuszony NEWS (ze wskazówki) dla ${companyId.toUpperCase()}: ${forcedEvent.impactType}`);
+              const isPositive = forcedEvent.impactType === 'positive';
+              
               let newsTemplate = "";
               let impactPercent = 0.0;
-              let impactType = ""; 
-
+              
               if (isPositive) {
                   impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
                   newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
-                  impactType = "positive";
               } else {
                   impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
                   newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
-                  impactType = "negative";
               }
               
               const companyName = companyId.toUpperCase();
               const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
-              console.log(formattedNews); // Log dla GitHuba
+              console.log(formattedNews);
               
               const anomalyImpact = impactPercent * price;
               change += anomalyImpact; 
@@ -500,21 +477,58 @@ try {
               const newsItem = {
                   text: formattedNews,
                   companyId: companyId,
-                  impactType: impactType,
+                  impactType: forcedEvent.impactType,
                   timestamp: admin.firestore.FieldValue.serverTimestamp() 
               };
               await newsCollectionRef.add(newsItem);
+
+          } else {
+              // NIE, brak wymuszonej wskazówki. Użyj normalnego losowania 7%.
+              const eventChance = 0.07; 
+              if (Math.random() < eventChance) {
+                  const isPositive = Math.random() > 0.5;
+                  let newsTemplate = "";
+                  let impactPercent = 0.0;
+                  let impactType = ""; 
+
+                  if (isPositive) {
+                      impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
+                      newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+                      impactType = "positive";
+                  } else {
+                      impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
+                      newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
+                      impactType = "negative";
+                  }
+                  
+                  const companyName = companyId.toUpperCase();
+                  const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
+                  console.log(formattedNews); // Log dla GitHuba
+                  
+                  const anomalyImpact = impactPercent * price;
+                  change += anomalyImpact; 
+
+                  const newsItem = {
+                      text: formattedNews,
+                      companyId: companyId,
+                      impactType: impactType,
+                      timestamp: admin.firestore.FieldValue.serverTimestamp() 
+                  };
+                  await newsCollectionRef.add(newsItem);
+              }
           }
       }
-      // --- KONIEC LOGIKI NEWSÓW ---
+      // ==========================================================
+      // === KONIEC LOGIKI IF/ELSE DLA FUNDUSZU ===
+      // ==========================================================
       
-      newPrice = price + change; // Zastosuj wstępną zmianę
+      newPrice = price + change; // Zastosuj zmianę
 
-      // Logika "Odbicia od dna"
+      // Logika "Odbicia od dna" (nie dotyczy funduszu, jeśli jego cena bazowa jest niska)
       const referencePrice = companyReferencePrices[companyId] || 50.00; 
       const supportLevelPrice = referencePrice * 0.40; 
       
-      if (newPrice < supportLevelPrice && newPrice > 1.00) { 
+      if (newPrice < supportLevelPrice && newPrice > 1.00 && companyId !== 'fundusz') { 
           const recoveryChance = 0.25; 
           if (Math.random() < recoveryChance) {
               const recoveryBoost = newPrice * 0.10; 
@@ -533,7 +547,7 @@ try {
 
     
     // --- Pętla po spółkach do REALIZACJI ZLECEŃ ---
-    for (const companyId of companies) {
+    for (const companyId of companies) { // Ta pętla zawiera już 'fundusz'
         const finalPrice = newPrices[companyId];
         if (!finalPrice) continue;
         
