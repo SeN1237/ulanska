@@ -1,9 +1,8 @@
-// Plik: ticker_script/index.js (NOWA WERSJA 4.1 - Prestiż)
+// Plik: ticker_script/index.js (WERSJA 5.0 - Realizowanie wskazówek)
 
 const admin = require('firebase-admin');
 
 // --- POBIERANIE KLUCZA ---
-// Klucz jest przekazywany jako zmienna środowiskowa w GitHub Actions
 const serviceAccountKey = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 // --- LISTY NEWSÓW (Bez zmian) ---
@@ -240,21 +239,19 @@ try {
   const cenyDocRef = db.doc("global/ceny_akcji");
   const newsCollectionRef = db.collection("gielda_news");
   
-  // --- NOWE REFERENCJE ---
   const rumorsRef = db.collection("plotki");
   const limitOrdersRef = db.collection("limit_orders");
   const usersRef = db.collection("uzytkownicy");
   const historyRef = db.collection("historia_transakcji");
+  const pendingTipsRef = db.collection("pending_tips"); // <-- NOWA REFERENCJA
   
   
   /**
    * Funkcja pomocnicza do obliczania wartości portfela po stronie serwera.
-   * Używana przy realizacji zleceń limit do aktualizacji totalValue użytkownika.
    */
   function calculateTotalValue(cash, shares, currentPrices) {
     let sharesValue = 0;
     for (const companyId in shares) {
-        // Sprawdź, czy mamy cenę dla tej spółki w aktualnym obrocie
         if (currentPrices[companyId]) {
             sharesValue += (shares[companyId] || 0) * currentPrices[companyId];
         }
@@ -263,8 +260,7 @@ try {
   }
   
   /**
-   * NOWA FUNKCJA: Realizuje pojedyncze zlecenie z limitem
-   * Wykonywana w ramach transakcji, aby zapewnić spójność danych.
+   * Realizuje pojedyncze zlecenie z limitem
    */
   async function executeLimitOrder(transaction, orderDoc, executedPrice, currentPrices) {
       const order = orderDoc.data();
@@ -272,8 +268,6 @@ try {
       
       console.log(`... Próba realizacji zlecenia ${orderId} (${order.type})`);
 
-      // Zlecenie (order) już zawiera 'userName' i 'prestigeLevel'
-      // ale dla bezpieczeństwa pobierzemy je ze świeżego dokumentu użytkownika
       const { userId, companyId, amount, limitPrice, type, companyName } = order;
       
       const userRef = usersRef.doc(userId);
@@ -289,34 +283,27 @@ try {
       const newShares = { ...userData.shares };
       let newCash = userData.cash;
       
-      // Koszt/przychód jest liczony wg CENY LIMIT,
-      // ponieważ użytkownik ustawił zlecenie oczekujące na tę kwotę.
       const costOrRevenue = amount * limitPrice;
 
       if (type === 'KUPNO (Limit)') {
-          // Sprawdź, czy użytkownik nadal ma środki
           if (newCash < costOrRevenue) {
               console.warn(`... Anulowanie zlecenia ${orderId}: Brak środków (potrzeba ${costOrRevenue}, jest ${newCash})`);
               transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient funds" });
               return;
           }
-          // Zrealizuj kupno
           newCash -= costOrRevenue;
           newShares[companyId] = (newShares[companyId] || 0) + amount;
           
       } else if (type === 'SPRZEDAŻ (Limit)') {
-          // Sprawdź, czy użytkownik nadal ma akcje
           if (!newShares[companyId] || newShares[companyId] < amount) {
               console.warn(`... Anulowanie zlecenia ${orderId}: Brak akcji (potrzeba ${amount}, jest ${newShares[companyId] || 0})`);
               transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient shares" });
               return;
           }
-          // Zrealizuj sprzedaż
           newCash += costOrRevenue;
           newShares[companyId] -= amount;
       }
       
-      // Oblicz nową wartość portfela
       const newTotalValue = calculateTotalValue(newCash, newShares, currentPrices);
       const newZysk = newTotalValue - userData.startValue;
 
@@ -331,22 +318,22 @@ try {
       // 2. Zaktualizuj status zlecenia
       transaction.update(orderDoc.ref, { 
           status: "executed", 
-          executedPrice: executedPrice // Zapisz, po jakiej cenie rynkowej faktycznie weszło
+          executedPrice: executedPrice 
       });
 
       // 3. Zapisz transakcję w globalnej historii
-      const historyDocRef = historyRef.doc(); // Utwórz nowy dokument
+      const historyDocRef = historyRef.doc(); 
       transaction.set(historyDocRef, {
           userId: userId,
-          userName: userData.name, // Pobierz świeżą nazwę
-          prestigeLevel: userData.prestigeLevel || 0, // ----> NOWOŚĆ: Pobierz poziom prestiżu
-          type: type, // np. "KUPNO (Limit)"
+          userName: userData.name, 
+          prestigeLevel: userData.prestigeLevel || 0, 
+          type: type, 
           companyId: companyId,
           companyName: companyName,
           amount: amount,
-          pricePerShare: limitPrice, // Cena, jaką ustawił użytkownik
-          executedPrice: executedPrice, // Cena rynkowa, która wywołała zlecenie
-          totalValue: costOrRevenue, // Całkowita wartość zlecenia
+          pricePerShare: limitPrice, 
+          executedPrice: executedPrice, 
+          totalValue: costOrRevenue, 
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           clearedByOwner: false,
           status: "executed"
@@ -381,7 +368,7 @@ try {
         bimbercfd: 50.00
     };
     
-    // Pobieranie wpływu plotek
+    // --- Pobieranie wpływu plotek ---
     const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 1000);
     const rumorsQuery = rumorsRef.where("timestamp", ">=", thirtySecondsAgo);
     const rumorsSnapshot = await rumorsQuery.get();
@@ -402,6 +389,31 @@ try {
     else if (globalSentiment < 0) console.log("... Sentyment rynkowy: Ostrożność");
     else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
     else console.log("... Sentyment rynkowy: Stabilnie");
+
+    // --- NOWOŚĆ: Przetwarzanie oczekujących wskazówek ---
+    const forcedNews = {}; // Obiekt do przechowywania wymuszonych newsów
+    const now = admin.firestore.Timestamp.now();
+    const tipsQuery = pendingTipsRef.where("executeAt", "<=", now);
+    const tipsSnapshot = await tipsQuery.get();
+    const deleteBatch = db.batch(); // Batch do usunięcia wykonanych wskazówek
+
+    if (!tipsSnapshot.empty) {
+        console.log(`... Znaleziono ${tipsSnapshot.size} wskazówek do wykonania.`);
+        tipsSnapshot.forEach(doc => {
+            const tip = doc.data();
+            // Zapisz wymuszony news: { companyId: 'rychbud', impactType: 'positive' }
+            forcedNews[tip.companyId] = { impactType: tip.impactType };
+            
+            // Dodaj do usunięcia
+            deleteBatch.delete(doc.ref);
+        });
+        
+        // Wykonaj usunięcie
+        await deleteBatch.commit();
+        console.log("... Pomyślnie wykonano i usunięto wskazówki.");
+    }
+    // --- KONIEC PRZETWARZANIA WSKAZÓWEK ---
+
 
     // Pętla po spółkach do OBLICZENIA nowych cen
     for (const companyId of companies) {
@@ -425,27 +437,28 @@ try {
           console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
       }
 
-      const eventChance = 0.07; 
-      
-      if (Math.random() < eventChance) {
-          const isPositive = Math.random() > 0.5;
+      // --- ZMODYFIKOWANA LOGIKA NEWSÓW ---
+      const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
+            
+      if (forcedEvent) {
+          // TAK, mamy wymuszoną wskazówkę
+          console.log(`!!! Wymuszony NEWS (ze wskazówki) dla ${companyId.toUpperCase()}: ${forcedEvent.impactType}`);
+          const isPositive = forcedEvent.impactType === 'positive';
+          
           let newsTemplate = "";
           let impactPercent = 0.0;
-          let impactType = ""; 
-
+          
           if (isPositive) {
               impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
               newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
-              impactType = "positive";
           } else {
               impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
               newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
-              impactType = "negative";
           }
           
           const companyName = companyId.toUpperCase();
           const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
-          console.log(formattedNews); // Log dla GitHuba
+          console.log(formattedNews);
           
           const anomalyImpact = impactPercent * price;
           change += anomalyImpact; 
@@ -453,11 +466,47 @@ try {
           const newsItem = {
               text: formattedNews,
               companyId: companyId,
-              impactType: impactType,
+              impactType: forcedEvent.impactType,
               timestamp: admin.firestore.FieldValue.serverTimestamp() 
           };
           await newsCollectionRef.add(newsItem);
+
+      } else {
+          // NIE, brak wymuszonej wskazówki. Użyj normalnego losowania 7%.
+          const eventChance = 0.07; 
+          if (Math.random() < eventChance) {
+              const isPositive = Math.random() > 0.5;
+              let newsTemplate = "";
+              let impactPercent = 0.0;
+              let impactType = ""; 
+
+              if (isPositive) {
+                  impactPercent = (Math.random() * 0.20) + 0.05; // +5% to +15%
+                  newsTemplate = positiveNews[Math.floor(Math.random() * positiveNews.length)];
+                  impactType = "positive";
+              } else {
+                  impactPercent = ((Math.random() * 0.20) + 0.05) * -1; // -5% to -15%
+                  newsTemplate = negativeNews[Math.floor(Math.random() * negativeNews.length)];
+                  impactType = "negative";
+              }
+              
+              const companyName = companyId.toUpperCase();
+              const formattedNews = newsTemplate.replace("{COMPANY}", companyName);
+              console.log(formattedNews); // Log dla GitHuba
+              
+              const anomalyImpact = impactPercent * price;
+              change += anomalyImpact; 
+
+              const newsItem = {
+                  text: formattedNews,
+                  companyId: companyId,
+                  impactType: impactType,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp() 
+              };
+              await newsCollectionRef.add(newsItem);
+          }
       }
+      // --- KONIEC LOGIKI NEWSÓW ---
       
       newPrice = price + change; // Zastosuj wstępną zmianę
 
