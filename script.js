@@ -1,4 +1,4 @@
-// --- SEKCJA 0: IMPORTY I KONFIGURACJA FIREBASE --- 
+// --- SEKCJA 0: IMPORTY I KONFIGURACJA FIREBASE ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
     getAuth, onAuthStateChanged, createUserWithEmailAndPassword, 
@@ -90,10 +90,10 @@ let portfolio = {
     startValue: 100,
     zysk: 0,
     totalValue: 0,
-    prestigeLevel: 0 // NOWOŚĆ
+    prestigeLevel: 0 
 };
 
-// --- NOWE STAŁE DLA PRESTIŻU ---
+// --- STAŁE DLA PRESTIŻU ---
 const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000]; // Poziomy 1, 2, 3, 4
 const TIP_COSTS = [1500, 1400, 1200, 1100, 1000]; // Koszt dla poziomu 0, 1, 2, 3, 4
 
@@ -161,7 +161,7 @@ onSnapshot(cenyDocRef, (docSnap) => {
         }
 
         updatePriceUI(); 
-        updatePortfolioUI(); // To teraz zaktualizuje też wykres kołowy i prestiż
+        updatePortfolioUI(); 
         updateTickerTape(); 
 
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
@@ -246,8 +246,8 @@ document.addEventListener("DOMContentLoaded", () => {
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
-        buyTipButton: document.getElementById("buy-tip-button"), // NOWY
-        tipCost: document.getElementById("tip-cost"), // NOWY
+        buyTipButton: document.getElementById("buy-tip-button"), 
+        tipCost: document.getElementById("tip-cost"), 
         newsFeed: document.getElementById("news-feed"), 
         leaderboardList: document.getElementById("leaderboard-list"),
         companySelector: document.getElementById("company-selector"),
@@ -298,10 +298,10 @@ document.addEventListener("DOMContentLoaded", () => {
         modalJoinDate: document.getElementById("modal-join-date"),
         modalSharesList: document.getElementById("modal-shares-list"),
         modalPortfolioChartContainer: document.getElementById("modal-portfolio-chart-container"),
-        modalPrestigeLevel: document.getElementById("modal-prestige-level"), // NOWY
-        prestigeInfo: document.getElementById("prestige-info"), // NOWY
-        prestigeNextGoal: document.getElementById("prestige-next-goal"), // NOWY
-        prestigeButton: document.getElementById("prestige-button"), // NOWY
+        modalPrestigeLevel: document.getElementById("modal-prestige-level"), 
+        prestigeInfo: document.getElementById("prestige-info"), 
+        prestigeNextGoal: document.getElementById("prestige-next-goal"), 
+        prestigeButton: document.getElementById("prestige-button"), 
 
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
@@ -326,13 +326,11 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.themeSelect.addEventListener("change", onChangeTheme);
     dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory);
 
-    // NOWE Listenery zakładek i zleceń
     dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
     dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
     dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
     dom.clearOrdersButton.addEventListener("click", onClearLimitOrders);
     
-    // NOWE Listenery (Prestiż i Wskazówki)
     dom.buyTipButton.addEventListener("click", onBuyTip);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
 
@@ -340,7 +338,6 @@ document.addEventListener("DOMContentLoaded", () => {
         button.addEventListener("click", onSelectHistoryTab);
     });
 
-    // NOWE Listenery Modala
     dom.modalCloseButton.addEventListener("click", () => dom.modalOverlay.classList.add("hidden"));
     dom.modalOverlay.addEventListener("click", (e) => {
         if (e.target === dom.modalOverlay) dom.modalOverlay.classList.add("hidden");
@@ -362,12 +359,10 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// === POPRAWKA: Prosta funkcja odblokowująca audio ===
 function unlockAudio() {
-    if (audioUnlocked) return; // Uruchom tylko raz
+    if (audioUnlocked) return; 
     
     try {
-        // Spróbuj odtworzyć i zatrzymać wszystkie dźwięki
         dom.audioKaching.play().catch(e => {});
         dom.audioKaching.pause();
         dom.audioError.play().catch(e => {});
@@ -383,7 +378,6 @@ function unlockAudio() {
 }
 
 
-// === ZAKTUALIZOWANY AUTH LISTENER ===
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
         if (user) {
@@ -391,8 +385,6 @@ function startAuthListener() {
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
             
-            // UWAGA: Audio jest teraz odblokowywane w onLogin() i onRegister()
-
             listenToPortfolioData(currentUserId);
             listenToRumors();
             listenToMarketNews(); 
@@ -434,7 +426,7 @@ function startAuthListener() {
                 startValue: 1000, 
                 zysk: 0, 
                 totalValue: 1000,
-                prestigeLevel: 0 // NOWOŚĆ
+                prestigeLevel: 0 
             };
             
             for (const companyId in market) {
@@ -468,7 +460,7 @@ async function createInitialUserData(userId, name, email) {
         zysk: 0.00,
         totalValue: 1000.00,
         joinDate: Timestamp.fromDate(new Date()),
-        prestigeLevel: 0 // NOWY: Ustaw poziom 0 przy rejestracji
+        prestigeLevel: 0 
     };
     const userDocRef = doc(db, "uzytkownicy", userId);
     await setDoc(userDocRef, userPortfolio);
@@ -554,7 +546,7 @@ function showNotification(message, type, impactType = null) {
         toast.innerHTML = `<strong>${header}</strong><p>${message}</p>`;
     } else if (type === 'chat') { 
         toast.innerHTML = `<strong class="toast-chat-header">Nowa Wiadomość:</strong><p>${message}</p>`;
-    } else if (type === 'tip') { // NOWY TYP
+    } else if (type === 'tip') { 
         toast.innerHTML = `<strong>Prywatna Wskazówka!</strong><p>${message}</p>`;
     }
 
@@ -567,7 +559,7 @@ function showNotification(message, type, impactType = null) {
                 toast.parentNode.removeChild(toast);
             }
         }, 500);
-    }, 5000); 
+    }, 5000); // Wskazówki widoczne 5 sekund
 }
 
 
@@ -584,7 +576,7 @@ function listenToPortfolioData(userId) {
                 cosmosanit: 0, gigachat: 0, bimbercfd: 0 
             };
             portfolio.startValue = data.startValue;
-            portfolio.prestigeLevel = data.prestigeLevel || 0; // NOWOŚĆ
+            portfolio.prestigeLevel = data.prestigeLevel || 0; 
             updatePortfolioUI();
         } else {
             console.error("Błąd: Nie znaleziono danych użytkownika!");
@@ -602,7 +594,7 @@ function listenToRumors() {
         dom.rumorsFeed.innerHTML = "";
         querySnapshot.forEach((doc, index) => {
             const rumor = doc.data();
-            displayNewRumor(rumor); // Przekaż cały obiekt
+            displayNewRumor(rumor); 
         });
     }, (error) => { console.error("Błąd nasłuchu plotek: ", error); });
 }
@@ -663,7 +655,7 @@ async function onSendMessage(e) {
             text: text,
             authorName: portfolio.name, 
             authorId: currentUserId,
-            prestigeLevel: portfolio.prestigeLevel || 0, // NOWOŚĆ
+            prestigeLevel: portfolio.prestigeLevel || 0, 
             timestamp: serverTimestamp() 
         });
         dom.chatInput.value = "";
@@ -711,7 +703,6 @@ function displayChatMessage(msg) {
 
     p.appendChild(strong);
     
-    // NOWOŚĆ: Dodaj gwiazdki
     const prestigeStars = getPrestigeStars(msg.prestigeLevel, 'chat');
     strong.insertAdjacentHTML('afterend', prestigeStars + ' ');
 
@@ -734,7 +725,7 @@ async function onPostRumor(e) {
             text: rumorText,
             authorId: currentUserId,
             authorName: portfolio.name,
-            prestigeLevel: portfolio.prestigeLevel || 0, // NOWOŚĆ
+            prestigeLevel: portfolio.prestigeLevel || 0, 
             timestamp: Timestamp.fromDate(new Date()),
             companyId: companyId,
             sentiment: sentiment,
@@ -761,7 +752,6 @@ function listenToLeaderboard() {
             
             const nameSpan = document.createElement("span");
             
-            // NOWOŚĆ: Dodaj gwiazdki
             const prestigeStars = getPrestigeStars(user.prestigeLevel);
             nameSpan.innerHTML = `${rank}. ${user.name} ${prestigeStars}`;
             
@@ -803,7 +793,7 @@ async function logTransaction(type, companyId, amount, pricePerShare, totalCostO
     const transactionData = {
         userId: currentUserId,
         userName: portfolio.name,
-        prestigeLevel: portfolio.prestigeLevel || 0, // NOWOŚĆ
+        prestigeLevel: portfolio.prestigeLevel || 0, 
         type: type,
         companyId: companyId || "system",
         companyName: companyName,
@@ -873,7 +863,6 @@ function displayHistoryItem(feedElement, item, isGlobal) {
         userSpan.dataset.userId = item.userId;
         userSpan.addEventListener("click", () => showUserProfile(item.userId));
         
-        // NOWOŚĆ: Gwiazdki
         const prestigeStars = getPrestigeStars(item.prestigeLevel);
         userSpan.innerHTML = `${item.userName} ${prestigeStars}`;
         p.appendChild(userSpan);
@@ -882,7 +871,6 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     const actionSpan = document.createElement("span");
     actionSpan.textContent = item.type;
     
-    // NOWOŚĆ: Kolor dla wskazówki
     if (item.type === "KUPNO") actionSpan.className = "h-action-buy";
     else if (item.type === "SPRZEDAŻ") actionSpan.className = "h-action-sell";
     else if (item.type === "WSKAZÓWKA") actionSpan.className = "h-action-tip";
@@ -892,12 +880,10 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     const detailsSpan = document.createElement("span");
     detailsSpan.className = "h-details";
     
-    // Zaktualizowano, aby pokazać cenę wykonania (jeśli istnieje) lub rynkową
     const price = item.executedPrice || item.pricePerShare;
     
-    // NOWOŚĆ: Formatowanie dla wskazówek vs akcji
     if (item.type === "WSKAZÓWKA") {
-         detailsSpan.textContent = item.companyName; // Pokaż tylko treść
+         detailsSpan.textContent = item.companyName; // Wyświetli "Zakupiono tajną wskazówkę"
     } else {
          detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(price)}`;
     }
@@ -1016,13 +1002,13 @@ async function onPlaceLimitOrder(e) {
         const orderData = {
             userId: currentUserId,
             userName: portfolio.name,
-            prestigeLevel: portfolio.prestigeLevel || 0, // NOWOŚĆ
+            prestigeLevel: portfolio.prestigeLevel || 0, 
             companyId: currentCompanyId,
             companyName: market[currentCompanyId].name,
             type: type === 'buy' ? 'KUPNO (Limit)' : 'SPRZEDAŻ (Limit)',
             amount: amount,
             limitPrice: limitPrice,
-            status: "pending", // Status: pending, executed, cancelled
+            status: "pending", 
             timestamp: serverTimestamp()
         };
         
@@ -1030,7 +1016,6 @@ async function onPlaceLimitOrder(e) {
         
         showMessage(`Zlecenie ${type} na ${amount} szt. @ ${formatujWalute(limitPrice)} złożone!`, "success");
         dom.limitOrderForm.reset();
-        // Ustaw cenę z powrotem na aktualną
         dom.limitPrice.value = market[currentCompanyId].price.toFixed(2);
 
     } catch (error) {
@@ -1050,14 +1035,13 @@ function listenToLimitOrders(userId) {
 
     unsubscribeLimitOrders = onSnapshot(ordersQuery, (querySnapshot) => {
         if (!dom.limitOrdersFeed) return;
-        dom.limitOrdersFeed.innerHTML = ""; // Wyczyść kontener
+        dom.limitOrdersFeed.innerHTML = ""; 
 
         if (querySnapshot.empty) {
             dom.limitOrdersFeed.innerHTML = "<p>Brak aktywnych lub przeszłych zleceń z limitem.</p>";
             return;
         }
 
-        // Stwórz tabelę
         const table = document.createElement("table");
         table.className = "limit-order-table";
         table.innerHTML = `
@@ -1105,7 +1089,6 @@ function listenToLimitOrders(userId) {
 
         dom.limitOrdersFeed.appendChild(table);
 
-        // Dodaj listenery do przycisków "Anuluj"
         dom.limitOrdersFeed.querySelectorAll('.cancel-order-btn').forEach(btn => {
             btn.addEventListener("click", onCancelLimitOrder);
         });
@@ -1485,7 +1468,6 @@ async function showUserProfile(userId) {
         const prestigeLevel = userData.prestigeLevel || 0;
         const prestigeStars = getPrestigeStars(prestigeLevel);
         
-        // Wypełnij dane
         dom.modalUsername.innerHTML = `${userData.name} ${prestigeStars}`;
         dom.modalCash.textContent = formatujWalute(userData.cash);
         dom.modalTotalValue.textContent = formatujWalute(userData.totalValue);
@@ -1505,14 +1487,12 @@ async function showUserProfile(userId) {
 
         dom.modalJoinDate.textContent = userData.joinDate.toDate().toLocaleDateString('pl-PL');
 
-        // === Logika dla przycisku prestiżu (tylko dla właściciela profilu) ===
         if (userId === currentUserId) {
             dom.prestigeInfo.style.display = 'flex';
             dom.prestigeNextGoal.style.display = 'block';
             dom.prestigeButton.style.display = 'block';
             updatePrestigeButton(userData.totalValue, prestigeLevel);
         } else {
-            // Ukryj elementy prestiżu, jeśli to nie nasz profil
             dom.prestigeInfo.style.display = 'none';
             dom.prestigeNextGoal.style.display = 'none';
             dom.prestigeButton.style.display = 'none';
@@ -1520,9 +1500,8 @@ async function showUserProfile(userId) {
         dom.modalPrestigeLevel.textContent = `${prestigeLevel} ${prestigeStars}`;
 
 
-        // === Logika dla wykresu modala ===
         dom.modalSharesList.innerHTML = "";
-        const modalChartSeries = [userData.cash]; // Gotówka
+        const modalChartSeries = [userData.cash]; 
         const modalChartLabels = ['Gotówka'];
         let sharesValue = 0; 
         let hasShares = false;
@@ -1558,7 +1537,6 @@ async function showUserProfile(userId) {
             labels: modalChartLabels
         });
 
-        // Pokaż modal
         dom.modalOverlay.classList.remove("hidden");
 
     } catch (error) {
@@ -1566,10 +1544,9 @@ async function showUserProfile(userId) {
     }
 }
 
-// --- NOWA FUNKCJA: PRESTIŻ ---
 async function onPrestigeReset() {
     const currentLevel = portfolio.prestigeLevel;
-    if (currentLevel >= PRESTIGE_REQUIREMENTS.length) return; // Max poziom
+    if (currentLevel >= PRESTIGE_REQUIREMENTS.length) return; 
 
     const nextGoal = PRESTIGE_REQUIREMENTS[currentLevel];
     if (portfolio.totalValue < nextGoal) {
@@ -1582,7 +1559,6 @@ async function onPrestigeReset() {
     }
 
     try {
-        // Użyj transakcji, aby upewnić się, że nikt nie kupi/sprzeda w międzyczasie
         const userDocRef = doc(db, "uzytkownicy", currentUserId);
         
         await runTransaction(db, async (transaction) => {
@@ -1603,7 +1579,6 @@ async function onPrestigeReset() {
                 throw new Error("Niewystarczająca wartość portfela.");
             }
 
-            // RESETOWANIE KONTA
             transaction.update(userDocRef, {
                 cash: 1000.00,
                 shares: { 
@@ -1613,7 +1588,7 @@ async function onPrestigeReset() {
                 startValue: 1000.00,
                 zysk: 0.00,
                 totalValue: 1000.00,
-                prestigeLevel: nextLevel // Zwiększ poziom!
+                prestigeLevel: nextLevel 
             });
         });
         
@@ -1626,7 +1601,7 @@ async function onPrestigeReset() {
     }
 }
 
-// --- NOWA FUNKCJA: KUPNO WSKAZÓWKI ---
+// --- ZMODYFIKOWANA FUNKCJA: KUPNO WSKAZÓWKI (z 65% szansą) ---
 async function onBuyTip() {
     const currentCost = TIP_COSTS[portfolio.prestigeLevel];
     
@@ -1635,12 +1610,14 @@ async function onBuyTip() {
         return;
     }
     
-    if (!confirm(`Czy na pewno chcesz wydać ${formatujWalute(currentCost)} na losową wskazówkę? To jest hazard i informacja może być myląca!`)) {
+    if (!confirm(`Czy na pewno chcesz wydać ${formatujWalute(currentCost)} na wskazówkę? Masz 65% szans, że będzie prawdziwa (spełni się za 2-10 min) i 35% szans, że będzie fałszywa.`)) {
         return;
     }
 
+    // 1. Wygeneruj dane wskazówki PRZED transakcją
+    const tipData = generateTipData(); // Nowa funkcja
+
     try {
-        // Użyj transakcji, aby pobrać pieniądze i dać wskazówkę atomowo
         const userDocRef = doc(db, "uzytkownicy", currentUserId);
 
         await runTransaction(db, async (transaction) => {
@@ -1651,7 +1628,7 @@ async function onBuyTip() {
             const currentCost = TIP_COSTS[data.prestigeLevel || 0];
             if (data.cash < currentCost) throw new Error("Brak środków");
 
-            // 1. Pobierz pieniądze
+            // 2. Pobierz pieniądze
             const newCash = data.cash - currentCost;
             const newTotalValue = calculateTotalValue(newCash, data.shares);
             const newZysk = newTotalValue - data.startValue;
@@ -1662,15 +1639,14 @@ async function onBuyTip() {
                 zysk: newZysk
             });
             
-            // 2. Wygeneruj i zapisz wskazówkę w historii
-            const tip = generateRandomTip();
+            // 3. Zapisz wskazówkę w historii personalnej (zawsze)
             const tipTransactionData = {
                 userId: currentUserId,
                 userName: data.name,
                 prestigeLevel: data.prestigeLevel || 0,
                 type: "WSKAZÓWKA",
-                companyId: "system",
-                companyName: tip.message, // Treść wskazówki
+                companyId: tipData.companyId, // Zapisz, której spółki dotyczy
+                companyName: "Zakupiono tajną wskazówkę", // <-- POPRAWKA: Nie ujawniaj treści
                 amount: 0,
                 pricePerShare: 0,
                 totalValue: currentCost * -1, // Zapisz koszt
@@ -1679,14 +1655,23 @@ async function onBuyTip() {
                 status: "executed", 
                 executedPrice: 0 
             };
-            
             const historyCol = collection(db, "historia_transakcji");
-            transaction.set(doc(historyCol), tipTransactionData); // Zapisz do historii
+            transaction.set(doc(historyCol), tipTransactionData);
+
+            // 4. Jeśli wskazówka jest "real", zapisz ją w `pending_tips`
+            if (tipData.isReal) {
+                const pendingTipRef = doc(collection(db, "pending_tips"));
+                transaction.set(pendingTipRef, {
+                    userId: currentUserId,
+                    companyId: tipData.companyId,
+                    impactType: tipData.impactType,
+                    executeAt: tipData.executeAt // Ustaw czas wywołania
+                });
+            }
         });
 
-        // 3. Pokaż powiadomienie (poza transakcją)
-        const tip = generateRandomTip(); // Musimy wygenerować ją ponownie (lub przekazać)
-        showNotification(tip.message, 'tip');
+        // 5. Pokaż powiadomienie (poza transakcją) - TUTAJ JEST TAJNA TREŚĆ
+        showNotification(tipData.message, 'tip');
         showMessage(`Zakupiono wskazówkę za ${formatujWalute(currentCost)}! Sprawdź "Moją Historię".`, "success");
         
     } catch (error) {
@@ -1695,30 +1680,46 @@ async function onBuyTip() {
     }
 }
 
-function generateRandomTip() {
-    // 50% szans na prawdziwą, 50% na fałszywą
-    const isTrueTip = Math.random() > 0.5;
-    const isPositive = Math.random() > 0.5; // Czy dotyczy wzrostu czy spadku
+// --- NOWA FUNKCJA POMOCNICZA DLA WSKAZÓWEK ---
+function generateTipData() {
+    const isReal = Math.random() < 0.65; // 65% szans
+    const isPositive = Math.random() > 0.5;
     const companyIds = Object.keys(market);
-    const randomCompanyId = companyIds[Math.floor(Math.random() * companyIds.length)];
-    const companyName = market[randomCompanyId].name;
+    const companyId = companyIds[Math.floor(Math.random() * companyIds.length)];
+    const companyName = market[companyId].name;
 
     let message = "";
+    let executeAt = null;
 
-    if (isTrueTip) {
+    if (isReal) {
+        // Prawdziwa: Ustaw czas wykonania (2 do 10 minut)
+        const minMs = 2 * 60 * 1000; // 2 minuty
+        const maxMs = 10 * 60 * 1000; // 10 minut
+        const randomMs = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+        executeAt = Timestamp.fromMillis(Date.now() + randomMs);
+        
         if (isPositive) {
             message = `[PRAWDZIWE INFO]: Słyszałem, że ${companyName} ma niedługo wystrzelić...`;
         } else {
             message = `[PRAWDZIWE INFO]: Lepiej pozbądź się ${companyName}, nadchodzą kłopoty.`;
         }
     } else {
-        if (isPositive) {
+        // Fałszywka: Losuje spółkę, ale nie ustawia czasu
+        const falsePositive = Math.random() > 0.5;
+        if (falsePositive) {
             message = `[FAŁSZYWKA]: Kumpel mówił, że ${companyName} to pewniak na wzrost. (Czy na pewno?)`;
         } else {
             message = `[FAŁSZYWKA]: Podobno ${companyName} ma zaraz zbankrutować... (Lepiej to sprawdź).`;
         }
     }
-    return { message, companyId: randomCompanyId, isTrue: isTrueTip, isPositive: isPositive };
+
+    return {
+        isReal: isReal,
+        companyId: companyId,
+        impactType: isPositive ? 'positive' : 'negative',
+        message: message,
+        executeAt: executeAt // Będzie null dla fałszywek
+    };
 }
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) (ZAKTUALIZOWANA) ---
@@ -1735,7 +1736,6 @@ function formatujWalute(liczba) {
     return formatter.format(liczba);
 }
 
-// NOWA funkcja pomocnicza do generowania gwiazdek
 function getPrestigeStars(level, type = 'normal') {
     if (!level || level === 0) return '';
     const starIcon = '⭐️';
@@ -1816,19 +1816,15 @@ function updatePriceUI() {
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     
-    // NOWOŚĆ: Zaktualizuj UI prestiżu
     const prestigeLevel = portfolio.prestigeLevel || 0;
     const prestigeStars = getPrestigeStars(prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${prestigeStars}`;
     
-    // Zaktualizuj koszt wskazówki
     const currentTipCost = TIP_COSTS[prestigeLevel];
     dom.tipCost.textContent = formatujWalute(currentTipCost);
     
-    // Zaktualizuj przycisk wskazówki (czy nas stać)
     dom.buyTipButton.disabled = portfolio.cash < currentTipCost;
 
-    // Reszta UI
     dom.cash.textContent = formatujWalute(portfolio.cash);
     
     dom.sharesList.innerHTML = `
@@ -1891,16 +1887,13 @@ function updatePortfolioUI() {
     else if (totalProfit < 0) dom.totalProfit.style.color = "var(--red)";
     else dom.totalProfit.style.color = "var(--text-muted)";
     
-    // Zaktualizuj przycisk prestiżu (w modalu, jeśli jest otwarty)
     if (!dom.modalOverlay.classList.contains("hidden")) {
          updatePrestigeButton(totalValue, prestigeLevel);
     }
 }
 
-// NOWA: Aktualizuje logikę przycisku prestiżu w modalu
 function updatePrestigeButton(totalValue, prestigeLevel) {
     if (prestigeLevel >= PRESTIGE_REQUIREMENTS.length) {
-        // Max poziom
         dom.prestigeButton.textContent = "Osiągnięto Max Poziom Prestiżu";
         dom.prestigeButton.disabled = true;
         dom.prestigeNextGoal.textContent = "Gratulacje!";
@@ -1925,7 +1918,6 @@ function showMessage(message, type) {
     dom.messageBox.textContent = message;
     dom.messageBox.style.color = (type === "error") ? "var(--red)" : "var(--green)";
     
-    // Wyczyść tylko formularz rynkowy
     if (dom.amountInput) dom.amountInput.value = "";
     
     setTimeout(() => {
@@ -1962,7 +1954,6 @@ function displayNewRumor(rumor) {
     authorSpan.style.color = "var(--text-muted)";
     authorSpan.style.fontStyle = "normal";
     
-    // NOWOŚĆ: Gwiazdki
     const prestigeStars = getPrestigeStars(rumor.prestigeLevel);
     authorSpan.innerHTML = ` - ${rumor.authorName || "Anonim"} ${prestigeStars}`;
     
