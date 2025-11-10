@@ -619,22 +619,43 @@ try {
       
       newPrice = price + change; // Zastosuj zmianę
 
-      // Logika "Odbicia od dna" (TYLKO DLA AKCJI)
+      // ==========================================================
+      // === POPRAWIONA LOGIKA ODBICIA OD DNA (DLA AKCJI I KRYPTO) ===
+      // ==========================================================
+      const referencePrice = companyReferencePrices[companyId] || 50.00; 
+
       if (stocks.includes(companyId)) {
-          const referencePrice = companyReferencePrices[companyId] || 50.00; 
+          // Logika dla Akcji (odbicie od 40% ceny ref)
           const supportLevelPrice = referencePrice * 0.40; 
           
           if (newPrice < supportLevelPrice && newPrice > 1.00) { 
-              const recoveryChance = 0.25; 
+              const recoveryChance = 0.25; // 25% szans na odbicie
               if (Math.random() < recoveryChance) {
-                  const recoveryBoost = newPrice * 0.10; 
+                  const recoveryBoost = newPrice * 0.10; // Odbicie 10%
                   newPrice += recoveryBoost; 
-                  console.log(`... ${companyId.toUpperCase()} ODBIJA SIĘ od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
+                  console.log(`... ${companyId.toUpperCase()} (Akcja) ODBIJA SIĘ od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
+              }
+          }
+      }
+      else if (cryptos.includes(companyId)) {
+          // NOWA LOGIKA: Logika dla Krypto (odbicie od 10% ceny ref)
+          const supportLevelPrice = referencePrice * 0.10; // Krypto ma niższy próg, np. 10%
+
+          if (newPrice < supportLevelPrice && newPrice > 1.00) {
+              const recoveryChance = 0.40; // 40% szans na odbicie (częściej)
+              if (Math.random() < recoveryChance) {
+                  const recoveryBoost = newPrice * 0.25; // Odbicie 25% (mocniejsze)
+                  newPrice += recoveryBoost;
+                  console.log(`... ${companyId.toUpperCase()} (KRYPTO) ODBIJA SIĘ mocno od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
               }
           }
       }
       
       newPrice = Math.max(1.00, newPrice); // Utrzymaj minimum 1.00 (dla akcji i krypto)
+      // ==========================================================
+      // === KONIEC POPRAWKI ===
+      // ==========================================================
+
       newPrices[companyId] = parseFloat(newPrice.toFixed(2));
     }
 
