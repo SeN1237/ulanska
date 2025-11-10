@@ -984,8 +984,8 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     // Style dla typów
     if (item.type === "KUPNO") actionSpan.className = "h-action-buy";
     else if (item.type === "SPRZEDAŻ") actionSpan.className = "h-action-sell";
-    else if (item.type === "KUPNO (Krypto)") actionSpan.className = "h-action-buy-crypto";
-    else if (item.type === "SPRZEDAŻ (Krypto)") actionSpan.className = "h-action-sell-crypto";
+    else if (item.type.includes("KUPNO (Krypto)")) actionSpan.className = "h-action-buy-crypto";
+    else if (item.type.includes("SPRZEDAŻ (Krypto)")) actionSpan.className = "h-action-sell-crypto";
     else if (item.type === "WSKAZÓWKA") actionSpan.className = "h-action-tip";
     else if (item.type.startsWith("OBLIGACJA")) actionSpan.className = "h-action-bond";
     
@@ -1565,95 +1565,171 @@ function onSellMax(e) {
     if (dom.amountInput) dom.amountInput.value = maxShares;
 }
 
+// ==========================================================
+// === NOWA, BEZPIECZNA FUNKCJA KUPNA (z transakcją) ===
+// ==========================================================
 async function buyShares() {
-    // BLOKADA PRESTIŻU KRYPTO
+    // 1. Walidacja po stronie klienta (szybki feedback)
     if (dom.orderPanel.classList.contains("crypto-locked")) {
-        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error");
+        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error"); 
         return;
     }
 
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price; 
     const isCrypto = market[currentCompanyId].type === 'crypto';
+    const companyId = currentCompanyId; // Zapisz do zmiennej, aby była dostępna w transakcji
 
-    if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
+    if (isNaN(amount) || amount <= 0) { 
+        showMessage("Wpisz poprawną ilość.", "error"); return; 
+    }
+    
     const cost = amount * currentPrice;
-    if (cost > portfolio.cash) { showMessage("Brak wystarczającej gotówki.", "error"); return; }
     
-    const newCash = portfolio.cash - cost;
-    const newShares = { ...portfolio.shares };
-    newShares[currentCompanyId] = (newShares[currentCompanyId] || 0) + amount;
-    
-    const newTotalValue = calculateTotalValue(newCash, newShares);
-    const newZysk = newTotalValue - portfolio.startValue;
+    // Szybkie sprawdzenie po stronie klienta (zostanie zweryfikowane na serwerze)
+    if (cost > portfolio.cash) { 
+        showMessage("Brak wystarczającej gotówki.", "error"); return; 
+    }
 
+    // 2. Przygotuj dane do logowania (poza transakcją)
+    const transactionType = isCrypto ? "KUPNO (Krypto)" : "KUPNO";
+    const companyName = market[companyId].name;
+
+    // 3. Uruchom transakcję
     try {
-        await updatePortfolioInFirebase({ 
-            cash: newCash, 
-            shares: newShares,
-            zysk: newZysk,
-            totalValue: newTotalValue,
-            'stats.totalTrades': increment(1) // <-- INKREMENTACJA STATYSTYK
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) {
+                throw new Error("Nie znaleziono użytkownika");
+            }
+            
+            const data = userDoc.data();
+            
+            // 4. Walidacja po stronie serwera (w transakcji)
+            // Sprawdzamy 'data.cash' (z serwera), a nie 'portfolio.cash' (z klienta)
+            if (data.cash < cost) {
+                throw new Error("Niewystarczająca gotówka (weryfikacja serwera).");
+            }
+
+            // 5. Obliczenia wewnątrz transakcji
+            const newCash = data.cash - cost;
+            const newShares = { ...data.shares };
+            newShares[companyId] = (newShares[companyId] || 0) + amount;
+            
+            // Obliczamy nową wartość portfela na podstawie globalnych cen 'market'
+            // To jest OK, bo 'market' jest aktualizowany przez onSnapshot
+            const newTotalValue = calculateTotalValue(newCash, newShares); 
+            const newZysk = newTotalValue - data.startValue;
+
+            // 6. Aktualizacja portfela i statystyk w transakcji
+            transaction.update(userDocRef, { 
+                cash: newCash, 
+                shares: newShares,
+                zysk: newZysk,
+                totalValue: newTotalValue,
+                'stats.totalTrades': increment(1) // Atomowa inkrementacja statystyk
+            });
         });
-        
-        const transactionType = isCrypto ? "KUPNO (Krypto)" : "KUPNO";
-        await logTransaction(transactionType, currentCompanyId, amount, currentPrice, cost);
-        
-        showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
+
+        // 7. Sukces - logowanie i wiadomość (poza transakcją)
+        await logTransaction(transactionType, companyId, amount, currentPrice, cost);
+        showMessage(`Kupiono ${amount} akcji ${companyName}`, "success");
 
     } catch (error) {
         console.error("Błąd transakcji zakupu: ", error);
-        showMessage("Błąd zapisu transakcji.", "error");
+        if (error.message.includes("Niewystarczająca gotówka")) {
+            showMessage("Brak wystarczającej gotówki (ponowna weryfikacja).", "error");
+        } else {
+            showMessage("Błąd serwera podczas transakcji.", "error");
+        }
     }
 }
 
+// ==========================================================
+// === NOWA, BEZPIECZNA FUNKCJA SPRZEDAŻY (z transakcją) ===
+// ==========================================================
 async function sellShares() {
-    // BLOKADA PRESTIŻU KRYPTO
+    // 1. Walidacja po stronie klienta (szybki feedback)
     if (dom.orderPanel.classList.contains("crypto-locked")) {
-        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error");
+        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error"); 
         return;
     }
 
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price;
     const isCrypto = market[currentCompanyId].type === 'crypto';
+    const companyId = currentCompanyId;
 
-    if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
-    if (amount > (portfolio.shares[currentCompanyId] || 0)) { showMessage("Nie masz tylu akcji tej spółki.", "error"); return; }
+    if (isNaN(amount) || amount <= 0) { 
+        showMessage("Wpisz poprawną ilość.", "error"); return; 
+    }
     
+    // Szybkie sprawdzenie po stronie klienta (zostanie zweryfikowane na serwerze)
+    if (amount > (portfolio.shares[companyId] || 0)) { 
+        showMessage("Nie masz tylu akcji tej spółki.", "error"); return; 
+    }
+
     const revenue = amount * currentPrice;
-    const newCash = portfolio.cash + revenue;
-    const newShares = { ...portfolio.shares };
-    newShares[currentCompanyId] -= amount;
-
-    const newTotalValue = calculateTotalValue(newCash, newShares);
-    const newZysk = newTotalValue - portfolio.startValue;
     
+    // 2. Przygotuj dane do logowania
+    const transactionType = isCrypto ? "SPRZEDAŻ (Krypto)" : "SPRZEDAŻ";
+    const companyName = market[companyId].name;
+    
+    // 3. Uruchom transakcję
     try {
-        await updatePortfolioInFirebase({ 
-            cash: newCash, 
-            shares: newShares,
-            zysk: newZysk,
-            totalValue: newTotalValue,
-            'stats.totalTrades': increment(1) // <-- INKREMENTACJA STATYSTYK
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) {
+                throw new Error("Nie znaleziono użytkownika");
+            }
+            
+            const data = userDoc.data();
+
+            // 4. Walidacja po stronie serwera (w transakcji)
+            // Sprawdzamy 'data.shares' (z serwera)
+            const ownedShares = data.shares[companyId] || 0;
+            if (amount > ownedShares) {
+                throw new Error("Niewystarczająca ilość akcji (weryfikacja serwera).");
+            }
+
+            // 5. Obliczenia wewnątrz transakcji
+            const newCash = data.cash + revenue;
+            const newShares = { ...data.shares };
+            newShares[companyId] -= amount;
+
+            const newTotalValue = calculateTotalValue(newCash, newShares);
+            const newZysk = newTotalValue - data.startValue;
+
+            // 6. Aktualizacja portfela i statystyk w transakcji
+            transaction.update(userDocRef, { 
+                cash: newCash, 
+                shares: newShares,
+                zysk: newZysk,
+                totalValue: newTotalValue,
+                'stats.totalTrades': increment(1) // Atomowa inkrementacja statystyk
+            });
         });
         
-        const transactionType = isCrypto ? "SPRZEDAŻ (Krypto)" : "SPRZEDAŻ";
-        await logTransaction(transactionType, currentCompanyId, amount, currentPrice, revenue);
-        
-        showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
+        // 7. Sukces - logowanie i wiadomość (poza transakcją)
+        await logTransaction(transactionType, companyId, amount, currentPrice, revenue);
+        showMessage(`Sprzedano ${amount} akcji ${companyName}`, "success");
         
     } catch (error) {
         console.error("Błąd transakcji sprzedaży: ", error);
-        showMessage("Błąd zapisu transakcji.", "error");
+        if (error.message.includes("Niewystarczająca ilość akcji")) {
+            showMessage("Nie masz tylu akcji (ponowna weryfikacja).", "error");
+        } else {
+            showMessage("Błąd serwera podczas transakcji.", "error");
+        }
     }
 }
 
-async function updatePortfolioInFirebase(dataToUpdate) {
-    if (!currentUserId) return;
-    const userDocRef = doc(db, "uzytkownicy", currentUserId);
-    await updateDoc(userDocRef, dataToUpdate);
-}
+// Ta funkcja nie jest już potrzebna, ponieważ logika jest w transakcjach
+// async function updatePortfolioInFirebase(dataToUpdate) { ... }
 
 function calculateTotalValue(cash, shares) {
     let sharesValue = 0;
