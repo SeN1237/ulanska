@@ -292,6 +292,19 @@ body[data-theme="dark"] #logout-button:hover {
     box-shadow: 0 0 10px var(--red);
 }
 
+/* --- NOWE STYLE DLA RADIA (ARCHIVE.ORG) --- */
+#archive-radio-player {
+    display: flex;
+    align-items: center;
+    order: 2; /* Ten sam order co theme-switcher */
+    margin-left: 20px; /* Drobny odstęp */
+}
+#archive-radio-player iframe {
+    border: 1px solid var(--border-color); /* Lepsze wpasowanie w motyw */
+    border-radius: 4px;
+}
+/* --- KONIEC STYLI RADIA --- */
+
 
 /* =================================== */
 /* === SEKCJA 3.5: PASEK GIEŁDOWY (TICKER) === */
@@ -1282,6 +1295,7 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     }
     header h1 { order: 1; }
     #theme-switcher { margin-left: 0; order: 2; }
+    #archive-radio-player { order: 2; margin-left: 0; margin-top: 10px; } /* <-- DODANA LINIA */
     #user-info { order: 3; width: 100%; text-align: center; justify-content: center; }
     
     .grid-container {
