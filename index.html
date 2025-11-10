@@ -82,6 +82,11 @@
         <div class="grid-container">
 
             <main id="market-panel" class="panel">
+                <div class="market-type-selector">
+                    <button class="market-type-tab active" data-market-type="stocks">Akcje</button>
+                    <button class="market-type-tab" data-market-type="crypto">Kryptowaluty</button>
+                </div>
+
                 <div id="company-selector">
                     <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
                     <button class="company-tab" data-company="rychbud">RychBud</button>
@@ -91,6 +96,13 @@
                     <button class="company-tab" data-company="gigachat">Gigachat GPT</button>
                     <button class="company-tab" data-company="bimbercfd">Bimber.cfd</button>
                 </div>
+                
+                <div id="crypto-selector" class="hidden">
+                    <button class="company-tab" data-company="bartcoin">Bartcoin</button>
+                    <button class="company-tab" data-company="igirium">Igirium</button>
+                    <button class="company-tab" data-company="kacoin">Kacoin</button>
+                </div>
+
                 <h2 id="company-name">Ułańska Dev</h2>
                 <div id="price-container">
                     Aktualna cena: <strong id="stock-price">75.00 zł</strong>
@@ -110,6 +122,10 @@
                     <p>Cosmosanit: <strong id="shares-cosmosanit">0</strong> szt.</p>
                     <p>Gigachat GPT: <strong id="shares-gigachat">0</strong> szt.</p>
                     <p>Bimber.cfd: <strong id="shares-bimbercfd">0</strong> szt.</p>
+                    <hr class="crypto-hr">
+                    <p>Bartcoin: <strong id="shares-bartcoin">0</strong> szt.</p>
+                    <p>Igirium: <strong id="shares-igirium">0</strong> szt.</p>
+                    <p>Kacoin: <strong id="shares-kacoin">0</strong> szt.</p>
                 </div>
                 <hr>
                 <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
@@ -119,6 +135,12 @@
             <aside id="order-panel" class="panel">
                 <h2>Panel Zleceń</h2>
                 
+                <div class="crypto-gate-message">
+                    <h3>Handel Zablokowany</h3>
+                    <p>Handel kryptowalutami jest dostępny od <strong>Poziomu Prestiżu 3 (⭐️⭐️⭐️)</strong>.</p>
+                    <p>Możesz obserwować wykresy, ale zakup i sprzedaż są zablokowane.</p>
+                </div>
+
                 <div class="order-tabs">
                     <button class="order-tab-btn active" data-order-type="market">Zlecenie Rynkowe (Kup/Sprzedaj)</button>
                     <button class="order-tab-btn" data-order-type="limit">Zlecenie z Limitem</button>
@@ -173,7 +195,10 @@
                             <option value="cosmosanit">Dot. Cosmosanit</option>
                             <option value="gigachat">Dot. Gigachat GPT</option>
                             <option value="bimbercfd">Dot. Bimber.cfd</option>
-                            </select>
+                            <option value="bartcoin">Dot. Bartcoin (Krypto)</option>
+                            <option value="igirium">Dot. Igirium (Krypto)</option>
+                            <option value="kacoin">Dot. Kacoin (Krypto)</option>
+                        </select>
                         <div id="rumor-sentiment">
                             <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
                             <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
@@ -277,7 +302,7 @@
                 <ul>
                     <li><strong>Poziom 1 (⭐️)</strong>: Wymagane <strong>15,000 zł</strong></li>
                     <li><strong>Poziom 2 (⭐️⭐️)</strong>: Wymagane <strong>30,000 zł</strong></li>
-                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Wymagane <strong>60,000 zł</strong></li>
+                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Wymagane <strong>60,000 zł</strong> (Odblokowuje Handel Krypto)</li>
                     <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Wymagane <strong>120,000 zł</strong></li>
                 </ul>
                 
@@ -291,6 +316,11 @@
                     <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Koszt 1100 zł (Zniżka 400 zł)</li>
                     <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Koszt 1000 zł (Zniżka 500 zł)</li>
                 </ul>
+
+                <h3>💰 Handel Kryptowalutami</h3>
+                <p>Osiągnięcie <strong>Poziomu Prestiżu 3 (⭐️⭐️⭐️)</strong> odblokowuje dostęp do handlu kryptowalutami. Możesz przeglądać ich wykresy wcześniej, ale możliwość kupna i sprzedaży jest zablokowana.</p>
+                <p>Kryptowaluty (jak Bartcoin czy Igirium) to aktywa o <strong>ekstremalnie wysokiej zmienności</strong>. Mogą przynieść ogromne zyski w krótkim czasie, ale wiążą się z proporcjonalnie wysokim ryzykiem gwałtownej utraty kapitału. Inwestuj ostrożnie!</p>
+
             </section>
         </div> 
     </div> 
@@ -308,14 +338,18 @@
                     <p>Gotówka: <strong id="modal-cash">...</strong></p>
                     <p>Data Dołączenia: <strong id="modal-join-date">...</strong></p>
                     <hr>
+                    <p>Wszystkie Transakcje: <strong id="modal-total-trades">...</strong></p>
+                    <p>Kupione Wskazówki: <strong id="modal-tips-purchased">...</strong></p>
+                    <p>Kupione Obligacje: <strong id="modal-bonds-purchased">...</strong></p>
+                    <hr>
                     <p id="prestige-info">Poziom Prestiżu: <strong id="modal-prestige-level">0</strong></p>
                     <p id="prestige-next-goal">Następny poziom: 15,000 zł</p>
                     <button id="prestige-button" class="action-btn-full" disabled>Zwiększ Poziom Prestiżu (Reset)</button>
                 </div>
             </div>
-            <h3>Posiadane Akcje</h3>
+            <h3>Posiadane Akcje i Aktywa</h3>
             <div id="modal-shares-list" class="feed-box">
-                <p>...ładowanie akcji...</p>
+                <p>...ładowanie aktywów...</p>
             </div>
         </div>
     </div>
