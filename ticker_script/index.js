@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (WERSJA 7.0 - Obligacje)
+// Plik: ticker_script/index.js (WERSJA 7.1 - Krypto)
 
 const admin = require('firebase-admin');
 
@@ -244,7 +244,7 @@ try {
   const usersRef = db.collection("uzytkownicy");
   const historyRef = db.collection("historia_transakcji");
   const pendingTipsRef = db.collection("pending_tips");
-  const activeBondsRef = db.collection("active_bonds"); // <-- NOWA REFERENCJA
+  const activeBondsRef = db.collection("active_bonds");
   
   
   /**
@@ -269,7 +269,9 @@ try {
       
       console.log(`... Próba realizacji zlecenia ${orderId} (${order.type})`);
 
+      // ZMODYFIKOWANO: Domyślny typ to 'stock', ale sprawdzamy czy to krypto
       const { userId, companyId, amount, limitPrice, type, companyName } = order;
+      const isCrypto = type.includes("Krypto");
       
       const userRef = usersRef.doc(userId);
       const userDoc = await transaction.get(userRef);
@@ -281,12 +283,20 @@ try {
       }
 
       const userData = userDoc.data();
+      
+      // NOWA WALIDACJA: Sprawdzenie poziomu prestiżu dla krypto
+      if (isCrypto && (userData.prestigeLevel || 0) < 3) {
+          console.warn(`... Anulowanie zlecenia ${orderId}: Niewystarczający poziom prestiżu (${userData.prestigeLevel || 0}) do handlu krypto.`);
+          transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient prestige level for crypto" });
+          return;
+      }
+      
       const newShares = { ...userData.shares };
       let newCash = userData.cash;
       
       const costOrRevenue = amount * limitPrice;
 
-      if (type === 'KUPNO (Limit)') {
+      if (type.startsWith('KUPNO (Limit)')) { // Obejmuje "KUPNO (Limit)" i "KUPNO (Limit, Krypto)"
           if (newCash < costOrRevenue) {
               console.warn(`... Anulowanie zlecenia ${orderId}: Brak środków (potrzeba ${costOrRevenue}, jest ${newCash})`);
               transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient funds" });
@@ -295,7 +305,7 @@ try {
           newCash -= costOrRevenue;
           newShares[companyId] = (newShares[companyId] || 0) + amount;
           
-      } else if (type === 'SPRZEDAŻ (Limit)') {
+      } else if (type.startsWith('SPRZEDAŻ (Limit)')) { // Obejmuje "SPRZEDAŻ (Limit)" i "SPRZEDAŻ (Limit, Krypto)"
           if (!newShares[companyId] || newShares[companyId] < amount) {
               console.warn(`... Anulowanie zlecenia ${orderId}: Brak akcji (potrzeba ${amount}, jest ${newShares[companyId] || 0})`);
               transaction.update(orderDoc.ref, { status: "cancelled", failureReason: "Insufficient shares" });
@@ -313,7 +323,8 @@ try {
           cash: newCash, 
           shares: newShares, 
           totalValue: newTotalValue, 
-          zysk: newZysk 
+          zysk: newZysk,
+          'stats.totalTrades': admin.firestore.FieldValue.increment(1) // <-- INKREMENTACJA STATYSTYK
       });
 
       // 2. Zaktualizuj status zlecenia
@@ -328,7 +339,7 @@ try {
           userId: userId,
           userName: userData.name, 
           prestigeLevel: userData.prestigeLevel || 0, 
-          type: type, 
+          type: type, // Typ jest już poprawny (np. "KUPNO (Limit, Krypto)")
           companyId: companyId,
           companyName: companyName,
           amount: amount,
@@ -342,9 +353,9 @@ try {
 
       console.log(`!!! POMYŚLNIE ZREALIZOWANO zlecenie ${orderId} dla ${userData.name} !!!`);
   }
-
+  
   // ==========================================================
-  // === NOWA FUNKCJA: PRZETWARZANIE OBLIGACJI
+  // === FUNKCJA: PRZETWARZANIE OBLIGACJI (Bez zmian)
   // ==========================================================
   async function processBonds(currentPrices) {
       const now = admin.firestore.Timestamp.now();
@@ -404,7 +415,7 @@ try {
                       prestigeLevel: userData.prestigeLevel || 0, 
                       type: "OBLIGACJA (WYKUP)", 
                       companyId: "system",
-                      companyName: bond.name, // "Obligacja 1-dniowa (25%)"
+                      companyName: bond.name, // "Obligacja 1-dniowa (5%)"
                       amount: 1,
                       pricePerShare: bond.investment, // Inwestycja
                       executedPrice: payout, // Pełna wypłata
@@ -436,21 +447,27 @@ try {
     const currentPrices = docSnap.data();
     const newPrices = {};
     
-    // --- ZAKTUALIZOWANA LISTA SPÓŁEK (Usunięty 'fundusz') ---
-    const companies = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
+    // --- NOWE LISTY AKTYWÓW ---
+    const stocks = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
+    const cryptos = ["bartcoin", "igirium", "kacoin"];
+    const allAssets = [...stocks, ...cryptos]; // Łączymy obie listy
 
     const companyReferencePrices = {
+        // Akcje
         ulanska: 1860.00,
         brzozair: 235.00,
         igicorp: 20.00,
         rychbud: 870.00,
         cosmosanit: 2000.00,
         gigachat: 790.00,
-        bimbercfd: 50.00
-        // Usunięty 'fundusz'
+        bimbercfd: 50.00,
+        // Krypto
+        bartcoin: 1000.00,
+        igirium: 500.00,
+        kacoin: 100.00
     };
     
-    // --- Pobieranie wpływu plotek ---
+    // --- Pobieranie wpływu plotek (Bez zmian) ---
     const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 1000);
     const rumorsQuery = rumorsRef.where("timestamp", ">=", thirtySecondsAgo);
     const rumorsSnapshot = await rumorsQuery.get();
@@ -472,7 +489,7 @@ try {
     else if (globalSentiment > 0.3) console.log("!!! Sentyment rynkowy: EUFORIA");
     else console.log("... Sentyment rynkowy: Stabilnie");
 
-    // --- Przetwarzanie oczekujących wskazówek ---
+    // --- Przetwarzanie oczekujących wskazówek (Bez zmian) ---
     const forcedNews = {}; 
     const now = admin.firestore.Timestamp.now();
     const tipsQuery = pendingTipsRef.where("executeAt", "<=", now);
@@ -493,34 +510,43 @@ try {
 
 
     // Pętla po spółkach do OBLICZENIA nowych cen
-    for (const companyId of companies) { // 'fundusz' został usunięty z tej listy
+    for (const companyId of allAssets) { // Używamy nowej, połączonej listy
       if (currentPrices[companyId] === undefined) {
-          console.warn(`OSTRZEŻENIE: Brak ceny dla '${companyId}' w 'global/ceny_akcji'. Pomijam.`);
-          continue;
+          console.warn(`OSTRZEŻENIE: Brak ceny dla '${companyId}' w 'global/ceny_akcji'. Używam ceny referencyjnej.`);
+          currentPrices[companyId] = companyReferencePrices[companyId] || 50.00; // Ustaw cenę startową, jeśli nie istnieje
       }
 
       const price = currentPrices[companyId];
       let newPrice = price;
       let change = 0; 
-
+      
       // ==========================================================
-      // === USUNIĘTA LOGIKA DLA FUNDUSZU ===
+      // === NOWA LOGIKA ZMIENNOŚCI (AKCJE vs KRYPTO) ===
       // ==========================================================
       
-      // NORMALNA LOGIKA DLA INNYCH SPÓŁEK
-      const volatility = 0.04 * price; 
+      let volatility;
+      
+      if (cryptos.includes(companyId)) {
+          // LOGIKA DLA KRYPTO (WYSOKA ZMIENNOŚĆ)
+          console.log(`... Obliczam KRYPTO dla ${companyId}`);
+          volatility = 0.20 * price; // 20% zmienności ceny bazowej
+      } else {
+          // LOGIKA DLA AKCJI (NORMALNA ZMIENNOŚĆ)
+          volatility = 0.04 * price; // 4% zmienności ceny bazowej
+      }
+      
       change = (Math.random() - 0.5) * 2 * volatility; 
       const trend = globalSentiment * (price * 0.005); 
       change += trend;
 
-      // Zastosuj wpływ plotek
+      // Zastosuj wpływ plotek (Bez zmian)
       if (rumorImpacts[companyId]) {
           const rumorChange = price * rumorImpacts[companyId];
           change += rumorChange;
           console.log(`... Zastosowano wpływ plotki dla ${companyId.toUpperCase()}: ${rumorChange.toFixed(2)} zł (Zmiana: ${rumorImpacts[companyId]*100}%)`);
       }
 
-      // ZMODYFIKOWANA LOGIKA NEWSÓW
+      // LOGIKA NEWSÓW (Bez zmian, działa dla obu)
       const forcedEvent = forcedNews[companyId]; // Sprawdź, czy mamy wymuszony news
             
       if (forcedEvent) {
@@ -593,44 +619,46 @@ try {
       
       newPrice = price + change; // Zastosuj zmianę
 
-      // Logika "Odbicia od dna"
-      const referencePrice = companyReferencePrices[companyId] || 50.00; 
-      const supportLevelPrice = referencePrice * 0.40; 
-      
-      if (newPrice < supportLevelPrice && newPrice > 1.00) { 
-          const recoveryChance = 0.25; 
-          if (Math.random() < recoveryChance) {
-              const recoveryBoost = newPrice * 0.10; 
-              newPrice += recoveryBoost; 
-              console.log(`... ${companyId.toUpperCase()} ODBIJA SIĘ od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
+      // Logika "Odbicia od dna" (TYLKO DLA AKCJI)
+      if (stocks.includes(companyId)) {
+          const referencePrice = companyReferencePrices[companyId] || 50.00; 
+          const supportLevelPrice = referencePrice * 0.40; 
+          
+          if (newPrice < supportLevelPrice && newPrice > 1.00) { 
+              const recoveryChance = 0.25; 
+              if (Math.random() < recoveryChance) {
+                  const recoveryBoost = newPrice * 0.10; 
+                  newPrice += recoveryBoost; 
+                  console.log(`... ${companyId.toUpperCase()} ODBIJA SIĘ od dna (${supportLevelPrice.toFixed(2)} zł)! Boost: ${recoveryBoost.toFixed(2)} zł`);
+              }
           }
       }
       
-      newPrice = Math.max(1.00, newPrice); // Utrzymaj minimum 1.00
+      newPrice = Math.max(1.00, newPrice); // Utrzymaj minimum 1.00 (dla akcji i krypto)
       newPrices[companyId] = parseFloat(newPrice.toFixed(2));
     }
 
     // ZAPISZ wszystkie nowe ceny do bazy
-    await cenyDocRef.update(newPrices);
+    await cenyDocRef.set(newPrices); // Użyj .set() aby dodać nowe krypto, jeśli ich nie ma
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
 
     
-    // --- NOWY KROK: Przetwarzanie obligacji ---
-    // (Robimy to po aktualizacji cen, aby mieć `currentPrices` dla `calculateTotalValue`)
+    // --- NOWY KROK: Przetwarzanie obligacji (Bez zmian) ---
     await processBonds(newPrices);
     // --- KONIEC PRZETWARZANIA OBLIGACJI ---
     
     
     // --- Pętla po spółkach do REALIZACJI ZLECEŃ ---
-    for (const companyId of companies) { // Lista 'companies' nie zawiera już 'fundusz'
+    for (const companyId of allAssets) { // Używamy połączonej listy
         const finalPrice = newPrices[companyId];
         if (!finalPrice) continue;
         
         // 1. Szukaj zleceń KUPNA (Limit)
+        // Zapytanie szuka teraz obu typów "KUPNO (Limit)" i "KUPNO (Limit, Krypto)"
         const buyOrdersQuery = limitOrdersRef
             .where("companyId", "==", companyId)
             .where("status", "==", "pending")
-            .where("type", "==", "KUPNO (Limit)")
+            .where("type", "in", ["KUPNO (Limit)", "KUPNO (Limit, Krypto)"]) 
             .where("limitPrice", ">=", finalPrice);
             
         const buyOrdersSnapshot = await buyOrdersQuery.get();
@@ -651,7 +679,7 @@ try {
         const sellOrdersQuery = limitOrdersRef
             .where("companyId", "==", companyId)
             .where("status", "==", "pending")
-            .where("type", "==", "SPRZEDAŻ (Limit)")
+            .where("type", "in", ["SPRZEDAŻ (Limit)", "SPRZEDAŻ (Limit, Krypto)"])
             .where("limitPrice", "<=", finalPrice);
             
         const sellOrdersSnapshot = await sellOrdersQuery.get();
