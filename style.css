@@ -495,6 +495,11 @@ body[data-theme="dark"] .clear-btn:hover {
 #portfolio-panel hr {
     border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
 }
+/* NOWY: HR dla kryptowalut */
+.crypto-hr {
+    border-top: 1px dashed var(--accent-color) !important;
+}
+
 #total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
 
 #total-value {
@@ -506,6 +511,37 @@ body[data-theme="dark"] .clear-btn:hover {
 
 
 /* Panel Zleceń */
+/* NOWY: Wiadomość o blokadzie Krypto */
+.crypto-gate-message {
+    display: none; /* Domyślnie ukryte */
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+.crypto-gate-message h3 {
+    margin-top: 0;
+    color: var(--accent-color);
+    border-bottom: none;
+    padding-bottom: 5px;
+}
+.crypto-gate-message p {
+    margin: 5px 0;
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+/* Kiedy jest aktywna blokada */
+#order-panel.crypto-locked .order-tabs,
+#order-panel.crypto-locked .order-container {
+    display: none;
+}
+#order-panel.crypto-locked .crypto-gate-message {
+    display: block;
+}
+
+
 .order-tabs {
     display: flex;
     border-bottom: 1px solid var(--border-color);
@@ -849,13 +885,49 @@ body[data-theme="dark"] #buy-bond-button:hover {
     margin-top: 2px;
 }
 
-/* Zakładki spółek */
-#company-selector {
+/* NOWE: Zakładki Typu Rynku (Akcje/Krypto) */
+.market-type-selector {
     display: flex;
     border-bottom: 1px solid var(--border-color);
-    margin: -20px -20px 15px -20px; /* Rozciągnij na całą szerokość panelu */
-    flex-wrap: wrap;
+    margin: -20px -20px 10px -20px; /* Rozciągnij na całą szerokość panelu */
 }
+.market-type-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 12px 15px;
+    cursor: pointer;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.market-type-tab:hover {
+    color: var(--text-color);
+}
+.market-type-tab.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+}
+body[data-theme="dark"] .market-type-tab.active {
+    text-shadow: 0 0 5px var(--green);
+}
+
+/* Zakładki spółek */
+#company-selector, #crypto-selector {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin: 0 -20px 15px -20px; /* Usunięto margines górny */
+    padding: 0 10px; /* Dodano padding boczny */
+    flex-wrap: wrap;
+    background-color: var(--bg-color); /* Tło, aby zakryć linię pod spodem */
+    border-top: 1px solid var(--border-color); /* Linia oddzielająca od zakładki Akcje/Krypto */
+}
+#crypto-selector {
+    border-bottom-color: var(--accent-color);
+}
+
 .company-tab {
     background: none;
     border: none;
@@ -872,6 +944,7 @@ body[data-theme="dark"] #buy-bond-button:hover {
 .company-tab:hover {
     color: var(--text-color);
 }
+/* Aktywna zakładka akcji */
 .company-tab.active {
     color: var(--blue);
     border-bottom-color: var(--blue);
@@ -879,6 +952,16 @@ body[data-theme="dark"] #buy-bond-button:hover {
 body[data-theme="dark"] .company-tab.active {
     text-shadow: 0 0 5px var(--blue);
 }
+
+/* Aktywna zakładka krypto */
+#crypto-selector .company-tab.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+body[data-theme="dark"] #crypto-selector .company-tab.active {
+    text-shadow: 0 0 5px var(--accent-color);
+}
+
 
 /* Panel portfela */
 #shares-list p {
@@ -1048,6 +1131,16 @@ body[data-theme="dark"] .tab-btn.active {
     font-weight: bold;
     color: var(--green);
 }
+/* NOWY: Specjalny styl dla krypto w historii */
+.history-feed .h-action-buy-crypto {
+    font-weight: bold;
+    color: var(--accent-color);
+}
+.history-feed .h-action-sell-crypto {
+    font-weight: bold;
+    color: #FF6384; /* Inny odcień czerwieni dla krypto */
+}
+
 .history-feed .h-status-pending {
     color: var(--blue);
 }
@@ -1074,6 +1167,10 @@ body[data-theme="dark"] .tab-btn.active {
 }
 .l-type-buy { color: var(--green); font-weight: bold; }
 .l-type-sell { color: var(--red); font-weight: bold; }
+/* NOWY: Style dla krypto w zleceniach */
+.l-type-buy-crypto { color: var(--accent-color); font-weight: bold; }
+.l-type-sell-crypto { color: #FF6384; font-weight: bold; }
+
 .l-status-pending { color: var(--blue); font-style: italic; }
 .l-status-executed { color: var(--green); }
 .l-status-cancelled { color: var(--text-muted); text-decoration: line-through; }
@@ -1123,8 +1220,20 @@ body[data-theme="dark"] @keyframes flash-red {
     100% { background-color: transparent; text-shadow: none; }
 }
 
+/* NOWE: Migotanie dla Krypto */
+@keyframes flash-accent {
+    0% { background-color: rgba(255, 193, 7, 0.5); }
+    100% { background-color: transparent; }
+}
+body[data-theme="dark"] @keyframes flash-accent {
+    0% { background-color: rgba(255, 0, 255, 0.4); text-shadow: 0 0 5px var(--accent-color); }
+    100% { background-color: transparent; text-shadow: none; }
+}
+
+
 .flash-green { animation: flash-green 0.7s ease-out; }
 .flash-red { animation: flash-red 0.7s ease-out; }
+.flash-accent { animation: flash-accent 0.7s ease-out; } /* Dla krypto */
 
 #leaderboard-list li.highlight-me {
     background-color: rgba(255, 193, 7, 0.15);
@@ -1202,7 +1311,11 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     header h1 { font-size: 1.5em; } 
     h2, h3 { font-size: 1.1em; }
     #price-container { font-size: 1.3em; }
+
+    /* Mniejsze zakładki na mobilkach */
+    .market-type-tab { font-size: 0.9em; padding: 10px 8px; }
     .company-tab { padding: 8px 10px; font-size: 0.8em; }
+
     .tab-btn { font-size: 0.9em; }
     .order-tab-btn { font-size: 0.8em; }
     #rumor-controls { flex-direction: column; align-items: stretch; }
