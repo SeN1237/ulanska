@@ -9,7 +9,8 @@ import {
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, Timestamp, 
     serverTimestamp, where, 
-    getDocs, writeBatch, deleteDoc, getDoc, runTransaction
+    getDocs, writeBatch, deleteDoc, getDoc, runTransaction,
+    increment // <-- WAŻNY IMPORT DLA STATYSTYK
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -53,18 +54,23 @@ function generateInitialCandles(count, basePrice) {
     return data;
 }
 
-// Usunięty 'fundusz'
+// ZAKTUALIZOWANE o Krypto
 let market = {
-    ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [] },
-    brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [] },
-    igicorp:    { name: "IgiCorp",       price: 1, previousPrice: null, history: [] },
-    rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [] },
-    cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [] },
-    gigachat:   { name: "Gigachat GPT",  price: 500, previousPrice: null, history: [] },
-    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [] }
+    // Akcje
+    ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [], type: 'stock' },
+    brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [], type: 'stock' },
+    igicorp:    { name: "IgiCorp",       price: 1, previousPrice: null, history: [], type: 'stock' },
+    rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [], type: 'stock' },
+    cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [], type: 'stock' },
+    gigachat:   { name: "Gigachat GPT",  price: 500, previousPrice: null, history: [], type: 'stock' },
+    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [], type: 'stock' },
+    // Krypto
+    bartcoin:   { name: "Bartcoin",      price: 1000, previousPrice: null, history: [], type: 'crypto' },
+    igirium:    { name: "Igirium",       price: 500, previousPrice: null, history: [], type: 'crypto' },
+    kacoin:     { name: "Kacoin",        price: 100, previousPrice: null, history: [], type: 'crypto' }
 };
 
-// Usunięty 'fundusz'
+// ZAKTUALIZOWANE o Krypto
 const companyAbbreviations = {
     ulanska: "UŁDEV",
     rychbud: "RBUD",
@@ -72,12 +78,16 @@ const companyAbbreviations = {
     brzozair: "BAIR",
     cosmosanit: "COSIT",
     gigachat: "GIPT",
-    bimbercfd: "BIMBER"
+    bimbercfd: "BIMBER",
+    bartcoin: "BRC",
+    igirium: "IGI",
+    kacoin: "KCN"
 };
 
 let currentCompanyId = "ulanska";
+let currentMarketType = "stocks"; // 'stocks' lub 'crypto'
 
-// Usunięty 'fundusz'
+// ZAKTUALIZOWANE o Krypto
 let portfolio = {
     name: "Gość",
     cash: 0,
@@ -88,7 +98,15 @@ let portfolio = {
         brzozair: 0,
         cosmosanit: 0,
         gigachat: 0,
-        bimbercfd: 0
+        bimbercfd: 0,
+        bartcoin: 0,
+        igirium: 0,
+        kacoin: 0
+    },
+    stats: { // <-- NOWE STATYSTYKI
+        totalTrades: 0,
+        tipsPurchased: 0,
+        bondsPurchased: 0
     },
     startValue: 100,
     zysk: 0,
@@ -99,15 +117,20 @@ let portfolio = {
 // --- STAŁE DLA PRESTIŻU ---
 const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000]; // Poziomy 1, 2, 3, 4
 const TIP_COSTS = [1500, 1400, 1200, 1100, 1000]; // Koszt dla poziomu 0, 1, 2, 3, 4
+const CRYPTO_PRESTIGE_REQUIREMENT = 3; // <-- WYMAGANY POZIOM DLA KRYPTO
 
 let chart = null;
 let portfolioChart = null; 
 let modalPortfolioChart = null; 
 let currentUserId = null;
 
-// Usunięty 'fundusz'
-const COMPANY_ORDER = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
-// Usunięty ostatni kolor
+// ZAKTUALIZOWANE o Krypto
+const COMPANY_ORDER = [
+    "ulanska", "rychbud", "igicorp", "brzozair", 
+    "cosmosanit", "gigachat", "bimbercfd",
+    "bartcoin", "igirium", "kacoin"
+];
+// ZAKTUALIZOWANE o Krypto
 const CHART_COLORS = [
     'var(--blue)', // Gotówka (zawsze pierwszy)
     '#FF6384',     // ulanska
@@ -116,7 +139,10 @@ const CHART_COLORS = [
     '#4BC0C0',     // brzozair
     '#9966FF',     // cosmosanit
     '#FF9F40',     // gigachat
-    '#C9CBCF'      // bimbercfd
+    '#C9CBCF',     // bimbercfd
+    '#F0B90B',     // bartcoin (kolor a'la BTC)
+    '#627EEA',     // igirium (kolor a'la ETH)
+    '#444444'      // kacoin (ciemny)
 ];
 
 let chartHasStarted = false; 
@@ -132,7 +158,7 @@ let unsubscribeChat = null;
 let unsubscribeGlobalHistory = null;
 let unsubscribePersonalHistory = null;
 let unsubscribeLimitOrders = null; 
-let unsubscribeBonds = null; // <-- NOWY
+let unsubscribeBonds = null;
 
 let dom = {};
 
@@ -146,8 +172,9 @@ onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
         
+        // Zaktualizowano pętlę, aby pobierała wszystkie klucze z 'market'
         for (const companyId in market) {
-            if (aktualneCeny[companyId]) {
+            if (aktualneCeny[companyId] !== undefined) {
                 const newPrice = aktualneCeny[companyId];
                 if (market[companyId].price) {
                     market[companyId].previousPrice = market[companyId].price;
@@ -227,8 +254,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Referencje DOM
     dom = {
+        // Kontenery
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
+        
+        // Autentykacja
         loginForm: document.getElementById("login-form"),
         registerForm: document.getElementById("register-form"),
         authMessage: document.getElementById("auth-message"),
@@ -236,50 +266,68 @@ document.addEventListener("DOMContentLoaded", () => {
         showRegisterLink: document.getElementById("show-register-link"),
         showLoginLink: document.getElementById("show-login-link"),
         
+        // Header
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
+        themeSelect: document.getElementById("theme-select"),
+        
+        // Ticker
+        tickerContent: document.getElementById("ticker-content"),
+        
+        // Panel Rynku (Wykres)
+        marketTypeTabs: document.querySelectorAll(".market-type-tab"), // <-- NOWY
+        companySelector: document.getElementById("company-selector"),
+        cryptoSelector: document.getElementById("crypto-selector"), // <-- NOWY
+        companyName: document.getElementById("company-name"),
+        stockPrice: document.getElementById("stock-price"),
+        chartContainer: document.getElementById("chart-container"),
+
+        // Panel Portfela
         cash: document.getElementById("cash"),
         totalValue: document.getElementById("total-value"),
         totalProfit: document.getElementById("total-profit"),
-        stockPrice: document.getElementById("stock-price"),
+        sharesList: document.getElementById("shares-list"),
+        portfolioChartContainer: document.getElementById("portfolio-chart-container"),
+
+        // Panel Zleceń
+        orderPanel: document.getElementById("order-panel"), // <-- NOWY (dla blokady)
+        orderTabMarket: document.querySelector('.order-tab-btn[data-order-type="market"]'),
+        orderTabLimit: document.querySelector('.order-tab-btn[data-order-type="limit"]'),
+        orderMarketContainer: document.getElementById("order-market-container"),
+        orderLimitContainer: document.getElementById("order-limit-container"),
+        cryptoGateMessage: document.querySelector(".crypto-gate-message"), // <-- NOWY
+        
+        // Zlecenie Rynkowe
         amountInput: document.getElementById("amount-input"),
         buyButton: document.getElementById("buy-button"),
         sellButton: document.getElementById("sell-button"),
         buyMaxButton: document.getElementById("buy-max-button"), 
         sellMaxButton: document.getElementById("sell-max-button"), 
         messageBox: document.getElementById("message-box"),
-        chartContainer: document.getElementById("chart-container"),
+        
+        // Zlecenie Limit
+        limitOrderForm: document.getElementById("limit-order-form"),
+        limitType: document.getElementById("limit-type"),
+        limitAmount: document.getElementById("limit-amount"),
+        limitPrice: document.getElementById("limit-price"),
+        limitOrderButton: document.getElementById("limit-order-button"),
+        
+        // Panel Plotek i Newsów
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
         buyTipButton: document.getElementById("buy-tip-button"), 
         tipCost: document.getElementById("tip-cost"), 
         newsFeed: document.getElementById("news-feed"), 
+        
+        // Panel Rankingu
         leaderboardList: document.getElementById("leaderboard-list"),
-        companySelector: document.getElementById("company-selector"),
-        companyName: document.getElementById("company-name"),
-        sharesList: document.getElementById("shares-list"),
-        portfolioChartContainer: document.getElementById("portfolio-chart-container"),
-
+        
+        // Panel Czat
         chatForm: document.getElementById("chat-form"),
         chatInput: document.getElementById("chat-input"),
         chatFeed: document.getElementById("chat-feed"),
         
-        themeSelect: document.getElementById("theme-select"),
-
-        // Zakładki Zleceń
-        orderTabMarket: document.querySelector('.order-tab-btn[data-order-type="market"]'),
-        orderTabLimit: document.querySelector('.order-tab-btn[data-order-type="limit"]'),
-        orderMarketContainer: document.getElementById("order-market-container"),
-        orderLimitContainer: document.getElementById("order-limit-container"),
-        
-        // Formularz Zleceń Limit
-        limitOrderForm: document.getElementById("limit-order-form"),
-        limitType: document.getElementById("limit-type"),
-        limitAmount: document.getElementById("limit-amount"),
-        limitPrice: document.getElementById("limit-price"),
-        limitOrderButton: document.getElementById("limit-order-button"),
-
         // Zakładki Historii
         historyTabsPanel: document.getElementById("history-tabs-panel"),
         historyTabButtons: document.querySelectorAll("#history-tabs-panel .tab-btn"),
@@ -294,7 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
         limitOrdersFeed: document.getElementById("limit-orders-feed"),
         clearOrdersButton: document.getElementById("clear-orders-button"),
 
-        // NOWE: Panel Obligacji
+        // Panel Obligacji
         bondsForm: document.getElementById("bonds-form"),
         bondAmount: document.getElementById("bond-amount"),
         bondType: document.getElementById("bond-type"),
@@ -312,15 +360,20 @@ document.addEventListener("DOMContentLoaded", () => {
         modalSharesList: document.getElementById("modal-shares-list"),
         modalPortfolioChartContainer: document.getElementById("modal-portfolio-chart-container"),
         modalPrestigeLevel: document.getElementById("modal-prestige-level"), 
+        
+        // NOWE STATYSTYKI W MODALU
+        modalTotalTrades: document.getElementById("modal-total-trades"),
+        modalTipsPurchased: document.getElementById("modal-tips-purchased"),
+        modalBondsPurchased: document.getElementById("modal-bonds-purchased"),
+
         prestigeInfo: document.getElementById("prestige-info"), 
         prestigeNextGoal: document.getElementById("prestige-next-goal"), 
         prestigeButton: document.getElementById("prestige-button"), 
 
+        // Audio i Powiadomienia
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
         audioNews: document.getElementById("audio-news"),
-
-        tickerContent: document.getElementById("ticker-content"),
         notificationContainer: document.getElementById("notification-container")
     };
 
@@ -328,36 +381,50 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
+    
+    // NOWE Listenery dla zakładek Akcje/Krypto
+    dom.marketTypeTabs.forEach(tab => {
+        tab.addEventListener("click", onSelectMarketType);
+    });
+    
+    // Listenery dla selektorów aktywów
     dom.companySelector.addEventListener("click", onSelectCompany);
+    dom.cryptoSelector.addEventListener("click", onSelectCompany); // <-- NOWY
+    
+    // Listenery zleceń rynkowych
     dom.buyButton.addEventListener("click", buyShares);
     dom.sellButton.addEventListener("click", sellShares);
     dom.buyMaxButton.addEventListener("click", onBuyMax); 
     dom.sellMaxButton.addEventListener("click", onSellMax); 
+    
+    // Listenery formularzy
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.chatForm.addEventListener("submit", onSendMessage);
+    dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
+    dom.bondsForm.addEventListener("submit", onBuyBond); 
+    
+    // Listenery przycisków
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
     dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory);
-
-    dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
-    dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
-    dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
     dom.clearOrdersButton.addEventListener("click", onClearLimitOrders);
-    
-    dom.bondsForm.addEventListener("submit", onBuyBond); // <-- NOWY
-    
     dom.buyTipButton.addEventListener("click", onBuyTip);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
 
+    // Listenery zakładek (Zlecenia i Historia)
+    dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
+    dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
     dom.historyTabButtons.forEach(button => {
         button.addEventListener("click", onSelectHistoryTab);
     });
 
+    // Listenery Modalu
     dom.modalCloseButton.addEventListener("click", () => dom.modalOverlay.classList.add("hidden"));
     dom.modalOverlay.addEventListener("click", (e) => {
         if (e.target === dom.modalOverlay) dom.modalOverlay.classList.add("hidden");
     });
 
+    // Listenery przełączania Auth
     dom.showRegisterLink.addEventListener("click", (e) => {
         e.preventDefault();
         dom.authContainer.classList.add("show-register");
@@ -408,7 +475,7 @@ function startAuthListener() {
             listenToGlobalHistory();
             listenToPersonalHistory(currentUserId);
             listenToLimitOrders(currentUserId);
-            listenToActiveBonds(currentUserId); // <-- NOWY
+            listenToActiveBonds(currentUserId);
             
         } else {
             currentUserId = null;
@@ -424,7 +491,7 @@ function startAuthListener() {
             if (unsubscribeGlobalHistory) unsubscribeGlobalHistory();
             if (unsubscribePersonalHistory) unsubscribePersonalHistory();
             if (unsubscribeLimitOrders) unsubscribeLimitOrders();
-            if (unsubscribeBonds) unsubscribeBonds(); // <-- NOWY
+            if (unsubscribeBonds) unsubscribeBonds();
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
@@ -436,11 +503,16 @@ function startAuthListener() {
             initialChatLoaded = false; 
             audioUnlocked = false; 
             
-            // Usunięty 'fundusz'
+            // ZAKTUALIZOWANE o Krypto
             portfolio = { 
                 name: "Gość", 
                 cash: 1000, 
-                shares: { ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, cosmosanit: 0, gigachat: 0, bimbercfd: 0 }, 
+                shares: { 
+                    ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
+                    cosmosanit: 0, gigachat: 0, bimbercfd: 0,
+                    bartcoin: 0, igirium: 0, kacoin: 0
+                },
+                stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
                 startValue: 1000, 
                 zysk: 0, 
                 totalValue: 1000,
@@ -460,7 +532,7 @@ function startAuthListener() {
 
 // --- SEKCJA 3: HANDLERY AUTENTYKACJI (ZAKTUALIZOWANE) ---
 
-// Usunięty 'fundusz'
+// ZAKTUALIZOWANE o Krypto i Statystyki
 async function createInitialUserData(userId, name, email) {
     const userPortfolio = {
         name: name,
@@ -473,7 +545,15 @@ async function createInitialUserData(userId, name, email) {
             brzozair: 0,
             cosmosanit: 0,
             gigachat: 0,
-            bimbercfd: 0
+            bimbercfd: 0,
+            bartcoin: 0,
+            igirium: 0,
+            kacoin: 0
+        },
+        stats: { // <-- NOWE STATYSTYKI
+            totalTrades: 0,
+            tipsPurchased: 0,
+            bondsPurchased: 0
         },
         startValue: 1000.00,
         zysk: 0.00,
@@ -590,14 +670,20 @@ function listenToPortfolioData(userId) {
             const data = docSnap.data();
             portfolio.name = data.name;
             portfolio.cash = data.cash;
-            // Usunięty 'fundusz'
+            // ZAKTUALIZOWANE o Krypto
             portfolio.shares = data.shares || { 
                 ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
-                cosmosanit: 0, gigachat: 0, bimbercfd: 0
+                cosmosanit: 0, gigachat: 0, bimbercfd: 0,
+                bartcoin: 0, igirium: 0, kacoin: 0
+            };
+            // NOWE Statystyki
+            portfolio.stats = data.stats || { 
+                totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 
             };
             portfolio.startValue = data.startValue;
             portfolio.prestigeLevel = data.prestigeLevel || 0; 
             updatePortfolioUI();
+            checkCryptoAccess(); // <-- Sprawdź dostęp do krypto po aktualizacji portfela
         } else {
             console.error("Błąd: Nie znaleziono danych użytkownika!");
         }
@@ -738,7 +824,10 @@ async function onPostRumor(e) {
     const sentiment = dom.rumorForm.querySelector('input[name="sentiment"]:checked').value;
     if (!rumorText.trim() || !currentUserId || !companyId || !sentiment) return;
     
-    const impact = (Math.random() * 0.04 + 0.01) * (sentiment === 'positive' ? 1 : -1);
+    // Krypto ma większy wpływ na plotki
+    const isCrypto = market[companyId] && market[companyId].type === 'crypto';
+    const baseImpact = isCrypto ? 0.08 : 0.04; // 8% dla krypto, 4% dla akcji
+    const impact = (Math.random() * baseImpact + 0.01) * (sentiment === 'positive' ? 1 : -1);
 
     try {
         await addDoc(collection(db, "plotki"), {
@@ -806,7 +895,6 @@ async function logTransaction(type, companyId, amount, pricePerShare, totalCostO
         return;
     }
 
-    // POPRAWKA: Upewnij się, że companyId istnieje w market, zanim odczytasz 'name'
     const companyName = (companyId && market[companyId]) ? market[companyId].name : "System";
     const finalPrice = pricePerShare || 0;
     const finalTotal = totalCostOrRevenue || 0;
@@ -815,7 +903,7 @@ async function logTransaction(type, companyId, amount, pricePerShare, totalCostO
         userId: currentUserId,
         userName: portfolio.name,
         prestigeLevel: portfolio.prestigeLevel || 0, 
-        type: type,
+        type: type, // np. "KUPNO", "SPRZEDAŻ", "KUPNO (Krypto)"
         companyId: companyId || "system",
         companyName: companyName,
         amount: amount || 0,
@@ -875,7 +963,7 @@ function listenToPersonalHistory(userId) {
     }, (error) => { console.error("Błąd nasłuchu historii osobistej: ", error); });
 }
 
-// Zaktualizowano o style dla OBLIGACJI
+// Zaktualizowano o style dla KRYPTO i OBLIGACJI
 function displayHistoryItem(feedElement, item, isGlobal) {
     const p = document.createElement("p");
     
@@ -893,9 +981,11 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     const actionSpan = document.createElement("span");
     actionSpan.textContent = item.type;
     
-    // NOWE style dla obligacji
+    // Style dla typów
     if (item.type === "KUPNO") actionSpan.className = "h-action-buy";
     else if (item.type === "SPRZEDAŻ") actionSpan.className = "h-action-sell";
+    else if (item.type === "KUPNO (Krypto)") actionSpan.className = "h-action-buy-crypto";
+    else if (item.type === "SPRZEDAŻ (Krypto)") actionSpan.className = "h-action-sell-crypto";
     else if (item.type === "WSKAZÓWKA") actionSpan.className = "h-action-tip";
     else if (item.type.startsWith("OBLIGACJA")) actionSpan.className = "h-action-bond";
     
@@ -909,7 +999,7 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     if (item.type === "WSKAZÓWKA") {
          detailsSpan.textContent = item.companyName; // "Zakupiono tajną wskazówkę"
     } else if (item.type.startsWith("OBLIGACJA")) {
-        detailsSpan.textContent = item.companyName; // Np. "Obligacja 1-dniowa (25%)"
+        detailsSpan.textContent = item.companyName; // Np. "Obligacja 1-dniowa (5%)"
     } else {
          detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(price)}`;
     }
@@ -930,7 +1020,6 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     if (item.status && item.status === "pending") {
         const statusSpan = document.createElement("span");
         statusSpan.className = "h-status-pending";
-        // Upewnij się, że 'item.redeemAt' istnieje i jest obiektem Timestamp
         if (item.redeemAt && typeof item.redeemAt.toDate === 'function') {
             statusSpan.textContent = ` (Oczekuje do ${item.redeemAt.toDate().toLocaleString('pl-PL')})`;
         } else {
@@ -1007,10 +1096,17 @@ async function onPlaceLimitOrder(e) {
     e.preventDefault();
     if (!currentUserId || !currentCompanyId) return;
 
+    // BLOKADA PRESTIŻU KRYPTO
+    if (dom.orderPanel.classList.contains("crypto-locked")) {
+        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error");
+        return;
+    }
+
     const type = dom.limitType.value; // 'buy' lub 'sell'
     const amount = parseInt(dom.limitAmount.value);
     const limitPrice = parseFloat(dom.limitPrice.value);
     const currentPrice = market[currentCompanyId].price;
+    const isCrypto = market[currentCompanyId].type === 'crypto';
 
     // Walidacja
     if (isNaN(amount) || amount <= 0) {
@@ -1038,6 +1134,14 @@ async function onPlaceLimitOrder(e) {
         }
     }
 
+    // Ustal typ zlecenia (dla logów i bazy danych)
+    let orderTypeString;
+    if (isCrypto) {
+        orderTypeString = (type === 'buy') ? 'KUPNO (Limit, Krypto)' : 'SPRZEDAŻ (Limit, Krypto)';
+    } else {
+        orderTypeString = (type === 'buy') ? 'KUPNO (Limit)' : 'SPRZEDAŻ (Limit)';
+    }
+
     // Utwórz zlecenie
     try {
         const orderData = {
@@ -1046,7 +1150,7 @@ async function onPlaceLimitOrder(e) {
             prestigeLevel: portfolio.prestigeLevel || 0, 
             companyId: currentCompanyId,
             companyName: market[currentCompanyId].name,
-            type: type === 'buy' ? 'KUPNO (Limit)' : 'SPRZEDAŻ (Limit)',
+            type: orderTypeString, // Zaktualizowany typ
             amount: amount,
             limitPrice: limitPrice,
             status: "pending", 
@@ -1106,7 +1210,13 @@ function listenToLimitOrders(userId) {
             
             const tr = document.createElement("tr");
             
-            const typeClass = order.type.startsWith("KUPNO") ? "l-type-buy" : "l-type-sell";
+            // Zaktualizowana logika klas CSS dla krypto
+            let typeClass = "";
+            if (order.type.startsWith("KUPNO (Limit, Krypto)")) typeClass = "l-type-buy-crypto";
+            else if (order.type.startsWith("SPRZEDAŻ (Limit, Krypto)")) typeClass = "l-type-sell-crypto";
+            else if (order.type.startsWith("KUPNO")) typeClass = "l-type-buy";
+            else if (order.type.startsWith("SPRZEDAŻ")) typeClass = "l-type-sell";
+
             const statusClass = `l-status-${order.status}`;
 
             let actionButton = "";
@@ -1202,7 +1312,7 @@ async function onClearLimitOrders() {
     }
 }
 
-// --- SEKCJA 4.7: LOGIKA OBLIGACJI (NOWA) ---
+// --- SEKCJA 4.7: LOGIKA OBLIGACJI (ZAKTUALIZOWANA O STATYSTYKI) ---
 
 async function onBuyBond(e) {
     e.preventDefault();
@@ -1248,7 +1358,7 @@ async function onBuyBond(e) {
             const data = userDoc.data();
             if (data.cash < amount) throw new Error("Brak środków (ponowna weryfikacja)");
 
-            // 1. Odejmij gotówkę
+            // 1. Odejmij gotówkę, zaktualizuj statystyki
             const newCash = data.cash - amount;
             const newTotalValue = calculateTotalValue(newCash, data.shares); // Wartość obligacji jest "wirtualna", portfel maleje
             const newZysk = newTotalValue - data.startValue;
@@ -1256,7 +1366,8 @@ async function onBuyBond(e) {
             transaction.update(userDocRef, {
                 cash: newCash,
                 totalValue: newTotalValue,
-                zysk: newZysk
+                zysk: newZysk,
+                'stats.bondsPurchased': increment(1) // <-- INKREMENTACJA STATYSTYK
             });
 
             // 2. Utwórz wpis w historii (ZAKUP)
@@ -1359,6 +1470,33 @@ function listenToActiveBonds(userId) {
 
 // --- SEKCJA 5: HANDLERY AKCJI UŻYTKOWNIKA (ZAKTUALIZOWANE) ---
 
+// NOWA: Przełączanie między rynkiem Akcji i Krypto
+function onSelectMarketType(e) {
+    const targetType = e.target.dataset.marketType; // 'stocks' lub 'crypto'
+    if (targetType === currentMarketType) return; // Nic nie rób, jeśli kliknięto aktywną
+
+    currentMarketType = targetType;
+
+    // Zaktualizuj przyciski typu rynku
+    dom.marketTypeTabs.forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.marketType === targetType);
+    });
+
+    // Pokaż/ukryj odpowiednie selektory aktywów
+    dom.companySelector.classList.toggle("hidden", targetType !== 'stocks');
+    dom.cryptoSelector.classList.toggle("hidden", targetType !== 'crypto');
+
+    // Automatycznie wybierz pierwszy element z listy
+    if (targetType === 'stocks') {
+        changeCompany("ulanska");
+    } else {
+        changeCompany("bartcoin");
+    }
+
+    // Sprawdź dostęp do handlu
+    checkCryptoAccess();
+}
+
 function onSelectCompany(e) {
     if (e.target.classList.contains("company-tab")) {
         changeCompany(e.target.dataset.company);
@@ -1369,7 +1507,12 @@ function changeCompany(companyId) {
     if (!market[companyId]) return;
     currentCompanyId = companyId;
     
-    document.querySelectorAll(".company-tab").forEach(tab => {
+    // Zaktualizuj zakładki akcji
+    document.querySelectorAll("#company-selector .company-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.company === companyId);
+    });
+    // Zaktualizuj zakładki krypto
+    document.querySelectorAll("#crypto-selector .company-tab").forEach(tab => {
         tab.classList.toggle("active", tab.dataset.company === companyId);
     });
     
@@ -1388,7 +1531,24 @@ function changeCompany(companyId) {
     if (dom.limitPrice) {
         dom.limitPrice.value = companyData.price.toFixed(2);
     }
+
+    checkCryptoAccess(); // Sprawdź dostęp przy każdej zmianie
 }
+
+// NOWA: Sprawdza, czy gracz ma dostęp do handlu krypto
+function checkCryptoAccess() {
+    if (!dom || !dom.orderPanel) return;
+
+    const isCrypto = market[currentCompanyId] && market[currentCompanyId].type === 'crypto';
+    const hasAccess = portfolio.prestigeLevel >= CRYPTO_PRESTIGE_REQUIREMENT;
+
+    if (isCrypto && !hasAccess) {
+        dom.orderPanel.classList.add("crypto-locked");
+    } else {
+        dom.orderPanel.classList.remove("crypto-locked");
+    }
+}
+
 
 function onBuyMax(e) {
     if (!currentCompanyId || !market[currentCompanyId]) return; 
@@ -1406,8 +1566,16 @@ function onSellMax(e) {
 }
 
 async function buyShares() {
+    // BLOKADA PRESTIŻU KRYPTO
+    if (dom.orderPanel.classList.contains("crypto-locked")) {
+        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error");
+        return;
+    }
+
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price; 
+    const isCrypto = market[currentCompanyId].type === 'crypto';
+
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     const cost = amount * currentPrice;
     if (cost > portfolio.cash) { showMessage("Brak wystarczającej gotówki.", "error"); return; }
@@ -1424,10 +1592,12 @@ async function buyShares() {
             cash: newCash, 
             shares: newShares,
             zysk: newZysk,
-            totalValue: newTotalValue
+            totalValue: newTotalValue,
+            'stats.totalTrades': increment(1) // <-- INKREMENTACJA STATYSTYK
         });
         
-        await logTransaction("KUPNO", currentCompanyId, amount, currentPrice, cost);
+        const transactionType = isCrypto ? "KUPNO (Krypto)" : "KUPNO";
+        await logTransaction(transactionType, currentCompanyId, amount, currentPrice, cost);
         
         showMessage(`Kupiono ${amount} akcji ${market[currentCompanyId].name}`, "success");
 
@@ -1438,8 +1608,16 @@ async function buyShares() {
 }
 
 async function sellShares() {
+    // BLOKADA PRESTIŻU KRYPTO
+    if (dom.orderPanel.classList.contains("crypto-locked")) {
+        showMessage("Handel kryptowalutami jest dostępny od 3 Poziomu Prestiżu.", "error");
+        return;
+    }
+
     const amount = parseInt(dom.amountInput.value);
     const currentPrice = market[currentCompanyId].price;
+    const isCrypto = market[currentCompanyId].type === 'crypto';
+
     if (isNaN(amount) || amount <= 0) { showMessage("Wpisz poprawną ilość.", "error"); return; }
     if (amount > (portfolio.shares[currentCompanyId] || 0)) { showMessage("Nie masz tylu akcji tej spółki.", "error"); return; }
     
@@ -1456,10 +1634,12 @@ async function sellShares() {
             cash: newCash, 
             shares: newShares,
             zysk: newZysk,
-            totalValue: newTotalValue
+            totalValue: newTotalValue,
+            'stats.totalTrades': increment(1) // <-- INKREMENTACJA STATYSTYK
         });
         
-        await logTransaction("SPRZEDAŻ", currentCompanyId, amount, currentPrice, revenue);
+        const transactionType = isCrypto ? "SPRZEDAŻ (Krypto)" : "SPRZEDAŻ";
+        await logTransaction(transactionType, currentCompanyId, amount, currentPrice, revenue);
         
         showMessage(`Sprzedano ${amount} akcji ${market[currentCompanyId].name}`, "success");
         
@@ -1646,6 +1826,7 @@ function initModalPortfolioChart() {
     modalPortfolioChart.render();
 }
 
+// ZAKTUALIZOWANE O STATYSTYKI
 async function showUserProfile(userId) {
     if (!userId) return;
     console.log("Ładowanie profilu dla:", userId);
@@ -1662,6 +1843,7 @@ async function showUserProfile(userId) {
         const userData = userDoc.data();
         const prestigeLevel = userData.prestigeLevel || 0;
         const prestigeStars = getPrestigeStars(prestigeLevel);
+        const stats = userData.stats || { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 }; // Domyślne statystyki
         
         dom.modalUsername.innerHTML = `${userData.name} ${prestigeStars}`;
         dom.modalCash.textContent = formatujWalute(userData.cash);
@@ -1682,6 +1864,11 @@ async function showUserProfile(userId) {
 
         dom.modalJoinDate.textContent = userData.joinDate.toDate().toLocaleDateString('pl-PL');
 
+        // Wyświetl NOWE STATYSTYKI
+        dom.modalTotalTrades.textContent = stats.totalTrades;
+        dom.modalTipsPurchased.textContent = stats.tipsPurchased;
+        dom.modalBondsPurchased.textContent = stats.bondsPurchased;
+
         if (userId === currentUserId) {
             dom.prestigeInfo.style.display = 'flex';
             dom.prestigeNextGoal.style.display = 'block';
@@ -1701,7 +1888,8 @@ async function showUserProfile(userId) {
         let sharesValue = 0; 
         let hasShares = false;
 
-        for (const companyId of COMPANY_ORDER) { // Zaktualizowana lista
+        // ZAKTUALIZOWANA PĘTLA O KRYPTO
+        for (const companyId of COMPANY_ORDER) { 
             const amount = userData.shares[companyId] || 0;
             if (amount > 0) {
                 hasShares = true;
@@ -1739,7 +1927,7 @@ async function showUserProfile(userId) {
     }
 }
 
-// Zaktualizowano o 'fundusz'
+// Zaktualizowano o Krypto
 async function onPrestigeReset() {
     const currentLevel = portfolio.prestigeLevel;
     if (currentLevel >= PRESTIGE_REQUIREMENTS.length) return; 
@@ -1775,11 +1963,13 @@ async function onPrestigeReset() {
                 throw new Error("Niewystarczająca wartość portfela.");
             }
 
+            // Statystyki NIE SĄ resetowane
             transaction.update(userDocRef, {
                 cash: 1000.00,
                 shares: { 
                     ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0,
-                    cosmosanit: 0, gigachat: 0, bimbercfd: 0
+                    cosmosanit: 0, gigachat: 0, bimbercfd: 0,
+                    bartcoin: 0, igirium: 0, kacoin: 0
                 },
                 startValue: 1000.00,
                 zysk: 0.00,
@@ -1797,7 +1987,7 @@ async function onPrestigeReset() {
     }
 }
 
-// --- ZMODYFIKOWANA FUNKCJA: KUPNO WSKAZÓWKI (z 65% szansą) ---
+// ZMODYFIKOWANA FUNKCJA: KUPNO WSKAZÓWKI (ze statystykami)
 async function onBuyTip() {
     const currentCost = TIP_COSTS[portfolio.prestigeLevel];
     
@@ -1824,7 +2014,7 @@ async function onBuyTip() {
             const currentCost = TIP_COSTS[data.prestigeLevel || 0];
             if (data.cash < currentCost) throw new Error("Brak środków");
 
-            // 2. Pobierz pieniądze
+            // 2. Pobierz pieniądze i zaktualizuj statystyki
             const newCash = data.cash - currentCost;
             const newTotalValue = calculateTotalValue(newCash, data.shares);
             const newZysk = newTotalValue - data.startValue;
@@ -1832,7 +2022,8 @@ async function onBuyTip() {
             transaction.update(userDocRef, {
                 cash: newCash,
                 totalValue: newTotalValue,
-                zysk: newZysk
+                zysk: newZysk,
+                'stats.tipsPurchased': increment(1) // <-- INKREMENTACJA STATYSTYK
             });
             
             // 3. Zapisz wskazówkę w historii personalnej (zawsze)
@@ -1842,7 +2033,7 @@ async function onBuyTip() {
                 prestigeLevel: data.prestigeLevel || 0,
                 type: "WSKAZÓWKA",
                 companyId: tipData.companyId, // Zapisz, której spółki dotyczy
-                companyName: "Zakupiono tajną wskazówkę", // <-- POPRAWKA: Nie ujawniaj treści
+                companyName: "Zakupiono tajną wskazówkę", 
                 amount: 0,
                 pricePerShare: 0,
                 totalValue: currentCost * -1, // Zapisz koszt
@@ -1876,11 +2067,13 @@ async function onBuyTip() {
     }
 }
 
-// --- NOWA FUNKCJA POMOCNICZA DLA WSKAZÓWEK ---
+// ZAKTUALIZOWANA O KRYPTO
 function generateTipData() {
     const isReal = Math.random() < 0.65; // 65% szans
     const isPositive = Math.random() > 0.5;
-    const companyIds = Object.keys(market); // Już bez 'fundusz'
+    
+    // Teraz losuje ze wszystkich aktywów (akcje + krypto)
+    const companyIds = Object.keys(market);
     const companyId = companyIds[Math.floor(Math.random() * companyIds.length)];
     const companyName = market[companyId].name;
 
@@ -1949,8 +2142,12 @@ function updateTickerTape() {
     if (!dom.tickerContent) return;
 
     let tickerHTML = "";
-    // Zaktualizowana kolejność (bez 'fundusz')
-    const companyOrder = ["ulanska", "rychbud", "igicorp", "brzozair", "cosmosanit", "gigachat", "bimbercfd"];
+    // Zaktualizowana kolejność o krypto (używa COMPANY_ORDER)
+    const companyOrder = [
+        "ulanska", "rychbud", "igicorp", "brzozair", 
+        "cosmosanit", "gigachat", "bimbercfd",
+        "bartcoin", "igirium", "kacoin"
+    ];
 
     for (const companyId of companyOrder) {
         const company = market[companyId];
@@ -1975,13 +2172,25 @@ function updateTickerTape() {
             sign = ""; 
         }
 
-        tickerHTML += `
+        // Krypto dostaje specjalny styl w tickerze
+        if (company.type === 'crypto') {
+            changeClass += " ticker-crypto";
+            tickerHTML += `
+            <span class="ticker-item ticker-item-crypto">
+                ${name}
+                <strong>${price.toFixed(2)} zł</strong>
+                <span class="${changeClass}">${sign}${percentChange.toFixed(2)}%</span>
+            </span>
+            `;
+        } else {
+             tickerHTML += `
             <span class="ticker-item">
                 ${name}
                 <strong>${price.toFixed(2)} zł</strong>
                 <span class="${changeClass}">${sign}${percentChange.toFixed(2)}%</span>
             </span>
-        `;
+            `;
+        }
     }
 
     dom.tickerContent.innerHTML = tickerHTML + tickerHTML;
@@ -1998,19 +2207,23 @@ function updatePriceUI() {
 
     dom.stockPrice.textContent = formatujWalute(company.price);
     
+    const isCrypto = company.type === 'crypto';
+    const greenClass = isCrypto ? 'flash-accent' : 'flash-green';
+    const redClass = 'flash-red'; // Czerwony jest zawsze czerwony
+
     if (!isNaN(oldPrice) && company.price > oldPrice) {
-        dom.stockPrice.classList.remove('flash-red'); 
-        dom.stockPrice.classList.add('flash-green'); 
+        dom.stockPrice.classList.remove(redClass, greenClass); 
+        dom.stockPrice.classList.add(greenClass); 
     } else if (!isNaN(oldPrice) && company.price < oldPrice) {
-        dom.stockPrice.classList.remove('flash-green');
-        dom.stockPrice.classList.add('flash-red');
+        dom.stockPrice.classList.remove(greenClass, redClass);
+        dom.stockPrice.classList.add(redClass);
     }
     dom.stockPrice.addEventListener('animationend', () => {
-        dom.stockPrice.classList.remove('flash-green', 'flash-red');
+        dom.stockPrice.classList.remove(greenClass, redClass);
     }, { once: true }); 
 }
 
-// Zaktualizowano o 'fundusz'
+// Zaktualizowano o Krypto
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     
@@ -2033,6 +2246,10 @@ function updatePortfolioUI() {
         <p>Cosmosanit: <strong id="shares-cosmosanit">${portfolio.shares.cosmosanit || 0}</strong> szt.</p>
         <p>Gigachat GPT: <strong id="shares-gigachat">${portfolio.shares.gigachat || 0}</strong> szt.</p>
         <p>Bimber.cfd: <strong id="shares-bimbercfd">${portfolio.shares.bimbercfd || 0}</strong> szt.</p>
+        <hr class="crypto-hr">
+        <p>Bartcoin: <strong id="shares-bartcoin">${portfolio.shares.bartcoin || 0}</strong> szt.</p>
+        <p>Igirium: <strong id="shares-igirium">${portfolio.shares.igirium || 0}</strong> szt.</p>
+        <p>Kacoin: <strong id="shares-kacoin">${portfolio.shares.kacoin || 0}</strong> szt.</p>
     `;
 
     const oldTotalValue = portfolio.totalValue;
@@ -2041,6 +2258,7 @@ function updatePortfolioUI() {
     const chartSeries = [portfolio.cash]; 
     const chartLabels = ['Gotówka'];
 
+    // Pętla używa teraz COMPANY_ORDER, która zawiera krypto
     for (const companyId of COMPANY_ORDER) {
         const amount = portfolio.shares[companyId] || 0;
         if (amount > 0) {
@@ -2062,6 +2280,7 @@ function updatePortfolioUI() {
     if (!portfolioChart) {
         initPortfolioChart();
     }
+    // Aktualizuj wykres kołowy (kolory są dopasowane przez COMPANY_ORDER)
     portfolioChart.updateOptions({
         series: chartSeries,
         labels: chartLabels
@@ -2071,14 +2290,14 @@ function updatePortfolioUI() {
     dom.totalProfit.textContent = formatujWalute(totalProfit);
     
     if (oldTotalValue && totalValue > oldTotalValue) {
-        dom.totalValue.classList.remove('flash-red');
+        dom.totalValue.classList.remove('flash-red', 'flash-accent');
         dom.totalValue.classList.add('flash-green');
     } else if (oldTotalValue && totalValue < oldTotalValue) {
-        dom.totalValue.classList.remove('flash-green');
+        dom.totalValue.classList.remove('flash-green', 'flash-accent');
         dom.totalValue.classList.add('flash-red');
     }
     dom.totalValue.addEventListener('animationend', () => {
-        dom.totalValue.classList.remove('flash-green', 'flash-red');
+        dom.totalValue.classList.remove('flash-green', 'flash-red', 'flash-accent');
     }, { once: true });
     
     if (totalProfit > 0) dom.totalProfit.style.color = "var(--green)";
@@ -2146,6 +2365,11 @@ function displayNewRumor(rumor) {
     
     if (rumor.sentiment === "positive") p.style.color = "var(--green)";
     else if (rumor.sentiment === "negative") p.style.color = "var(--red)";
+    
+    // Krypto plotki mają specjalny kolor
+    if (market[rumor.companyId] && market[rumor.companyId].type === 'crypto') {
+        if (rumor.sentiment === "positive") p.style.color = "var(--accent-color)";
+    }
     
     p.textContent = prefix + rumor.text; 
     const authorSpan = document.createElement("span");
