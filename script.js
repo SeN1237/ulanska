@@ -59,29 +59,21 @@ let market = {
     // Akcje
     ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [], type: 'stock' },
     brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [], type: 'stock' },
-    igicorp:    { name: "IgiCorp",       price: 1, previousPrice: null, history: [], type: 'stock' },
     rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [], type: 'stock' },
     cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [], type: 'stock' },
-    gigachat:   { name: "Gigachat GPT",  price: 500, previousPrice: null, history: [], type: 'stock' },
-    bimbercfd:  { name: "Bimber.cfd",    price: 20,  previousPrice: null, history: [], type: 'stock' },
     // Krypto
     bartcoin:   { name: "Bartcoin",      price: 1000, previousPrice: null, history: [], type: 'crypto' },
-    igirium:    { name: "Igirium",       price: 500, previousPrice: null, history: [], type: 'crypto' },
-    kacoin:     { name: "Kacoin",        price: 100, previousPrice: null, history: [], type: 'crypto' }
+    igirium:    { name: "Igirium",       price: 500, previousPrice: null, history: [], type: 'crypto' }
 };
 
 // ZAKTUALIZOWANE o Krypto
 const companyAbbreviations = {
     ulanska: "UŁDEV",
     rychbud: "RBUD",
-    igicorp: "ICORP",
     brzozair: "BAIR",
     cosmosanit: "COSIT",
-    gigachat: "GIPT",
-    bimbercfd: "BIMBER",
     bartcoin: "BRC",
-    igirium: "IGI",
-    kacoin: "KCN"
+    igirium: "IGI"
 };
 
 let currentCompanyId = "ulanska";
@@ -94,14 +86,10 @@ let portfolio = {
     shares: { 
         ulanska: 0, 
         rychbud: 0, 
-        igicorp: 0, 
         brzozair: 0,
         cosmosanit: 0,
-        gigachat: 0,
-        bimbercfd: 0,
         bartcoin: 0,
-        igirium: 0,
-        kacoin: 0
+        igirium: 0
     },
     stats: { // <-- NOWE STATYSTYKI
         totalTrades: 0,
@@ -126,23 +114,19 @@ let currentUserId = null;
 
 // ZAKTUALIZOWANE o Krypto
 const COMPANY_ORDER = [
-    "ulanska", "rychbud", "igicorp", "brzozair", 
-    "cosmosanit", "gigachat", "bimbercfd",
-    "bartcoin", "igirium", "kacoin"
+    "ulanska", "rychbud", "brzozair", 
+    "cosmosanit",
+    "bartcoin", "igirium"
 ];
 // ZAKTUALIZOWANE o Krypto
 const CHART_COLORS = [
     'var(--blue)', // Gotówka (zawsze pierwszy)
     '#FF6384',     // ulanska
     '#36A2EB',     // rychbud
-    '#FFCE56',     // igicorp
     '#4BC0C0',     // brzozair
     '#9966FF',     // cosmosanit
-    '#FF9F40',     // gigachat
-    '#C9CBCF',     // bimbercfd
     '#F0B90B',     // bartcoin (kolor a'la BTC)
-    '#627EEA',     // igirium (kolor a'la ETH)
-    '#444444'      // kacoin (ciemny)
+    '#627EEA'      // igirium (kolor a'la ETH)
 ];
 
 let chartHasStarted = false; 
@@ -337,10 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
         
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
-        clearHistoryButton: document.getElementById("clear-history-button"),
+        // clearHistoryButton: document.getElementById("clear-history-button"), // Usunięty
         
         limitOrdersFeed: document.getElementById("limit-orders-feed"),
-        clearOrdersButton: document.getElementById("clear-orders-button"),
+        // clearOrdersButton: document.getElementById("clear-orders-button"), // Usunięty
 
         // Panel Obligacji
         bondsForm: document.getElementById("bonds-form"),
@@ -406,8 +390,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Listenery przycisków
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
-    dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory);
-    dom.clearOrdersButton.addEventListener("click", onClearLimitOrders);
+    // dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory); // Usunięty
+    // dom.clearOrdersButton.addEventListener("click", onClearLimitOrders); // Usunięty
     dom.buyTipButton.addEventListener("click", onBuyTip);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
 
@@ -438,22 +422,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Uruchom główną pętlę aplikacji
     startAuthListener();
-
-    // 4. NOWY LISTENER DO ODBLOKOWANIA AUDIO
-    // Nasłuchuj na pierwsze kliknięcie/dotknięcie gdziekolwiek na stronie,
-    // aby odblokować audio zgodnie z polityką przeglądarki.
-    function onFirstInteraction() {
-        unlockAudio();
-        // Usuń listenera po pierwszym użyciu, aby nie odpalał się za każdym razem
-        document.body.removeEventListener('click', onFirstInteraction);
-        document.body.removeEventListener('touchstart', onFirstInteraction);
-        console.log("Wykryto pierwszą interakcję, próba odblokowania audio.");
-    }
-
-    // Nasłuchujemy zarówno kliknięcia, jak i dotyku (dla urządzeń mobilnych)
-    document.body.addEventListener('click', onFirstInteraction, { once: true });
-    document.body.addEventListener('touchstart', onFirstInteraction, { once: true });
-    
 });
 
 
@@ -524,9 +492,9 @@ function startAuthListener() {
                 name: "Gość", 
                 cash: 1000, 
                 shares: { 
-                    ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
-                    cosmosanit: 0, gigachat: 0, bimbercfd: 0,
-                    bartcoin: 0, igirium: 0, kacoin: 0
+                    ulanska: 0, rychbud: 0, brzozair: 0, 
+                    cosmosanit: 0,
+                    bartcoin: 0, igirium: 0
                 },
                 stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
                 startValue: 1000, 
@@ -557,14 +525,10 @@ async function createInitialUserData(userId, name, email) {
         shares: { 
             ulanska: 0, 
             rychbud: 0, 
-            igicorp: 0, 
             brzozair: 0,
             cosmosanit: 0,
-            gigachat: 0,
-            bimbercfd: 0,
             bartcoin: 0,
-            igirium: 0,
-            kacoin: 0
+            igirium: 0
         },
         stats: { // <-- NOWE STATYSTYKI
             totalTrades: 0,
@@ -583,7 +547,7 @@ async function createInitialUserData(userId, name, email) {
 
 async function onRegister(e) {
     e.preventDefault();
-    // unlockAudio(); // <-- USUNIĘTE
+    unlockAudio(); 
     
     const name = dom.registerForm.querySelector("#register-name").value;
     const email = dom.registerForm.querySelector("#register-email").value;
@@ -604,7 +568,7 @@ async function onRegister(e) {
 
 async function onLogin(e) {
     e.preventDefault();
-    // unlockAudio(); // <-- USUNIĘTE
+    unlockAudio(); 
     
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
@@ -688,9 +652,9 @@ function listenToPortfolioData(userId) {
             portfolio.cash = data.cash;
             // ZAKTUALIZOWANE o Krypto
             portfolio.shares = data.shares || { 
-                ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0, 
-                cosmosanit: 0, gigachat: 0, bimbercfd: 0,
-                bartcoin: 0, igirium: 0, kacoin: 0
+                ulanska: 0, rychbud: 0, brzozair: 0, 
+                cosmosanit: 0,
+                bartcoin: 0, igirium: 0
             };
             // NOWE Statystyki
             portfolio.stats = data.stats || { 
@@ -959,10 +923,11 @@ function listenToGlobalHistory() {
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
+    // ZMIANA: Usunięto `where("clearedByOwner", "==", false)`
+    // aby historia była zawsze widoczna, skoro nie ma przycisku Wyczyść.
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
         where("userId", "==", userId),
-        where("clearedByOwner", "==", false), 
         orderBy("timestamp", "desc"), 
         limit(15)
     );
@@ -1049,39 +1014,12 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     feedElement.prepend(p);
 }
 
+// FUNKCJA USUNIĘTA ZGODNIE Z PROŚBĄ
+/*
 async function onClearPersonalHistory() {
-    if (!currentUserId) return;
-
-    if (!confirm("Czy na pewno chcesz wyczyścić swoją historię transakcji? Zostaną one ukryte z Twojego widoku, ale pozostaną w globalnym rejestrze.")) {
-        return;
-    }
-    
-    try {
-        const q = query(
-            collection(db, "historia_transakcji"), 
-            where("userId", "==", currentUserId),
-            where("clearedByOwner", "==", false)
-        );
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            console.log("Brak historii do wyczyszczenia.");
-            return;
-        }
-
-        const batch = writeBatch(db);
-        querySnapshot.forEach((doc) => {
-            batch.update(doc.ref, { clearedByOwner: true }); 
-        });
-
-        await batch.commit();
-        console.log("Pomyślnie UKRYTO historię osobistą.");
-        
-    } catch (error) {
-        console.error("Błąd podczas ukrywania historii osobistej: ", error);
-        showMessage("Błąd podczas ukrywania historii. Sprawdź konsolę.", "error");
-    }
+    // ...
 }
+*/
 
 
 // --- SEKCJA 4.6: LOGIKA ZLECEŃ LIMIT (ZAKTUALIZOWANA) ---
@@ -1286,47 +1224,12 @@ async function onCancelLimitOrder(e) {
     }
 }
 
+// FUNKCJA USUNIĘTA ZGODNIE Z PROŚBĄ
+/*
 async function onClearLimitOrders() {
-    if (!currentUserId) return;
-    if (!confirm("Czy na pewno chcesz usunąć z widoku wszystkie zlecenia, które zostały wykonane lub anulowane?")) {
-        return;
-    }
-
-    try {
-        const qExecuted = query(
-            collection(db, "limit_orders"), 
-            where("userId", "==", currentUserId),
-            where("status", "==", "executed")
-        );
-        const qCancelled = query(
-            collection(db, "limit_orders"), 
-            where("userId", "==", currentUserId),
-            where("status", "==", "cancelled")
-        );
-
-        const [executedSnapshot, cancelledSnapshot] = await Promise.all([
-            getDocs(qExecuted),
-            getDocs(qCancelled)
-        ]);
-
-        if (executedSnapshot.empty && cancelledSnapshot.empty) {
-            showMessage("Brak zleceń do wyczyszczenia.", "info");
-            return;
-        }
-
-        const batch = writeBatch(db);
-        
-        executedSnapshot.forEach((doc) => batch.delete(doc.ref));
-        cancelledSnapshot.forEach((doc) => batch.delete(doc.ref));
-
-        await batch.commit();
-        showMessage("Wyczyszczono zakończone zlecenia.", "success");
-
-    } catch (error) {
-        console.error("Błąd podczas czyszczenia zleceń: ", error);
-        showMessage("Błąd podczas czyszczenia zleceń. Sprawdź, czy reguły Firestore pozwalają na 'delete'.", "error");
-    }
+    // ...
 }
+*/
 
 // --- SEKCJA 4.7: LOGIKA OBLIGACJI (ZAKTUALIZOWANA O STATYSTYKI) ---
 
@@ -2059,9 +1962,9 @@ async function onPrestigeReset() {
             transaction.update(userDocRef, {
                 cash: 1000.00,
                 shares: { 
-                    ulanska: 0, rychbud: 0, igicorp: 0, brzozair: 0,
-                    cosmosanit: 0, gigachat: 0, bimbercfd: 0,
-                    bartcoin: 0, igirium: 0, kacoin: 0
+                    ulanska: 0, rychbud: 0, brzozair: 0,
+                    cosmosanit: 0,
+                    bartcoin: 0, igirium: 0
                 },
                 startValue: 1000.00,
                 zysk: 0.00,
@@ -2236,9 +2139,9 @@ function updateTickerTape() {
     let tickerHTML = "";
     // Zaktualizowana kolejność o krypto (używa COMPANY_ORDER)
     const companyOrder = [
-        "ulanska", "rychbud", "igicorp", "brzozair", 
-        "cosmosanit", "gigachat", "bimbercfd",
-        "bartcoin", "igirium", "kacoin"
+        "ulanska", "rychbud", "brzozair", 
+        "cosmosanit",
+        "bartcoin", "igirium"
     ];
 
     for (const companyId of companyOrder) {
@@ -2333,15 +2236,11 @@ function updatePortfolioUI() {
     dom.sharesList.innerHTML = `
         <p>Ułańska Dev: <strong id="shares-ulanska">${portfolio.shares.ulanska || 0}</strong> szt.</p>
         <p>RychBud: <strong id="shares-rychbud">${portfolio.shares.rychbud || 0}</strong> szt.</p>
-        <p>IgiCorp: <strong id="shares-igicorp">${portfolio.shares.igicorp || 0}</strong> szt.</p>
         <p>BrzozAir: <strong id="shares-brzozair">${portfolio.shares.brzozair || 0}</strong> szt.</p>
         <p>Cosmosanit: <strong id="shares-cosmosanit">${portfolio.shares.cosmosanit || 0}</strong> szt.</p>
-        <p>Gigachat GPT: <strong id="shares-gigachat">${portfolio.shares.gigachat || 0}</strong> szt.</p>
-        <p>Bimber.cfd: <strong id="shares-bimbercfd">${portfolio.shares.bimbercfd || 0}</strong> szt.</p>
         <hr class="crypto-hr">
         <p>Bartcoin: <strong id="shares-bartcoin">${portfolio.shares.bartcoin || 0}</strong> szt.</p>
         <p>Igirium: <strong id="shares-igirium">${portfolio.shares.igirium || 0}</strong> szt.</p>
-        <p>Kacoin: <strong id="shares-kacoin">${portfolio.shares.kacoin || 0}</strong> szt.</p>
     `;
 
     const oldTotalValue = portfolio.totalValue;
