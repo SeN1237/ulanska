@@ -230,7 +230,7 @@ try {
   // --- INICJALIZACJA FIREBASE ---
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccountKey),
-    databaseURL: 'https://symulator-gielda.firebaseio.com' 
+    databaseURL: 'https.symulator-gielda.firebaseio.com' 
   });
 
   const db = admin.firestore();
@@ -447,24 +447,20 @@ try {
     const currentPrices = docSnap.data();
     const newPrices = {};
     
-    // --- NOWE LISTY AKTYWÓW ---
-    const stocks = ["ulanska", "brzozair", "igicorp", "rychbud", "cosmosanit", "gigachat", "bimbercfd"];
-    const cryptos = ["bartcoin", "igirium", "kacoin"];
+    // --- NOWE LISTY AKTYWÓW (ZMNIEJSZONE) ---
+    const stocks = ["ulanska", "brzozair", "rychbud", "cosmosanit"];
+    const cryptos = ["bartcoin", "igirium"];
     const allAssets = [...stocks, ...cryptos]; // Łączymy obie listy
 
     const companyReferencePrices = {
         // Akcje
         ulanska: 1860.00,
         brzozair: 235.00,
-        igicorp: 20.00,
         rychbud: 870.00,
         cosmosanit: 2000.00,
-        gigachat: 790.00,
-        bimbercfd: 50.00,
         // Krypto
         bartcoin: 1000.00,
-        igirium: 500.00,
-        kacoin: 100.00
+        igirium: 500.00
     };
     
     // --- Pobieranie wpływu plotek (Bez zmian) ---
@@ -660,7 +656,7 @@ try {
     }
 
     // ZAPISZ wszystkie nowe ceny do bazy
-    await cenyDocRef.set(newPrices); // Użyj .set() aby dodać nowe krypto, jeśli ich nie ma
+    await cenyDocRef.set(newPrices, { merge: true }); // Użyj .set() z merge:true, aby nie usunąć starych cen
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
 
     
