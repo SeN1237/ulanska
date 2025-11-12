@@ -67,7 +67,16 @@
                 </select>
             </div>
 
-           
+            <div id="archive-radio-player">
+                <iframe src="https://archive.org/embed/sentino-zabojstwo-liryczne-2.0?primary=Audio" 
+                        width="300" 
+                        height="40" 
+                        frameborder="0" 
+                        webkitallowfullscreen="true" 
+                        mozallowfullscreen="true" 
+                        allowfullscreen>
+                </iframe>
+            </div>
             <div id="user-info">
                 Witaj, <span id="username">Gracz</span>!
                 <button id="logout-button">Wyloguj</button>
@@ -91,17 +100,13 @@
                 <div id="company-selector">
                     <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
                     <button class="company-tab" data-company="rychbud">RychBud</button>
-                    <button class="company-tab" data-company="igicorp">IgiCorp</button>
                     <button class="company-tab" data-company="brzozair">BrzozAir</button>
                     <button class="company-tab" data-company="cosmosanit">Cosmosanit</button>
-                    <button class="company-tab" data-company="gigachat">Gigachat GPT</button>
-                    <button class="company-tab" data-company="bimbercfd">Bimber.cfd</button>
                 </div>
                 
                 <div id="crypto-selector" class="hidden">
                     <button class="company-tab" data-company="bartcoin">Bartcoin</button>
                     <button class="company-tab" data-company="igirium">Igirium</button>
-                    <button class="company-tab" data-company="kacoin">Kacoin</button>
                 </div>
 
                 <h2 id="company-name">Ułańska Dev</h2>
@@ -118,15 +123,11 @@
                 <div id="shares-list">
                     <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
                     <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
-                    <p>IgiCorp: <strong id="shares-igicorp">0</strong> szt.</p>
                     <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
                     <p>Cosmosanit: <strong id="shares-cosmosanit">0</strong> szt.</p>
-                    <p>Gigachat GPT: <strong id="shares-gigachat">0</strong> szt.</p>
-                    <p>Bimber.cfd: <strong id="shares-bimbercfd">0</strong> szt.</p>
                     <hr class="crypto-hr">
                     <p>Bartcoin: <strong id="shares-bartcoin">0</strong> szt.</p>
                     <p>Igirium: <strong id="shares-igirium">0</strong> szt.</p>
-                    <p>Kacoin: <strong id="shares-kacoin">0</strong> szt.</p>
                 </div>
                 <hr>
                 <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
@@ -191,14 +192,10 @@
                         <select id="rumor-company-select" required>
                             <option value="ulanska" selected>Dot. Ułańska Dev</option>
                             <option value="rychbud">Dot. RychBud</option>
-                            <option value="igicorp">Dot. IgiCorp</option>
                             <option value="brzozair">Dot. BrzozAir</option>
                             <option value="cosmosanit">Dot. Cosmosanit</option>
-                            <option value="gigachat">Dot. Gigachat GPT</option>
-                            <option value="bimbercfd">Dot. Bimber.cfd</option>
                             <option value="bartcoin">Dot. Bartcoin (Krypto)</option>
                             <option value="igirium">Dot. Igirium (Krypto)</option>
-                            <option value="kacoin">Dot. Kacoin (Krypto)</option>
                         </select>
                         <div id="rumor-sentiment">
                             <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
@@ -221,9 +218,6 @@
                 <ol id="leaderboard-list">
                     <li>...ładowanie rankingu...</li>
                 </ol>
-                <div id="archive-radio-player">
-               <iframe width="100%" height="450" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/soundcloud%253Aplaylists%253A2112492926&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe><div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;"><a href="https://soundcloud.com/igor-czarnecki-549690891" title="Igiblack" target="_blank" style="color: #cccccc; text-decoration: none;">Igiblack</a> · <a href="https://soundcloud.com/igor-czarnecki-549690891/sets/qtoqgnke8gat" title="🎰" target="_blank" style="color: #cccccc; text-decoration: none;">🎰</a></div>
-                </div>
             </section>
                 
             <section id="bonds-panel" class="panel">
@@ -279,8 +273,7 @@
                 <div id="tab-personal-history" class="tab-content">
                     <div class="panel-header-with-button">
                         <h2>Moja Historia Transakcji</h2>
-                        <button id="clear-history-button" class="clear-btn" title="Wyczyść moją historię">Wyczyść</button>
-                    </div>
+                        </div>
                     <div id="personal-history-feed" class="feed-box history-feed">
                         <p>...ładowanie transakcji...</p>
                     </div>
@@ -289,8 +282,7 @@
                 <div id="tab-limit-orders" class="tab-content">
                     <div class="panel-header-with-button">
                         <h2>Moje Zlecenia Oczekujące</h2>
-                        <button id="clear-orders-button" class="clear-btn" title="Wyczyść wykonane/anulowane">Wyczyść</button>
-                    </div>
+                         </div>
                     <div id="limit-orders-feed" class="feed-box history-feed">
                         <p>...ładowanie zleceń...</p>
                     </div>
