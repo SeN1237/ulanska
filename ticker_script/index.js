@@ -459,8 +459,8 @@ try {
         rychbud: 870.00,
         cosmosanit: 2000.00,
         // Krypto
-        bartcoin: 1000.00,
-        igirium: 500.00
+        bartcoin: 4000.00,
+        igirium: 2000.00
     };
     
     // --- Pobieranie wpływu plotek (Bez zmian) ---
