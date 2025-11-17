@@ -340,7 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // === Panel Zakładów (zaktualizowany o remis) ===
         bettingPanel: document.getElementById("betting-panel"),
         matchInfo: document.getElementById("match-info"),
-        drawOddsDisplay: document.getElementById("draw-odds-display"), // <-- NOWY
+        // dom.drawOddsDisplay NIE JEST JUŻ POTRZEBNY, BO JEST CZĘŚCIĄ matchInfo
         bettingForm: document.getElementById("betting-form"),
         betAmount: document.getElementById("bet-amount"),
         betTeamSelect: document.getElementById("bet-team"),
@@ -2173,37 +2173,43 @@ function listenToActiveMatch() {
                 const oddsDraw = parseFloat(currentMatch.draw_odds) || 0; // <-- NOWY KURS REMISU
                 // ==========================================================
 
+                // --- CAŁKOWICIE NOWA LOGIKA RENDEROWANIA (NAPRAWIA BŁĄD) ---
+                
+                let matchInfoHTML = ""; // Zbuduj HTML od zera
+                let selectOptions = ""; // Zbuduj opcje od zera
+
                 if (status === "open") {
                     // Mecz jest otwarty do obstawiania
-                    dom.matchInfo.innerHTML = `
+                    matchInfoHTML = `
                         <p><strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
                         <p>Kursy: <strong>${oddsA.toFixed(2)}</strong> | <strong>${oddsB.toFixed(2)}</strong></p>
                     `;
                     
-                    let selectOptions = `
+                    selectOptions = `
                         <option value="teamA">${teamA} (Kurs: ${oddsA.toFixed(2)})</option>
                         <option value="teamB">${teamB} (Kurs: ${oddsB.toFixed(2)})</option>
                     `;
                     
-                    // Jeśli admin dodał kurs na remis, pokaż go
                     if (oddsDraw > 0) {
-                        dom.drawOddsDisplay.innerHTML = `Kurs na Remis: <strong>${oddsDraw.toFixed(2)}</strong>`;
-                        dom.drawOddsDisplay.classList.remove("hidden");
+                        // Dodaj kurs remisu do HTMLa meczu
+                        matchInfoHTML += `<p id="draw-odds-display">Kurs na Remis: <strong>${oddsDraw.toFixed(2)}</strong></p>`;
+                        // Dodaj opcję remisu do selecta
                         selectOptions += `<option value="draw">Remis (Kurs: ${oddsDraw.toFixed(2)})</option>`;
-                    } else {
-                        dom.drawOddsDisplay.classList.add("hidden");
                     }
                     
+                    matchInfoHTML += `<p>Zakłady otwarte do: ${bettingCloseTime ? bettingCloseTime.toLocaleString('pl-PL') : '...'}</p>`;
+                    
+                    dom.matchInfo.innerHTML = matchInfoHTML;
                     dom.betTeamSelect.innerHTML = selectOptions;
                     dom.bettingForm.classList.remove("hidden");
                     
                 } else if (status === "closed") {
                     // Mecz trwa, zakłady zamknięte
-                    dom.matchInfo.innerHTML = `
+                    matchInfoHTML = `
                         <p>Mecz trwa: <strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
                         <p>Zakłady zamknięte. Oczekiwanie na rozliczenie o ${resolveTime ? resolveTime.toLocaleString('pl-PL') : '...'}</p>
                     `;
-                    dom.drawOddsDisplay.classList.add("hidden");
+                    dom.matchInfo.innerHTML = matchInfoHTML;
                     dom.bettingForm.classList.add("hidden");
                     
                 } else if (status === "resolved") {
@@ -2213,14 +2219,16 @@ function listenToActiveMatch() {
                     else if (currentMatch.winner === 'teamB') winnerName = teamB;
                     else if (currentMatch.winner === 'draw') winnerName = "Remis";
 
-                    dom.matchInfo.innerHTML = `
+                    matchInfoHTML = `
                         <p>Mecz zakończony: <strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
                         <p>Wygrał: <strong>${winnerName}</strong></p>
                         <p>Oczekiwanie na nowy mecz...</p>
                     `;
-                    dom.drawOddsDisplay.classList.add("hidden");
+                    dom.matchInfo.innerHTML = matchInfoHTML;
                     dom.bettingForm.classList.add("hidden");
                 }
+                // --- KONIEC NOWEJ LOGIKI RENDEROWANIA ---
+
             } catch (e) {
                 // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
                 console.error("TEST 3.4: BŁĄD KRYTYCZNY! Dane są, ale wystąpił błąd przy renderowaniu UI:", e);
@@ -2234,7 +2242,7 @@ function listenToActiveMatch() {
             // --- KONIEC KODU DIAGNOSTYCZNEGO ---
             currentMatch = null;
             dom.matchInfo.innerHTML = "<p>Obecnie brak aktywnych meczów. Sprawdź później!</p>";
-            dom.drawOddsDisplay.classList.add("hidden");
+            // dom.drawOddsDisplay.classList.add("hidden"); // Już niepotrzebne
             dom.bettingForm.classList.add("hidden");
         }
     }, (error) => {
@@ -2243,7 +2251,7 @@ function listenToActiveMatch() {
         // --- KONIEC KODU DIAGNOSTYCZNEGO ---
         currentMatch = null;
         dom.matchInfo.innerHTML = "<p>Błąd ładowania meczów. Spróbuj odświeżyć stronę.</p>";
-        dom.drawOddsDisplay.classList.add("hidden");
+        // dom.drawOddsDisplay.classList.add("hidden"); // Już niepotrzebne
         dom.bettingForm.classList.add("hidden");
     });
 }
