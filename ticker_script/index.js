@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (WERSJA 7.1 - Krypto)
+// Plik: ticker_script/index.js (WERSJA 7.1 - Krypto + ZAKŁADY "ADMIN")
 
 const admin = require('firebase-admin');
 
@@ -246,6 +246,10 @@ try {
   const pendingTipsRef = db.collection("pending_tips");
   const activeBondsRef = db.collection("active_bonds");
   
+  // === NOWE REFERENCJE DLA ZAKŁADÓW ===
+  const meczDocRef = db.doc("global/aktywny_mecz");
+  const activeBetsRef = db.collection("active_bets");
+  
   
   /**
    * Funkcja pomocnicza do obliczania wartości portfela po stronie serwera.
@@ -433,6 +437,98 @@ try {
           }
       }
   }
+
+  // ==========================================================
+  // === NOWA FUNKCJA: PRZETWARZANIE ZAKŁADÓW (Dla Opcji 3)
+  // ==========================================================
+  async function processBets(matchData, winner, currentPrices) {
+      console.log(`... Rozpoczynam rozliczanie zakładów dla meczu. Wygrał: ${winner}`);
+        
+      // Znajdź wszystkie zakłady pasujące do czasu rozliczenia meczu
+      // I które nadal są "pending"
+      const betsQuery = activeBetsRef
+          .where("matchResolveTime", "==", matchData.resolveTime)
+          .where("status", "==", "pending");
+          
+      const betsSnapshot = await betsQuery.get();
+      
+      if (betsSnapshot.empty) {
+          console.log("... Brak zakładów do rozliczenia dla tego meczu.");
+          return;
+      }
+      
+      console.log(`... Znaleziono ${betsSnapshot.size} zakładów do rozliczenia.`);
+      
+      for (const betDoc of betsSnapshot.docs) {
+          const bet = betDoc.data();
+          const betId = betDoc.id;
+          
+          try {
+              await db.runTransaction(async (transaction) => {
+                  const userRef = usersRef.doc(bet.userId);
+                  const userDoc = await transaction.get(userRef);
+                  
+                  if (!userDoc.exists()) {
+                      // Oznacz zakład jako anulowany, jeśli użytkownik nie istnieje
+                      transaction.update(betDoc.ref, { status: "cancelled", failureReason: "User not found" });
+                      throw new Error(`Nie znaleziono użytkownika ${bet.userId}`);
+                  }
+                  
+                  const userData = userDoc.data();
+                  
+                  if (bet.betOn === winner) {
+                      // === WYGRANA ===
+                      const payout = bet.betAmount * bet.odds;
+                      const profit = payout - bet.betAmount;
+                      
+                      const newCash = userData.cash + payout;
+                      // Użyj 'currentPrices' przekazanych z runTicker
+                      const newTotalValue = calculateTotalValue(newCash, userData.shares, currentPrices); 
+                      const newZysk = newTotalValue - userData.startValue;
+
+                      // 1. Zaktualizuj portfel
+                      transaction.update(userRef, {
+                          cash: newCash,
+                          totalValue: newTotalValue,
+                          zysk: newZysk
+                      });
+                      
+                      // 2. Zaktualizuj zakład
+                      transaction.update(betDoc.ref, { status: "won" });
+                      
+                      // 3. Zapisz w historii
+                      const historyDocRef = historyRef.doc();
+                      transaction.set(historyDocRef, {
+                          userId: bet.userId,
+                          userName: userData.name, 
+                          prestigeLevel: userData.prestigeLevel || 0, 
+                          type: "WYGRANA (ZAKŁAD)", 
+                          companyId: "system",
+                          companyName: "Zakłady Sportowe",
+                          amount: 1,
+                          pricePerShare: 0,
+                          executedPrice: payout,
+                          totalValue: profit, // Czysty zysk
+                          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                          clearedByOwner: false,
+                          status: "executed"
+                      });
+                      
+                  } else {
+                      // === PRZEGRANA ===
+                      // Pieniądze już zostały zabrane, wystarczy oznaczyć zakład
+                      transaction.update(betDoc.ref, { status: "lost" });
+                  }
+              }); // Koniec transakcji
+              
+              console.log(`... Pomyślnie rozliczono zakład ${betId}`);
+              
+          } catch (e) {
+              console.error(`BŁĄD Transakcji dla zakładu ${betId}:`, e.message);
+          }
+      } // Koniec pętli for
+  }
+  
   
   /**
    * GŁÓWNA FUNKCJA TICKERA
@@ -446,6 +542,7 @@ try {
 
     const currentPrices = docSnap.data();
     const newPrices = {};
+    const now = admin.firestore.Timestamp.now(); // Pobierz aktualny czas serwera
     
     // --- NOWE LISTY AKTYWÓW (ZMNIEJSZONE) ---
     const stocks = ["ulanska", "brzozair", "rychbud", "cosmosanit"];
@@ -487,7 +584,6 @@ try {
 
     // --- Przetwarzanie oczekujących wskazówek (Bez zmian) ---
     const forcedNews = {}; 
-    const now = admin.firestore.Timestamp.now();
     const tipsQuery = pendingTipsRef.where("executeAt", "<=", now);
     const tipsSnapshot = await tipsQuery.get();
     const deleteBatch = db.batch(); 
@@ -660,7 +756,41 @@ try {
     console.log("Sukces! Zaktualizowano ceny:", newPrices);
 
     
-    // --- NOWY KROK: Przetwarzanie obligacji (Bez zmian) ---
+    // ==========================================================
+    // === NOWA LOGIKA ROZLICZANIA MECZÓW (OPCJA 3: ADMIN) ===
+    // ==========================================================
+    try {
+        const meczSnap = await meczDocRef.get();
+        
+        if (meczSnap.exists()) {
+            const matchData = meczSnap.data();
+            
+            // Szukamy meczu, który admin oznaczył jako "resolved",
+            // ale którego my jeszcze nie przetworzyliśmy ("processed" == false)
+            if (matchData.status === "resolved" && (matchData.processed === false || matchData.processed === undefined)) {
+                
+                console.log(`!!! Wykryto rozliczony mecz (Admin)! Zwycięzca: ${matchData.winner}`);
+                
+                // Użyj 'newPrices' jako fallbacku, jeśli 'currentPrices' nie ma
+                const pricesForCalc = (Object.keys(newPrices).length > 0) ? newPrices : currentPrices;
+                
+                // 1. Rozlicz zakłady
+                await processBets(matchData, matchData.winner, pricesForCalc);
+                
+                // 2. Oznacz mecz jako przetworzony, aby nie wypłacić wygranych ponownie
+                await meczDocRef.update({ processed: true });
+                
+                console.log("!!! Pomyślnie rozliczono zakłady i oznaczono mecz jako 'processed'.");
+            }
+        }
+    } catch (e) {
+        console.error("Błąd podczas sprawdzania meczów (Admin):", e);
+    }
+    // === KONIEC LOGIKI MECZÓW ===
+
+
+    // --- Przetwarzanie obligacji (Bez zmian) ---
+    // Musi być wywołane z aktualnymi cenami, 'newPrices' są idealne
     await processBonds(newPrices);
     // --- KONIEC PRZETWARZANIA OBLIGACJI ---
     
@@ -684,6 +814,7 @@ try {
             for (const orderDoc of buyOrdersSnapshot.docs) {
                 try {
                     await db.runTransaction(async (transaction) => {
+                        // Przekaż 'newPrices' do funkcji realizującej
                         await executeLimitOrder(transaction, orderDoc, finalPrice, newPrices);
                     });
                 } catch (e) {
@@ -705,6 +836,7 @@ try {
              for (const orderDoc of sellOrdersSnapshot.docs) {
                 try {
                     await db.runTransaction(async (transaction) => {
+                        // Przekaż 'newPrices' do funkcji realizującej
                         await executeLimitOrder(transaction, orderDoc, finalPrice, newPrices);
                     });
                 } catch (e) {
