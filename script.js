@@ -327,10 +327,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
-        // clearHistoryButton: document.getElementById("clear-history-button"), // Usunięty
         
         limitOrdersFeed: document.getElementById("limit-orders-feed"),
-        // clearOrdersButton: document.getElementById("clear-orders-button"), // Usunięty
 
         // Panel Obligacji
         bondsForm: document.getElementById("bonds-form"),
@@ -339,9 +337,10 @@ document.addEventListener("DOMContentLoaded", () => {
         buyBondButton: document.getElementById("buy-bond-button"),
         activeBondsFeed: document.getElementById("active-bonds-feed"),
 
-        // === NOWY: Panel Zakładów ===
+        // === Panel Zakładów (zaktualizowany o remis) ===
         bettingPanel: document.getElementById("betting-panel"),
         matchInfo: document.getElementById("match-info"),
+        drawOddsDisplay: document.getElementById("draw-odds-display"), // <-- NOWY
         bettingForm: document.getElementById("betting-form"),
         betAmount: document.getElementById("bet-amount"),
         betTeamSelect: document.getElementById("bet-team"),
@@ -402,13 +401,11 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
     dom.bondsForm.addEventListener("submit", onBuyBond); 
-    dom.bettingForm.addEventListener("submit", onPlaceBet); // <-- NOWY LISTENER ZAKŁADÓW
+    dom.bettingForm.addEventListener("submit", onPlaceBet); // <-- LISTENER ZAKŁADÓW
     
     // Listenery przycisków
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
-    // dom.clearHistoryButton.addEventListener("click", onClearPersonalHistory); // Usunięty
-    // dom.clearOrdersButton.addEventListener("click", onClearLimitOrders); // Usunięty
     dom.buyTipButton.addEventListener("click", onBuyTip);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
 
@@ -949,8 +946,6 @@ function listenToGlobalHistory() {
 function listenToPersonalHistory(userId) {
     if (unsubscribePersonalHistory) unsubscribePersonalHistory();
     
-    // ZMIANA: Usunięto `where("clearedByOwner", "==", false)`
-    // aby historia była zawsze widoczna, skoro nie ma przycisku Wyczyść.
     const historyQuery = query(
         collection(db, "historia_transakcji"), 
         where("userId", "==", userId),
@@ -1053,14 +1048,6 @@ function displayHistoryItem(feedElement, item, isGlobal) {
 
     feedElement.prepend(p);
 }
-
-// FUNKCJA USUNIĘTA ZGODNIE Z PROŚBĄ
-/*
-async function onClearPersonalHistory() {
-    // ...
-}
-*/
-
 
 // --- SEKCJA 4.6: LOGIKA ZLECEŃ LIMIT (ZAKTUALIZOWANA) ---
 
@@ -1263,13 +1250,6 @@ async function onCancelLimitOrder(e) {
         e.target.disabled = false;
     }
 }
-
-// FUNKCJA USUNIĘTA ZGODNIE Z PROŚBĄ
-/*
-async function onClearLimitOrders() {
-    // ...
-}
-*/
 
 // --- SEKCJA 4.7: LOGIKA OBLIGACJI (ZAKTUALIZOWANA O STATYSTYKI) ---
 
@@ -2176,6 +2156,12 @@ function listenToActiveMatch() {
             try { // Dodano try...catch, aby złapać błędy renderowania
                 currentMatch = docSnap.data();
                 
+                // === POPRAWKA: Automatyczne czyszczenie danych (usuwanie \n) ===
+                const status = currentMatch.status ? currentMatch.status.trim() : "";
+                const teamA = currentMatch.teamA_name ? currentMatch.teamA_name.trim() : "Drużyna A";
+                const teamB = currentMatch.teamB_name ? currentMatch.teamB_name.trim() : "Drużyna B";
+                // ==============================================================
+                
                 // Konwertuj Timestampy, jeśli istnieją
                 const bettingCloseTime = currentMatch.bettingCloseTime?.toDate();
                 const resolveTime = currentMatch.resolveTime?.toDate();
@@ -2184,36 +2170,55 @@ function listenToActiveMatch() {
                 // To naprawi błąd, jeśli dane w bazie są (string) zamiast (number)
                 const oddsA = parseFloat(currentMatch.teamA_odds) || 1.0;
                 const oddsB = parseFloat(currentMatch.teamB_odds) || 1.0;
+                const oddsDraw = parseFloat(currentMatch.draw_odds) || 0; // <-- NOWY KURS REMISU
                 // ==========================================================
 
-                if (currentMatch.status === "open") {
+                if (status === "open") {
                     // Mecz jest otwarty do obstawiania
                     dom.matchInfo.innerHTML = `
-                        <p><strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                        <p><strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
                         <p>Kursy: <strong>${oddsA.toFixed(2)}</strong> | <strong>${oddsB.toFixed(2)}</strong></p>
-                        <p>Zakłady otwarte do: ${bettingCloseTime ? bettingCloseTime.toLocaleString('pl-PL') : '...'}</p>
                     `;
-                    dom.betTeamSelect.innerHTML = `
-                        <option value="teamA">${currentMatch.teamA_name} (Kurs: ${oddsA.toFixed(2)})</option>
-                        <option value="teamB">${currentMatch.teamB_name} (Kurs: ${oddsB.toFixed(2)})</option>
+                    
+                    let selectOptions = `
+                        <option value="teamA">${teamA} (Kurs: ${oddsA.toFixed(2)})</option>
+                        <option value="teamB">${teamB} (Kurs: ${oddsB.toFixed(2)})</option>
                     `;
+                    
+                    // Jeśli admin dodał kurs na remis, pokaż go
+                    if (oddsDraw > 0) {
+                        dom.drawOddsDisplay.innerHTML = `Kurs na Remis: <strong>${oddsDraw.toFixed(2)}</strong>`;
+                        dom.drawOddsDisplay.classList.remove("hidden");
+                        selectOptions += `<option value="draw">Remis (Kurs: ${oddsDraw.toFixed(2)})</option>`;
+                    } else {
+                        dom.drawOddsDisplay.classList.add("hidden");
+                    }
+                    
+                    dom.betTeamSelect.innerHTML = selectOptions;
                     dom.bettingForm.classList.remove("hidden");
                     
-                } else if (currentMatch.status === "closed") {
+                } else if (status === "closed") {
                     // Mecz trwa, zakłady zamknięte
                     dom.matchInfo.innerHTML = `
-                        <p>Mecz trwa: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                        <p>Mecz trwa: <strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
                         <p>Zakłady zamknięte. Oczekiwanie na rozliczenie o ${resolveTime ? resolveTime.toLocaleString('pl-PL') : '...'}</p>
                     `;
+                    dom.drawOddsDisplay.classList.add("hidden");
                     dom.bettingForm.classList.add("hidden");
                     
-                } else if (currentMatch.status === "resolved") {
+                } else if (status === "resolved") {
                     // Mecz zakończony
+                    let winnerName = "Błąd";
+                    if (currentMatch.winner === 'teamA') winnerName = teamA;
+                    else if (currentMatch.winner === 'teamB') winnerName = teamB;
+                    else if (currentMatch.winner === 'draw') winnerName = "Remis";
+
                     dom.matchInfo.innerHTML = `
-                        <p>Mecz zakończony: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
-                        <p>Wygrał: <strong>${currentMatch.winner === 'teamA' ? currentMatch.teamA_name : currentMatch.teamB_name}</strong></p>
+                        <p>Mecz zakończony: <strong>${teamA}</strong> vs <strong>${teamB}</strong></p>
+                        <p>Wygrał: <strong>${winnerName}</strong></p>
                         <p>Oczekiwanie na nowy mecz...</p>
                     `;
+                    dom.drawOddsDisplay.classList.add("hidden");
                     dom.bettingForm.classList.add("hidden");
                 }
             } catch (e) {
@@ -2229,6 +2234,7 @@ function listenToActiveMatch() {
             // --- KONIEC KODU DIAGNOSTYCZNEGO ---
             currentMatch = null;
             dom.matchInfo.innerHTML = "<p>Obecnie brak aktywnych meczów. Sprawdź później!</p>";
+            dom.drawOddsDisplay.classList.add("hidden");
             dom.bettingForm.classList.add("hidden");
         }
     }, (error) => {
@@ -2237,6 +2243,7 @@ function listenToActiveMatch() {
         // --- KONIEC KODU DIAGNOSTYCZNEGO ---
         currentMatch = null;
         dom.matchInfo.innerHTML = "<p>Błąd ładowania meczów. Spróbuj odświeżyć stronę.</p>";
+        dom.drawOddsDisplay.classList.add("hidden");
         dom.bettingForm.classList.add("hidden");
     });
 }
@@ -2286,12 +2293,16 @@ function listenToActiveBets(userId) {
             }
 
             // Potrzebujemy 'currentMatch', aby wyświetlić nazwy, ale może być stary.
-            // Bezpieczniej jest zapisać nazwy w zakładzie, ale dla uproszczenia:
-            let teamName = (bet.betOn === 'teamA') ? "Drużyna A" : "Drużyna B";
+            let teamName = "Nieznana Drużyna";
+            if (bet.betOn === 'teamA') teamName = "Drużyna A";
+            else if (bet.betOn === 'teamB') teamName = "Drużyna B";
+            else if (bet.betOn === 'draw') teamName = "Remis";
             
             // Spróbuj pobrać aktualne nazwy, jeśli mecz wciąż jest w pamięci
             if (currentMatch && bet.matchResolveTime && currentMatch.resolveTime.isEqual(bet.matchResolveTime)) {
-                teamName = (bet.betOn === 'teamA') ? currentMatch.teamA_name : currentMatch.teamB_name;
+                if (bet.betOn === 'teamA') teamName = currentMatch.teamA_name.trim();
+                else if (bet.betOn === 'teamB') teamName = currentMatch.teamB_name.trim();
+                else if (bet.betOn === 'draw') teamName = "Remis";
             }
             
             p.innerHTML = `
@@ -2313,17 +2324,29 @@ function listenToActiveBets(userId) {
  */
 async function onPlaceBet(e) {
     e.preventDefault();
-    if (!currentUserId || !currentMatch || currentMatch.status !== "open") {
+    if (!currentUserId || !currentMatch || (currentMatch.status && currentMatch.status.trim() !== "open")) {
         showMessage("Zakłady na ten mecz są już zamknięte.", "error");
         return;
     }
 
     const amount = parseFloat(dom.betAmount.value);
-    const team = dom.betTeamSelect.value; // "teamA" lub "teamB"
+    const team = dom.betTeamSelect.value; // "teamA", "teamB" lub "draw"
     
     // === POPRAWKA KULOOODPORNA: Użyj parseFloat na kursach ===
-    const odds = (team === "teamA") ? parseFloat(currentMatch.teamA_odds) : parseFloat(currentMatch.teamB_odds);
-    const teamName = (team === "teamA") ? currentMatch.teamA_name : currentMatch.teamB_name;
+    let odds;
+    let teamName;
+    
+    if (team === 'teamA') {
+        odds = parseFloat(currentMatch.teamA_odds);
+        teamName = currentMatch.teamA_name.trim();
+    } else if (team === 'teamB') {
+        odds = parseFloat(currentMatch.teamB_odds);
+        teamName = currentMatch.teamB_name.trim();
+    } else if (team === 'draw') {
+        odds = parseFloat(currentMatch.draw_odds);
+        teamName = "Remis";
+    }
+    // ==========================================================
 
     if (isNaN(amount) || amount <= 0) {
         showMessage("Wpisz poprawną kwotę zakładu.", "error"); return;
@@ -2364,7 +2387,7 @@ async function onPlaceBet(e) {
                 prestigeLevel: data.prestigeLevel || 0,
                 matchResolveTime: currentMatch.resolveTime, // Klucz do rozliczenia
                 betAmount: amount,
-                betOn: team,
+                betOn: team, // "teamA", "teamB" lub "draw"
                 odds: odds, // Zapisz jako liczbę
                 status: "pending",
                 createdAt: serverTimestamp()
