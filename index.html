@@ -242,6 +242,28 @@
                     <p>...brak aktywnych obligacji...</p>
                 </div>
             </section>
+            
+            <section id="betting-panel" class="panel">
+                <h2>Zakłady Bukmacherskie</h2>
+                <div id="match-info">
+                    <p>...ładowanie aktywnego meczu...</p>
+                </div>
+                <form id="betting-form" class="hidden">
+                    <label for="bet-amount">Kwota zakładu (zł):</label>
+                    <input type="number" id="bet-amount" placeholder="0.00" min="1" step="0.01" required>
+                    
+                    <label for="bet-team">Wybierz drużynę:</label>
+                    <select id="bet-team" required>
+                        </select>
+                    
+                    <button type="submit" id="place-bet-button" class="action-btn-full">Postaw Zakład</button>
+                </form>
+                <hr>
+                <h3>Twoje Aktywne Zakłady</h3>
+                <div id="active-bets-feed" class="feed-box history-feed">
+                    <p>...brak aktywnych zakładów...</p>
+                </div>
+            </section>
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
                 <div id="chat-feed" class="feed-box">
