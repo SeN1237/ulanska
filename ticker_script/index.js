@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js (WERSJA 7.1 - Krypto + ZAKŁADY "ADMIN")
+// Plik: ticker_script/index.js (WERSJA 7.1 - Krypto + ZAKŁADY "ADMIN" - POPRAWKA .exists)
 
 const admin = require('firebase-admin');
 
@@ -468,7 +468,7 @@ try {
                   const userRef = usersRef.doc(bet.userId);
                   const userDoc = await transaction.get(userRef);
                   
-                  if (!userDoc.exists()) {
+                  if (!userDoc.exists) {
                       // Oznacz zakład jako anulowany, jeśli użytkownik nie istnieje
                       transaction.update(betDoc.ref, { status: "cancelled", failureReason: "User not found" });
                       throw new Error(`Nie znaleziono użytkownika ${bet.userId}`);
@@ -762,7 +762,8 @@ try {
     try {
         const meczSnap = await meczDocRef.get();
         
-        if (meczSnap.exists()) {
+        // --- POPRAWKA BŁĘDU: Zmieniono .exists() na .exists ---
+        if (meczSnap.exists) { 
             const matchData = meczSnap.data();
             
             // Szukamy meczu, który admin oznaczył jako "resolved",
