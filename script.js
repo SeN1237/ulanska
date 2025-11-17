@@ -2637,16 +2637,18 @@ function displayNewRumor(rumor) {
     
     let prefix = "";
     if (rumor.companyId && market[rumor.companyId]) {
-        prefix = `[${market[companyId].name}] `;
+        prefix = `[${market[rumor.companyId].name}] `;
     }
     
     if (rumor.sentiment === "positive") p.style.color = "var(--green)";
     else if (rumor.sentiment === "negative") p.style.color = "var(--red)";
     
-    // Krypto plotki mają specjalny kolor
-    if (market[rumor.companyId] && market[rumor.companyId].type === 'crypto') {
+    // === POPRAWKA BŁĘDU (companyId -> rumor.companyId) ===
+    // Sprawdzamy, czy plotka dotyczy firmy, czy ta firma istnieje I czy jest typu 'crypto'
+    if (rumor.companyId && market[rumor.companyId] && market[rumor.companyId].type === 'crypto') {
         if (rumor.sentiment === "positive") p.style.color = "var(--accent-color)";
     }
+    // ======================================================
     
     p.textContent = prefix + rumor.text; 
     const authorSpan = document.createElement("span");
