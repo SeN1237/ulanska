@@ -2154,55 +2154,87 @@ function generateTipData() {
  * Nasłuchuje na dokument `global/aktywny_mecz` i aktualizuje UI.
  */
 function listenToActiveMatch() {
+    // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+    console.log("TEST 3.1: Uruchamiam listenToActiveMatch()..."); 
+    // --- KONIEC KODU DIAGNOSTYCZNEGO ---
+
     if (unsubscribeMatch) unsubscribeMatch();
     const meczDocRef = doc(db, "global", "aktywny_mecz");
     
     unsubscribeMatch = onSnapshot(meczDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            currentMatch = docSnap.data();
-            
-            // Konwertuj Timestampy, jeśli istnieją
-            const bettingCloseTime = currentMatch.bettingCloseTime?.toDate();
-            const resolveTime = currentMatch.resolveTime?.toDate();
+        
+        // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+        console.log("TEST 3.2: Otrzymano dane 'onSnapshot'. Sprawdzam, czy dokument istnieje...");
+        // --- KONIEC KODU DIAGNOSTYCZNEGO ---
 
-            if (currentMatch.status === "open") {
-                // Mecz jest otwarty do obstawiania
-                dom.matchInfo.innerHTML = `
-                    <p><strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
-                    <p>Kursy: <strong>${currentMatch.teamA_odds.toFixed(2)}</strong> | <strong>${currentMatch.teamB_odds.toFixed(2)}</strong></p>
-                    <p>Zakłady otwarte do: ${bettingCloseTime ? bettingCloseTime.toLocaleString('pl-PL') : '...'}</p>
-                `;
-                dom.betTeamSelect.innerHTML = `
-                    <option value="teamA">${currentMatch.teamA_name} (Kurs: ${currentMatch.teamA_odds.toFixed(2)})</option>
-                    <option value="teamB">${currentMatch.teamB_name} (Kurs: ${currentMatch.teamB_odds.toFixed(2)})</option>
-                `;
-                dom.bettingForm.classList.remove("hidden");
+        if (docSnap.exists()) {
+            
+            // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+            console.log("TEST 3.3: SUKCES! Dokument istnieje.", docSnap.data());
+            // --- KONIEC KODU DIAGNOSTYCZNEGO ---
+
+            try { // Dodano try...catch, aby złapać błędy renderowania
+                currentMatch = docSnap.data();
                 
-            } else if (currentMatch.status === "closed") {
-                // Mecz trwa, zakłady zamknięte
-                dom.matchInfo.innerHTML = `
-                    <p>Mecz trwa: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
-                    <p>Zakłady zamknięte. Oczekiwanie na rozliczenie o ${resolveTime ? resolveTime.toLocaleString('pl-PL') : '...'}</p>
-                `;
-                dom.bettingForm.classList.add("hidden");
-                
-            } else if (currentMatch.status === "resolved") {
-                // Mecz zakończony
-                dom.matchInfo.innerHTML = `
-                    <p>Mecz zakończony: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
-                    <p>Wygrał: <strong>${currentMatch.winner === 'teamA' ? currentMatch.teamA_name : currentMatch.teamB_name}</strong></p>
-                    <p>Oczekiwanie na nowy mecz...</p>
-                `;
-                dom.bettingForm.classList.add("hidden");
+                // Konwertuj Timestampy, jeśli istnieją
+                const bettingCloseTime = currentMatch.bettingCloseTime?.toDate();
+                const resolveTime = currentMatch.resolveTime?.toDate();
+
+                // === POPRAWKA KULOOODPORNA: Użyj parseFloat na kursach ===
+                // To naprawi błąd, jeśli dane w bazie są (string) zamiast (number)
+                const oddsA = parseFloat(currentMatch.teamA_odds) || 1.0;
+                const oddsB = parseFloat(currentMatch.teamB_odds) || 1.0;
+                // ==========================================================
+
+                if (currentMatch.status === "open") {
+                    // Mecz jest otwarty do obstawiania
+                    dom.matchInfo.innerHTML = `
+                        <p><strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                        <p>Kursy: <strong>${oddsA.toFixed(2)}</strong> | <strong>${oddsB.toFixed(2)}</strong></p>
+                        <p>Zakłady otwarte do: ${bettingCloseTime ? bettingCloseTime.toLocaleString('pl-PL') : '...'}</p>
+                    `;
+                    dom.betTeamSelect.innerHTML = `
+                        <option value="teamA">${currentMatch.teamA_name} (Kurs: ${oddsA.toFixed(2)})</option>
+                        <option value="teamB">${currentMatch.teamB_name} (Kurs: ${oddsB.toFixed(2)})</option>
+                    `;
+                    dom.bettingForm.classList.remove("hidden");
+                    
+                } else if (currentMatch.status === "closed") {
+                    // Mecz trwa, zakłady zamknięte
+                    dom.matchInfo.innerHTML = `
+                        <p>Mecz trwa: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                        <p>Zakłady zamknięte. Oczekiwanie na rozliczenie o ${resolveTime ? resolveTime.toLocaleString('pl-PL') : '...'}</p>
+                    `;
+                    dom.bettingForm.classList.add("hidden");
+                    
+                } else if (currentMatch.status === "resolved") {
+                    // Mecz zakończony
+                    dom.matchInfo.innerHTML = `
+                        <p>Mecz zakończony: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                        <p>Wygrał: <strong>${currentMatch.winner === 'teamA' ? currentMatch.teamA_name : currentMatch.teamB_name}</strong></p>
+                        <p>Oczekiwanie na nowy mecz...</p>
+                    `;
+                    dom.bettingForm.classList.add("hidden");
+                }
+            } catch (e) {
+                // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+                console.error("TEST 3.4: BŁĄD KRYTYCZNY! Dane są, ale wystąpił błąd przy renderowaniu UI:", e);
+                // --- KONIEC KODU DIAGNOSTYCZNEGO ---
             }
+
         } else {
             // Brak meczu
+            // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+            console.log("TEST 3.3 (BŁĄD): Dokument NIE istnieje. Prawdopodobnie błąd w Regułach (Test 2) lub ścieżce.");
+            // --- KONIEC KODU DIAGNOSTYCZNEGO ---
             currentMatch = null;
             dom.matchInfo.innerHTML = "<p>Obecnie brak aktywnych meczów. Sprawdź później!</p>";
             dom.bettingForm.classList.add("hidden");
         }
     }, (error) => {
-        console.error("Błąd nasłuchu meczu: ", error);
+        // --- TEST 3: DODANY KOD DIAGNOSTYCZNY ---
+        console.error("TEST 3.2 (BŁĄD): Błąd 'onSnapshot'. Złe uprawnienia lub problem z siecią.", error);
+        // --- KONIEC KODU DIAGNOSTYCZNEGO ---
         currentMatch = null;
         dom.matchInfo.innerHTML = "<p>Błąd ładowania meczów. Spróbuj odświeżyć stronę.</p>";
         dom.bettingForm.classList.add("hidden");
@@ -2258,12 +2290,12 @@ function listenToActiveBets(userId) {
             let teamName = (bet.betOn === 'teamA') ? "Drużyna A" : "Drużyna B";
             
             // Spróbuj pobrać aktualne nazwy, jeśli mecz wciąż jest w pamięci
-            if (currentMatch && currentMatch.resolveTime.isEqual(bet.matchResolveTime)) {
+            if (currentMatch && bet.matchResolveTime && currentMatch.resolveTime.isEqual(bet.matchResolveTime)) {
                 teamName = (bet.betOn === 'teamA') ? currentMatch.teamA_name : currentMatch.teamB_name;
             }
             
             p.innerHTML = `
-                Postawiono: ${formatujWalute(bet.betAmount)} na <strong>${teamName}</strong> @ ${bet.odds.toFixed(2)} 
+                Postawiono: ${formatujWalute(bet.betAmount)} na <strong>${teamName}</strong> @ ${parseFloat(bet.odds).toFixed(2)} 
                 <span class="${statusClass}">${statusText}</span>
             `;
             dom.activeBetsFeed.prepend(p);
@@ -2288,11 +2320,16 @@ async function onPlaceBet(e) {
 
     const amount = parseFloat(dom.betAmount.value);
     const team = dom.betTeamSelect.value; // "teamA" lub "teamB"
-    const odds = (team === "teamA") ? currentMatch.teamA_odds : currentMatch.teamB_odds;
+    
+    // === POPRAWKA KULOOODPORNA: Użyj parseFloat na kursach ===
+    const odds = (team === "teamA") ? parseFloat(currentMatch.teamA_odds) : parseFloat(currentMatch.teamB_odds);
     const teamName = (team === "teamA") ? currentMatch.teamA_name : currentMatch.teamB_name;
 
     if (isNaN(amount) || amount <= 0) {
         showMessage("Wpisz poprawną kwotę zakładu.", "error"); return;
+    }
+    if (isNaN(odds) || odds <= 0) {
+        showMessage("Błąd odczytu kursów. Spróbuj odświeżyć stronę.", "error"); return;
     }
     if (amount > portfolio.cash) {
         showMessage("Nie masz wystarczającej gotówki.", "error"); return;
@@ -2328,7 +2365,7 @@ async function onPlaceBet(e) {
                 matchResolveTime: currentMatch.resolveTime, // Klucz do rozliczenia
                 betAmount: amount,
                 betOn: team,
-                odds: odds,
+                odds: odds, // Zapisz jako liczbę
                 status: "pending",
                 createdAt: serverTimestamp()
             });
@@ -2600,7 +2637,7 @@ function displayNewRumor(rumor) {
     
     let prefix = "";
     if (rumor.companyId && market[rumor.companyId]) {
-        prefix = `[${market[rumor.companyId].name}] `;
+        prefix = `[${market[companyId].name}] `;
     }
     
     if (rumor.sentiment === "positive") p.style.color = "var(--green)";
