@@ -2255,7 +2255,12 @@ function listenToActiveBets(userId) {
 
             // Potrzebujemy 'currentMatch', aby wyświetlić nazwy, ale może być stary.
             // Bezpieczniej jest zapisać nazwy w zakładzie, ale dla uproszczenia:
-            const teamName = (bet.betOn === 'teamA') ? "Drużyna A" : "Drużyna B";
+            let teamName = (bet.betOn === 'teamA') ? "Drużyna A" : "Drużyna B";
+            
+            // Spróbuj pobrać aktualne nazwy, jeśli mecz wciąż jest w pamięci
+            if (currentMatch && currentMatch.resolveTime.isEqual(bet.matchResolveTime)) {
+                teamName = (bet.betOn === 'teamA') ? currentMatch.teamA_name : currentMatch.teamB_name;
+            }
             
             p.innerHTML = `
                 Postawiono: ${formatujWalute(bet.betAmount)} na <strong>${teamName}</strong> @ ${bet.odds.toFixed(2)} 
