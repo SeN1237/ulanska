@@ -144,6 +144,12 @@ let unsubscribePersonalHistory = null;
 let unsubscribeLimitOrders = null; 
 let unsubscribeBonds = null;
 
+// === NOWE ZMIENNE DLA ZAKŁADÓW ===
+let currentMatch = null;
+let unsubscribeMatch = null;
+let unsubscribeActiveBets = null;
+// ==================================
+
 let dom = {};
 
 
@@ -333,6 +339,16 @@ document.addEventListener("DOMContentLoaded", () => {
         buyBondButton: document.getElementById("buy-bond-button"),
         activeBondsFeed: document.getElementById("active-bonds-feed"),
 
+        // === NOWY: Panel Zakładów ===
+        bettingPanel: document.getElementById("betting-panel"),
+        matchInfo: document.getElementById("match-info"),
+        bettingForm: document.getElementById("betting-form"),
+        betAmount: document.getElementById("bet-amount"),
+        betTeamSelect: document.getElementById("bet-team"),
+        placeBetButton: document.getElementById("place-bet-button"),
+        activeBetsFeed: document.getElementById("active-bets-feed"),
+        // =============================
+
         // Modal Profilu Użytkownika
         modalOverlay: document.getElementById("user-profile-modal"),
         modalCloseButton: document.getElementById("modal-close-button"),
@@ -386,6 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
     dom.bondsForm.addEventListener("submit", onBuyBond); 
+    dom.bettingForm.addEventListener("submit", onPlaceBet); // <-- NOWY LISTENER ZAKŁADÓW
     
     // Listenery przycisków
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
@@ -460,6 +477,10 @@ function startAuthListener() {
             listenToPersonalHistory(currentUserId);
             listenToLimitOrders(currentUserId);
             listenToActiveBonds(currentUserId);
+            // === NOWE NASŁUCHI (ZAKŁADY) ===
+            listenToActiveMatch();
+            listenToActiveBets(currentUserId);
+            // ================================
             
         } else {
             currentUserId = null;
@@ -476,6 +497,10 @@ function startAuthListener() {
             if (unsubscribePersonalHistory) unsubscribePersonalHistory();
             if (unsubscribeLimitOrders) unsubscribeLimitOrders();
             if (unsubscribeBonds) unsubscribeBonds();
+            // === NOWE WYŁĄCZENIE (ZAKŁADY) ===
+            if (unsubscribeMatch) unsubscribeMatch();
+            if (unsubscribeActiveBets) unsubscribeActiveBets();
+            // ==================================
             
             if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
             
@@ -815,7 +840,7 @@ async function onPostRumor(e) {
             authorId: currentUserId,
             authorName: portfolio.name,
             prestigeLevel: portfolio.prestigeLevel || 0, 
-            timestamp: Timestamp.fromDate(new Date()),
+            timestamp: Timestamp.fromDate(new Date()), // Użyj Timestamp.fromDate dla reguł
             companyId: companyId,
             sentiment: sentiment,
             impact: impact 
@@ -896,6 +921,7 @@ async function logTransaction(type, companyId, amount, pricePerShare, totalCostO
     };
     
     try {
+        // Zmień na logowanie do 'historia_transakcji'
         await addDoc(collection(db, "historia_transakcji"), transactionData);
     } catch (error) {
         console.error("Błąd zapisu transakcji do logu: ", error);
@@ -969,6 +995,10 @@ function displayHistoryItem(feedElement, item, isGlobal) {
     else if (item.type.includes("SPRZEDAŻ (Krypto)")) actionSpan.className = "h-action-sell-crypto";
     else if (item.type === "WSKAZÓWKA") actionSpan.className = "h-action-tip";
     else if (item.type.startsWith("OBLIGACJA")) actionSpan.className = "h-action-bond";
+    // === NOWE STYLE DLA ZAKŁADÓW ===
+    else if (item.type === "ZAKŁAD SPORTOWY") actionSpan.className = "h-action-sell"; // Czerwony (koszt)
+    else if (item.type === "WYGRANA (ZAKŁAD)") actionSpan.className = "h-action-buy"; // Zielony (zysk)
+    // ================================
     
     p.appendChild(actionSpan);
     
@@ -981,6 +1011,10 @@ function displayHistoryItem(feedElement, item, isGlobal) {
          detailsSpan.textContent = item.companyName; // "Zakupiono tajną wskazówkę"
     } else if (item.type.startsWith("OBLIGACJA")) {
         detailsSpan.textContent = item.companyName; // Np. "Obligacja 1-dniowa (5%)"
+    // === NOWE STYLE DLA ZAKŁADÓW ===
+    } else if (item.type.startsWith("ZAKŁAD") || item.type.startsWith("WYGRANA")) {
+        detailsSpan.textContent = `Zakłady Sportowe`;
+    // ================================
     } else {
          detailsSpan.textContent = `${item.amount} szt. ${item.companyName} @ ${formatujWalute(price)}`;
     }
@@ -993,6 +1027,12 @@ function displayHistoryItem(feedElement, item, isGlobal) {
         totalSpan.textContent = `Zysk: ${formatujWalute(item.totalValue)}`;
     } else if (item.type === "OBLIGACJA (ZAKUP)") {
         totalSpan.textContent = `Wkład: ${formatujWalute(item.totalValue)}`;
+    // === NOWE STYLE DLA ZAKŁADÓW ===
+    } else if (item.type === "ZAKŁAD SPORTOWY") {
+        totalSpan.textContent = `Stawka: ${formatujWalute(item.totalValue)}`; // Pokaż stawkę (jest ujemna)
+    } else if (item.type === "WYGRANA (ZAKŁAD)") {
+        totalSpan.textContent = `Zysk: ${formatujWalute(item.totalValue)}`; // Pokaż czysty zysk
+    // ================================
     } else {
         totalSpan.textContent = `Wartość: ${formatujWalute(item.totalValue)}`;
     }
@@ -2105,6 +2145,210 @@ function generateTipData() {
         executeAt: executeAt // Będzie null dla fałszywek
     };
 }
+
+// ========================================================
+// === NOWE FUNKCJE DLA ZAKŁADÓW BUKMACHERSKICH (OPCJA 3) ===
+// ========================================================
+
+/**
+ * Nasłuchuje na dokument `global/aktywny_mecz` i aktualizuje UI.
+ */
+function listenToActiveMatch() {
+    if (unsubscribeMatch) unsubscribeMatch();
+    const meczDocRef = doc(db, "global", "aktywny_mecz");
+    
+    unsubscribeMatch = onSnapshot(meczDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            currentMatch = docSnap.data();
+            
+            // Konwertuj Timestampy, jeśli istnieją
+            const bettingCloseTime = currentMatch.bettingCloseTime?.toDate();
+            const resolveTime = currentMatch.resolveTime?.toDate();
+
+            if (currentMatch.status === "open") {
+                // Mecz jest otwarty do obstawiania
+                dom.matchInfo.innerHTML = `
+                    <p><strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                    <p>Kursy: <strong>${currentMatch.teamA_odds.toFixed(2)}</strong> | <strong>${currentMatch.teamB_odds.toFixed(2)}</strong></p>
+                    <p>Zakłady otwarte do: ${bettingCloseTime ? bettingCloseTime.toLocaleString('pl-PL') : '...'}</p>
+                `;
+                dom.betTeamSelect.innerHTML = `
+                    <option value="teamA">${currentMatch.teamA_name} (Kurs: ${currentMatch.teamA_odds.toFixed(2)})</option>
+                    <option value="teamB">${currentMatch.teamB_name} (Kurs: ${currentMatch.teamB_odds.toFixed(2)})</option>
+                `;
+                dom.bettingForm.classList.remove("hidden");
+                
+            } else if (currentMatch.status === "closed") {
+                // Mecz trwa, zakłady zamknięte
+                dom.matchInfo.innerHTML = `
+                    <p>Mecz trwa: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                    <p>Zakłady zamknięte. Oczekiwanie na rozliczenie o ${resolveTime ? resolveTime.toLocaleString('pl-PL') : '...'}</p>
+                `;
+                dom.bettingForm.classList.add("hidden");
+                
+            } else if (currentMatch.status === "resolved") {
+                // Mecz zakończony
+                dom.matchInfo.innerHTML = `
+                    <p>Mecz zakończony: <strong>${currentMatch.teamA_name}</strong> vs <strong>${currentMatch.teamB_name}</strong></p>
+                    <p>Wygrał: <strong>${currentMatch.winner === 'teamA' ? currentMatch.teamA_name : currentMatch.teamB_name}</strong></p>
+                    <p>Oczekiwanie na nowy mecz...</p>
+                `;
+                dom.bettingForm.classList.add("hidden");
+            }
+        } else {
+            // Brak meczu
+            currentMatch = null;
+            dom.matchInfo.innerHTML = "<p>Obecnie brak aktywnych meczów. Sprawdź później!</p>";
+            dom.bettingForm.classList.add("hidden");
+        }
+    }, (error) => {
+        console.error("Błąd nasłuchu meczu: ", error);
+        currentMatch = null;
+        dom.matchInfo.innerHTML = "<p>Błąd ładowania meczów. Spróbuj odświeżyć stronę.</p>";
+        dom.bettingForm.classList.add("hidden");
+    });
+}
+
+/**
+ * Nasłuchuje na zakłady postawione przez bieżącego użytkownika.
+ * @param {string} userId 
+ */
+function listenToActiveBets(userId) {
+    if (unsubscribeActiveBets) unsubscribeActiveBets();
+    
+    const betsQuery = query(
+        collection(db, "active_bets"),
+        where("userId", "==", userId),
+        orderBy("matchResolveTime", "desc"),
+        limit(10) // Pokaż ostatnie 10 zakładów
+    );
+    
+    unsubscribeActiveBets = onSnapshot(betsQuery, (querySnapshot) => {
+        if (!dom.activeBetsFeed) return;
+        dom.activeBetsFeed.innerHTML = "";
+        
+        if (querySnapshot.empty) {
+            dom.activeBetsFeed.innerHTML = "<p>Brak aktywnych lub przeszłych zakładów.</p>";
+            return;
+        }
+        
+        querySnapshot.forEach(doc => {
+            const bet = doc.data();
+            const p = document.createElement("p");
+            
+            let statusText = "";
+            let statusClass = "";
+            
+            if (bet.status === "pending") {
+                statusText = `(Oczekuje)`;
+                statusClass = "h-status-pending"; // Niebieski
+            } else if (bet.status === "won") {
+                statusText = `(Wygrana!)`;
+                statusClass = "h-action-buy"; // Zielony
+            } else if (bet.status === "lost") {
+                statusText = `(Przegrana)`;
+                statusClass = "h-action-sell"; // Czerwony
+            } else {
+                statusText = `(${bet.status})`;
+                statusClass = "h-total"; // Szary
+            }
+
+            // Potrzebujemy 'currentMatch', aby wyświetlić nazwy, ale może być stary.
+            // Bezpieczniej jest zapisać nazwy w zakładzie, ale dla uproszczenia:
+            const teamName = (bet.betOn === 'teamA') ? "Drużyna A" : "Drużyna B";
+            
+            p.innerHTML = `
+                Postawiono: ${formatujWalute(bet.betAmount)} na <strong>${teamName}</strong> @ ${bet.odds.toFixed(2)} 
+                <span class="${statusClass}">${statusText}</span>
+            `;
+            dom.activeBetsFeed.prepend(p);
+        });
+    }, (error) => {
+        console.error("Błąd nasłuchu zakładów: ", error);
+        dom.activeBetsFeed.innerHTML = "<p>Błąd ładowania zakładów.</p>";
+    });
+}
+
+/**
+ * Handler formularza do stawiania zakładu.
+ * Używa transakcji, aby pobrać gotówkę i utworzyć dokument zakładu.
+ * @param {Event} e 
+ */
+async function onPlaceBet(e) {
+    e.preventDefault();
+    if (!currentUserId || !currentMatch || currentMatch.status !== "open") {
+        showMessage("Zakłady na ten mecz są już zamknięte.", "error");
+        return;
+    }
+
+    const amount = parseFloat(dom.betAmount.value);
+    const team = dom.betTeamSelect.value; // "teamA" lub "teamB"
+    const odds = (team === "teamA") ? currentMatch.teamA_odds : currentMatch.teamB_odds;
+    const teamName = (team === "teamA") ? currentMatch.teamA_name : currentMatch.teamB_name;
+
+    if (isNaN(amount) || amount <= 0) {
+        showMessage("Wpisz poprawną kwotę zakładu.", "error"); return;
+    }
+    if (amount > portfolio.cash) {
+        showMessage("Nie masz wystarczającej gotówki.", "error"); return;
+    }
+
+    try {
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+        
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) throw new Error("Nie znaleziono użytkownika");
+            
+            const data = userDoc.data();
+            if (data.cash < amount) throw new Error("Brak środków (ponowna weryfikacja)");
+
+            // 1. Odejmij gotówkę
+            const newCash = data.cash - amount;
+            const newTotalValue = calculateTotalValue(newCash, data.shares); // Pieniądze "znikają" z portfela
+            const newZysk = newTotalValue - data.startValue;
+
+            transaction.update(userDocRef, {
+                cash: newCash,
+                totalValue: newTotalValue,
+                zysk: newZysk
+            });
+
+            // 2. Utwórz dokument zakładu
+            const betRef = doc(collection(db, "active_bets"));
+            transaction.set(betRef, {
+                userId: currentUserId,
+                userName: data.name,
+                prestigeLevel: data.prestigeLevel || 0,
+                matchResolveTime: currentMatch.resolveTime, // Klucz do rozliczenia
+                betAmount: amount,
+                betOn: team,
+                odds: odds,
+                status: "pending",
+                createdAt: serverTimestamp()
+            });
+        });
+
+        // 3. Zaloguj transakcję (poza transakcją główną)
+        await logTransaction(
+            "ZAKŁAD SPORTOWY", 
+            "system", // companyId
+            1,        // amount (jako 1 zakład)
+            odds,     // pricePerShare (jako kurs)
+            amount * -1 // totalCostOrRevenue (jako koszt)
+        );
+        
+        showMessage(`Postawiono ${formatujWalute(amount)} na ${teamName}!`, "success");
+        dom.betAmount.value = "";
+
+    } catch (error) {
+        console.error("Błąd stawiania zakładu: ", error);
+        showMessage("Błąd zakładu: " + error.message, "error");
+    }
+}
+// === KONIEC SEKCJI ZAKŁADÓW ===
+// =================================
+
 
 // --- SEKCJA 8: AKTUALIZACJA INTERFEJSU (UI) (ZAKTUALIZOWANA) ---
 
