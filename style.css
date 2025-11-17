@@ -879,6 +879,15 @@ body[data-theme="dark"] #buy-bond-button:hover {
 #betting-panel #match-info p strong {
     color: var(--text-color);
 }
+/* NOWY: Styl dla kursu na remis */
+#draw-odds-display {
+    font-style: italic;
+    color: var(--blue) !important;
+}
+#draw-odds-display strong {
+    color: var(--blue) !important;
+}
+
 #betting-form {
     display: flex;
     flex-direction: column;
