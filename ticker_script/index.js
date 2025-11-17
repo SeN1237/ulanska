@@ -853,8 +853,8 @@ try {
 
   // GŁÓWNA PĘTLA (3-godzinna)
   const mainLoop = async () => {
-    const updatesPerRun = 360;      
-    const intervalSeconds = 30;     
+    const updatesPerRun = 180;      
+    const intervalSeconds = 60;     
 
     console.log(`Rozpoczynam pętlę: ${updatesPerRun} aktualizacji co ${intervalSeconds} sekund.`);
 
