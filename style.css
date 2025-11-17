@@ -384,7 +384,8 @@ body[data-theme="dark"] #logout-button:hover {
         "market portfolio"
         "market order"
         "rumors leaderboard"
-        "bonds bonds" /* <-- DODANO OBLIGACJE */
+        "bonds bonds"
+        "betting betting" /* <-- DODANO ZAKŁADY */
         "chat chat"
         "history history"
         "help help";
@@ -395,7 +396,8 @@ body[data-theme="dark"] #logout-button:hover {
 #order-panel { grid-area: order; }
 #rumors-panel { grid-area: rumors; }
 #leaderboard-panel { grid-area: leaderboard; }
-#bonds-panel { grid-area: bonds; } /* <-- NOWY WPIS */
+#bonds-panel { grid-area: bonds; }
+#betting-panel { grid-area: betting; } /* <-- DODANO ZAKŁADY */
 #chat-panel { grid-area: chat; }
 #history-tabs-panel { grid-area: history; }
 #help-panel { grid-area: help; }
@@ -815,7 +817,7 @@ body[data-theme="light"] #buy-tip-button {
     color: #111;
 }
 
-/* --- NOWY: Panel Obligacji --- */
+/* --- Panel Obligacji --- */
 #bonds-panel p {
     font-size: 0.95em;
     color: var(--text-muted);
@@ -861,6 +863,63 @@ body[data-theme="dark"] #buy-bond-button:hover {
     max-height: 150px; /* Mniejsza wysokość niż inne feedy */
 }
 /* --- Koniec Panelu Obligacji --- */
+
+
+/* =================================== */
+/* === NOWY: Panel Zakładów Sportowych === */
+/* =================================== */
+#betting-panel #match-info p {
+    font-size: 1.1em;
+    color: var(--text-muted);
+    line-height: 1.6;
+    font-style: normal;
+    border: none;
+    margin: 5px 0;
+}
+#betting-panel #match-info p strong {
+    color: var(--text-color);
+}
+#betting-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+#betting-form label {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+#betting-form input, #betting-form select {
+    padding: 10px; 
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color); 
+    color: var(--text-color);
+    border-radius: 4px; 
+    font-size: 1.1em;
+}
+body[data-theme="dark"] #betting-form input:focus,
+body[data-theme="dark"] #betting-form select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-color);
+    outline: none;
+}
+#place-bet-button {
+    background-color: var(--accent-color);
+    color: white;
+}
+body[data-theme="dark"] #place-bet-button:hover {
+    box-shadow: 0 0 10px var(--accent-color);
+}
+body[data-theme="light"] #place-bet-button {
+    color: #111;
+}
+#betting-panel hr {
+    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
+}
+#active-bets-feed {
+    max-height: 150px;
+}
+/* === Koniec Panelu Zakładów === */
 
 
 /* Panel Rankingu */
@@ -1306,7 +1365,8 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
             "order"
             "rumors"
             "leaderboard"
-            "bonds" /* <-- DODANO OBLIGACJE */
+            "bonds"
+            "betting" /* <-- DODANO ZAKŁADY */
             "chat"
             "history"
             "help";
