@@ -134,6 +134,7 @@ let initialNewsLoaded = false;
 let initialChatLoaded = false; 
 let audioUnlocked = false; 
 
+
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null; 
@@ -767,11 +768,28 @@ function displayMarketNews(text, impactType) {
     }
 }
 
+// Nowa funkcja z cooldownem
 async function onSendMessage(e) {
     e.preventDefault();
+
+    // 1. Sprawdź, czy trwa cooldown
+    if (isChatCooldown) {
+        showMessage("Wysyłasz wiadomości zbyt szybko. Poczekaj chwilę.", "error");
+        return;
+    }
+
     const text = dom.chatInput.value.trim();
     if (!text || !currentUserId) return; 
+
+    // Znajdź przycisk wysyłania w formularzu czatu
+    const sendButton = dom.chatForm.querySelector('button');
+
     try {
+        // 2. Ustaw cooldown i wyłącz przycisk natychmiast
+        isChatCooldown = true;
+        if (sendButton) sendButton.disabled = true;
+
+        // Wysyłanie wiadomości (operacja zapisu)
         await addDoc(collection(db, "chat_messages"), {
             text: text,
             authorName: portfolio.name, 
@@ -779,10 +797,23 @@ async function onSendMessage(e) {
             prestigeLevel: portfolio.prestigeLevel || 0, 
             timestamp: serverTimestamp() 
         });
-        dom.chatInput.value = "";
+        
+        // Wyczyść pole inputu PO udanym wysłaniu
+        dom.chatInput.value = ""; 
+
+        // 3. Ustaw timer, który wyłączy cooldown i włączy przycisk
+        setTimeout(() => {
+            isChatCooldown = false; // Zakończ cooldown
+            if (sendButton) sendButton.disabled = false; // Włącz przycisk
+        }, 15000); // Cooldown ustawiony na 3 sekundy (3000 ms)
+
     } catch (error) {
         console.error("Błąd wysyłania wiadomości: ", error);
         showMessage("Nie udało się wysłać wiadomości.", "error");
+        
+        // 4. Jeśli wysyłanie się nie powiodło, zresetuj cooldown i przycisk
+        isChatCooldown = false; 
+        if (sendButton) sendButton.disabled = false;
     }
 }
 
