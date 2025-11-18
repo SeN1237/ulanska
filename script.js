@@ -33,7 +33,7 @@ function generateInitialCandles(count, basePrice) {
     let data = []; let lastClose = basePrice;
     if (!basePrice || basePrice < 1) basePrice = 1; 
 
-    let timestamp = new Date().getTime() - (count * 5000);
+    let timestamp = new Date().getTime() - (count * 15000);
     for (let i = 0; i < count; i++) {
         let open = lastClose;
         let close = open + (Math.random() - 0.5) * (basePrice * 0.05);
@@ -49,7 +49,7 @@ function generateInitialCandles(count, basePrice) {
             x: new Date(timestamp),
             y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
         });
-        lastClose = close; timestamp += 5000;
+        lastClose = close; timestamp += 15000;
     }
     return data;
 }
@@ -1734,7 +1734,7 @@ function startChartTicker() {
             const low = Math.min(open, close) - Math.random() * (company.price * 0.01);
 
             const newCandle = {
-                x: new Date(lastCandle.x.getTime() + 5000),
+                x: new Date(lastCandle.x.getTime() + 15000),
                 y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
             };
             
@@ -1747,7 +1747,7 @@ function startChartTicker() {
                 data: market[currentCompanyId].history
             }]);
         }
-    }, 5000);
+    }, 15000);
 }
 
 
