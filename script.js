@@ -464,6 +464,19 @@ function startAuthListener() {
             currentUserId = user.uid;
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
+
+            // ==========================================================
+            // ===          DODANY KOD NA KLIKNIĘCIE                ===
+            // ==========================================================
+            // Ta funkcja uruchomi się tylko raz, przy pierwszym kliknięciu
+            const oneTimeClickListener = () => {
+                unlockAudio(); // Funkcja, którą już masz
+                // Usuwamy listener, aby nie uruchamiał się przy każdym kliknięciu
+                document.body.removeEventListener('click', oneTimeClickListener);
+            };
+            // Dodaj listener na całą stronę, który czeka na kliknięcie
+            document.body.addEventListener('click', oneTimeClickListener);
+            // ==========================================================
             
             listenToPortfolioData(currentUserId);
             listenToRumors();
@@ -569,7 +582,7 @@ async function createInitialUserData(userId, name, email) {
 
 async function onRegister(e) {
     e.preventDefault();
-    unlockAudio(); 
+     
     
     const name = dom.registerForm.querySelector("#register-name").value;
     const email = dom.registerForm.querySelector("#register-email").value;
@@ -590,7 +603,7 @@ async function onRegister(e) {
 
 async function onLogin(e) {
     e.preventDefault();
-    unlockAudio(); 
+    
     
     const email = dom.loginForm.querySelector("#login-email").value;
     const password = dom.loginForm.querySelector("#login-password").value;
