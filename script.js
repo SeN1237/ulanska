@@ -151,6 +151,8 @@ let unsubscribeMatch = null;
 let unsubscribeActiveBets = null;
 // ==================================
 
+let isChatCooldown = false; // <--- WKLEJ TO TUTAJ
+
 let dom = {};
 
 
