@@ -1508,6 +1508,64 @@ body[data-theme="light"] #leaderboard-list li.highlight-me {
     }
 }
 
+
+
+    /* Styl dla tabeli harmonogramu */
+    .schedule-wrapper {
+        margin-top: 20px;
+        overflow-x: auto; /* Przewijanie na telefonach */
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid #444;
+    }
+
+    .schedule-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+        color: #e0e0e0;
+    }
+
+    .schedule-table thead {
+        background-color: #2a2a2a; /* Ciemne tło nagłówka */
+        color: #fff;
+        text-transform: uppercase;
+        font-size: 0.85em;
+        letter-spacing: 1px;
+    }
+
+    .schedule-table th, .schedule-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #444;
+    }
+
+    .schedule-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05); /* Podświetlenie wiersza */
+    }
+
+    .schedule-table tbody tr:last-of-type td {
+        border-bottom: none;
+    }
+
+    .odds-cell {
+        font-weight: bold;
+        color: #4caf50; /* Zielony kolor dla kursów */
+        font-family: monospace;
+    }
+
+    .status-live {
+        color: #ff4444;
+        font-weight: bold;
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
 /* =================================== */
 /* === SEKCJA 10: MODAL PROFILU UŻYTKOWNIKA === */
 /* =================================== */
