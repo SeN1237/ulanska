@@ -515,7 +515,12 @@ function renderBettingPanel() {
                 ${label}<small>${odds.toFixed(2)}</small>
             </button>`;
 
-        const oddsHtml = `<div class="odds-btn-group">${createBtn('teamA', match.oddsA, '1')}${createBtn('draw', match.oddsDraw, 'X')}${createBtn('teamB', match.oddsB, '2')}</div>`;
+        // TO JEST NOWA WERSJA (do wklejenia):
+        const oddsHtml = `<div class="odds-btn-group">
+            ${createBtn('teamA', match.oddsA, match.teamA)}
+            ${createBtn('draw', match.oddsDraw, 'Remis')}
+            ${createBtn('teamB', match.oddsB, match.teamB)}
+        </div>`;
 
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
         tbody.appendChild(tr);
@@ -846,10 +851,19 @@ async function onSendMessage(e) {
 function listenToLeaderboard() {
     unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
         dom.leaderboardList.innerHTML = "";
-        let r=1;
+        let r = 1;
         snap.forEach(d => {
             const u = d.data();
-            dom.leaderboardList.innerHTML += `<li class="${d.id===currentUserId?'highlight-me':''}"><span>${r}. ${u.name} ${getPrestigeStars(u.prestigeLevel)}<small>Zysk: ${formatujWalute(u.totalValue-u.startValue)}</small></span><strong>${formatujWalute(u.totalValue)}</strong></li>`;
+            // ZMIANA: Dodano <strong class="clickable-user" ...> wokół u.name
+            dom.leaderboardList.innerHTML += `
+                <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
+                    <span>
+                        ${r}. <strong class="clickable-user" onclick="showUserProfile('${d.id}')">${u.name}</strong> 
+                        ${getPrestigeStars(u.prestigeLevel)}
+                        <small>Zysk: ${formatujWalute(u.totalValue - u.startValue)}</small>
+                    </span>
+                    <strong>${formatujWalute(u.totalValue)}</strong>
+                </li>`;
             r++;
         });
     });
