@@ -269,7 +269,78 @@
                 <h3>Twoje Aktywne Zakłady</h3>
                 <div id="active-bets-feed" class="feed-box history-feed">
                     <p>...brak aktywnych zakładów...</p>
+                    <section id="betting-panel" class="panel">
+                <h2>Zakłady Bukmacherskie</h2>
+                
+                <a href="" target="_blank" style="display: inline-block; margin-top: 10px; padding: 8px 15px; background: var(--blue, #2196F3); color: white; text-decoration: none; border-radius: 4px; font-size: 0.9em; font-weight: bold;">
+                    Ile osób będzie na konwersatorium o 16:45?
+                </a>
+
+                <div id="match-info">
+                    <p>...ładowanie aktywnego meczu...</p>
+                    <p id="draw-odds-display" class="hidden">Kurs na Remis: <strong>...</strong></p>
                 </div>
+
+                <form id="betting-form" class="hidden">
+                    <label for="bet-amount">Kwota zakładu (zł):</label>
+                    <input type="number" id="bet-amount" placeholder="0.00" min="1" step="0.01" required>
+                    
+                    <label for="bet-team">Wybierz drużynę:</label>
+                    <select id="bet-team" required>
+                        </select>
+                    
+                    <button type="submit" id="place-bet-button" class="action-btn-full">Postaw Zakład</button>
+                </form>
+
+                <hr>
+                <h3>Twoje Aktywne Zakłady</h3>
+                <div id="active-bets-feed" class="feed-box history-feed">
+                    <p>...brak aktywnych zakładów...</p>
+                </div>
+
+                <hr>
+                <h3>📅 Rozkład Jazdy (Harmonogram)</h3>
+                <div class="schedule-wrapper">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Godzina</th>
+                                <th>Wydarzenie</th>
+                                <th>Kursy (1 | X | 2)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="status-live">TERAZ</span></td>
+                                <td>WIG Ułańska: Czy RychBud spadnie?</td>
+                                <td class="odds-cell">1.80 | 3.50 | 2.10</td>
+                            </tr>
+                            <tr>
+                                <td>16:45</td>
+                                <td>Frekwencja na Konwersatorium > 15os.</td>
+                                <td class="odds-cell">1.50 | - | 2.40</td>
+                            </tr>
+                            <tr>
+                                <td>18:30</td>
+                                <td>Czy prowadzący sprawdzi listę?</td>
+                                <td class="odds-cell">1.10 | - | 5.00</td>
+                            </tr>
+                            <tr>
+                                <td>20:00</td>
+                                <td>Bitwa o akademik: Piętro 3 vs 4</td>
+                                <td class="odds-cell">2.00 | 3.20 | 2.00</td>
+                            </tr>
+                            <tr>
+                                <td>Jutro</td>
+                                <td>Wzrost Bartcoina o 10%</td>
+                                <td class="odds-cell">4.50 | - | 1.20</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                </section>
+                </div>
+                
                 
                 
             </section>
