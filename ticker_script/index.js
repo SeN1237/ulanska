@@ -1,4 +1,4 @@
-// Plik: ticker_script/index.js
+// Plik: ticker_script/index.js 
 // WERSJA FINALNA: Giełda + Krypto + Zakłady (Lista z Auto-Zamykaniem)
 
 const admin = require('firebase-admin');
