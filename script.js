@@ -487,7 +487,6 @@ function listenToPortfolioData(userId) {
 }
 
 // --- POZOSTAŁE LISTENERY (RUMORS, CHAT, ETC.) ---
-// (Zdefiniowane tutaj, aby były widoczne dla startAuthListener)
 
 function listenToRumors() {
     unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
@@ -575,118 +574,180 @@ function listenToActiveBets(userId) {
     });
 }
 
-// --- AUTH HELPERS ---
-async function onRegister(e) {
-    e.preventDefault();
-    const name = dom.registerForm.querySelector("#register-name").value;
-    const email = dom.registerForm.querySelector("#register-email").value;
-    const password = dom.registerForm.querySelector("#register-password").value;
-    try {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        if (cred.user) {
-            await setDoc(doc(db, "uzytkownicy", cred.user.uid), {
-                name: name, email: email, cash: 1000.00,
-                shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, bartcoin: 0, igirium: 0 },
-                stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
-                startValue: 1000.00, zysk: 0.00, totalValue: 1000.00,
-                joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0 
-            });
+// ====================================================================
+// NASŁUCHIWACZ CEN (onSnapshot)
+// ====================================================================
+const cenyDocRef = doc(db, "global", "ceny_akcji");
+onSnapshot(cenyDocRef, (docSnap) => {
+    if (docSnap.exists()) {
+        const aktualneCeny = docSnap.data();
+        
+        for (const companyId in market) {
+            if (aktualneCeny[companyId] !== undefined) {
+                const newPrice = aktualneCeny[companyId];
+                
+                // 1. Aktualizujemy cenę w obiekcie
+                market[companyId].previousPrice = market[companyId].price;
+                market[companyId].price = newPrice;
+                
+                // 2. Inicjalizujemy historię jeśli pusta
+                if (market[companyId].history.length === 0) {
+                     market[companyId].history = generateInitialCandles(30, newPrice);
+                } else {
+                // 3. AKTUALIZUJEMY HISTORIĘ WYKRESU
+                     updateMarketHistory(companyId, newPrice);
+                }
+            }
         }
-    } catch (err) { showAuthMessage(err.message, "error"); }
-}
-async function onLogin(e) { e.preventDefault(); try { await signInWithEmailAndPassword(auth, dom.loginForm.querySelector("#login-email").value, dom.loginForm.querySelector("#login-password").value); } catch (err) { showAuthMessage(err.message, "error"); } }
-function onLogout() { signOut(auth); }
-function showAuthMessage(msg, type="info") { dom.authMessage.textContent = msg; dom.authMessage.style.color = type==="error" ? "var(--red)" : "var(--green)"; }
-async function onResetPassword(e) {
-    e.preventDefault();
-    const email = dom.loginForm.querySelector("#login-email").value;
-    if(!email) return showAuthMessage("Podaj email", "error");
-    try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
-}
+        
+        updatePriceUI(); 
+        updatePortfolioUI(); 
+        updateTickerTape(); 
 
-// --- MODALS & PRESTIGE ---
-window.showUserProfile = async function(uid) {
-    const d = (await getDoc(doc(db, "uzytkownicy", uid))).data();
-    dom.modalUsername.textContent = d.name;
-    dom.modalTotalValue.textContent = formatujWalute(d.totalValue);
-    dom.modalCash.textContent = formatujWalute(d.cash);
-    dom.modalPrestigeLevel.textContent = d.prestigeLevel;
-    dom.modalTotalTrades.textContent = d.stats?.totalTrades || 0;
-    dom.modalTipsPurchased.textContent = d.stats?.tipsPurchased || 0;
-    dom.modalBondsPurchased.textContent = d.stats?.bondsPurchased || 0;
-    
-    const s = [d.cash]; const l = ['Gotówka'];
-    let sharesHtml = "";
-    COMPANY_ORDER.forEach(cid => {
-        const amt = d.shares[cid]||0;
-        if(amt>0) {
-            const val = amt*(market[cid]?.price||0);
-            s.push(val); l.push(market[cid]?.name||cid);
-            sharesHtml += `<p>${market[cid]?.name||cid}: <strong>${amt}</strong></p>`;
+        // 4. Odświeżamy wykres, jeśli użytkownik patrzy na tę spółkę
+        if (chart && market[currentCompanyId] && market[currentCompanyId].history.length > 0) {
+             chart.updateSeries([{ data: market[currentCompanyId].history }]);
         }
-    });
-    dom.modalSharesList.innerHTML = sharesHtml || "<p>Brak akcji</p>";
-    
-    if(!modalPortfolioChart) modalPortfolioChart = new ApexCharts(dom.modalPortfolioChartContainer, { series: s, labels: l, chart: { type: 'donut', height: 250 }, theme: { mode: document.body.getAttribute('data-theme')==='light'?'light':'dark' }});
-    else modalPortfolioChart.updateOptions({ series: s, labels: l });
-    modalPortfolioChart.render();
-    
-    if(uid === currentUserId) {
-        dom.prestigeInfo.style.display = 'flex'; dom.prestigeButton.style.display = 'block';
-        updatePrestigeButton(d.totalValue, d.prestigeLevel||0);
-    } else {
-        dom.prestigeInfo.style.display = 'none'; dom.prestigeButton.style.display = 'none';
+
+        const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
+        if (currentUserId && !chartHasStarted && chartDataReady) {
+            if (!chart) initChart();
+            chartHasStarted = true;
+        }
     }
-    dom.modalOverlay.classList.remove("hidden");
-};
-function updatePrestigeButton(val, lvl) {
-    if(lvl >= PRESTIGE_REQUIREMENTS.length) {
-        dom.prestigeButton.textContent = "Max Poziom"; dom.prestigeButton.disabled = true;
-    } else {
-        const req = PRESTIGE_REQUIREMENTS[lvl];
-        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(req)}`;
-        dom.prestigeButton.textContent = val >= req ? `Awansuj na poziom ${lvl+1}` : `Brakuje ${formatujWalute(req-val)}`;
-        dom.prestigeButton.disabled = val < req;
-    }
-}
-async function onPrestigeReset() {
-    if(!confirm("Resetujesz portfel do 1000 zł w zamian za prestiż. Kontynuować?")) return;
-    try {
-        await runTransaction(db, async t => {
-            const ref = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(ref)).data();
-            t.update(ref, { cash: 1000, shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,bartcoin:0,igirium:0}, startValue: 1000, zysk: 0, totalValue: 1000, prestigeLevel: (d.prestigeLevel||0)+1 });
-        });
-        showMessage("Awans prestiżu!", "success"); dom.modalOverlay.classList.add("hidden");
-    } catch(e) { showMessage(e.message, "error"); }
-}
-async function onBuyTip() {
-    const cost = TIP_COSTS[portfolio.prestigeLevel];
-    if(portfolio.cash < cost) return showMessage("Brak środków", "error");
-    if(!confirm("Kupić wskazówkę?")) return;
-    const isReal = Math.random() < 0.65;
-    const cid = COMPANY_ORDER[Math.floor(Math.random()*COMPANY_ORDER.length)];
-    const isPos = Math.random() > 0.5;
-    try {
-        await runTransaction(db, async t => {
-            const ref = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(ref)).data();
-            t.update(ref, { cash: d.cash-cost, 'stats.tipsPurchased': increment(1) });
-            if(isReal) t.set(doc(collection(db, "pending_tips")), { userId: currentUserId, companyId: cid, impactType: isPos?'positive':'negative', executeAt: Timestamp.fromMillis(Date.now()+Math.random()*600000) });
-        });
-        showNotification(`[${isReal?'PRAWDZIWE INFO':'FAŁSZYWKA'}] ${market[cid].name} może ${isPos?'wzrosnąć':'spaść'}...`, 'tip');
-    } catch(e) { showMessage("Błąd", "error"); }
-}
-function onSelectOrderTab(e) {
-    const t = e.target.dataset.orderType;
-    dom.orderTabMarket.classList.toggle("active", t === 'market');
-    dom.orderTabLimit.classList.toggle("active", t === 'limit');
-    dom.orderMarketContainer.classList.toggle("active", t === 'market');
-    dom.orderLimitContainer.classList.toggle("active", t === 'limit');
-}
-function onSelectHistoryTab(e) {
-    const t = e.target.dataset.tab;
-    dom.historyTabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === t));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${t}`));
-}
-// --- KONIEC PLIKU ---
+});
+
+// --- START APLIKACJI ---
+document.addEventListener("DOMContentLoaded", () => {
+    const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
+    document.body.setAttribute('data-theme', savedTheme);
+
+    dom = {
+        authContainer: document.getElementById("auth-container"),
+        simulatorContainer: document.getElementById("simulator-container"),
+        loginForm: document.getElementById("login-form"),
+        registerForm: document.getElementById("register-form"),
+        authMessage: document.getElementById("auth-message"),
+        resetPasswordLink: document.getElementById("reset-password-link"),
+        showRegisterLink: document.getElementById("show-register-link"),
+        showLoginLink: document.getElementById("show-login-link"),
+        username: document.getElementById("username"),
+        logoutButton: document.getElementById("logout-button"),
+        themeSelect: document.getElementById("theme-select"),
+        tickerContent: document.getElementById("ticker-content"),
+        marketTypeTabs: document.querySelectorAll(".market-type-tab"),
+        companySelector: document.getElementById("company-selector"),
+        cryptoSelector: document.getElementById("crypto-selector"),
+        companyName: document.getElementById("company-name"),
+        stockPrice: document.getElementById("stock-price"),
+        chartContainer: document.getElementById("chart-container"),
+        cash: document.getElementById("cash"),
+        totalValue: document.getElementById("total-value"),
+        totalProfit: document.getElementById("total-profit"),
+        sharesList: document.getElementById("shares-list"),
+        portfolioChartContainer: document.getElementById("portfolio-chart-container"),
+        orderPanel: document.getElementById("order-panel"),
+        orderTabMarket: document.querySelector('.order-tab-btn[data-order-type="market"]'),
+        orderTabLimit: document.querySelector('.order-tab-btn[data-order-type="limit"]'),
+        orderMarketContainer: document.getElementById("order-market-container"),
+        orderLimitContainer: document.getElementById("order-limit-container"),
+        amountInput: document.getElementById("amount-input"),
+        buyButton: document.getElementById("buy-button"),
+        sellButton: document.getElementById("sell-button"),
+        buyMaxButton: document.getElementById("buy-max-button"), 
+        sellMaxButton: document.getElementById("sell-max-button"), 
+        messageBox: document.getElementById("message-box"),
+        cryptoGateMessage: document.querySelector(".crypto-gate-message"),
+        limitOrderForm: document.getElementById("limit-order-form"),
+        limitType: document.getElementById("limit-type"),
+        limitAmount: document.getElementById("limit-amount"),
+        limitPrice: document.getElementById("limit-price"),
+        limitOrdersFeed: document.getElementById("limit-orders-feed"),
+        rumorForm: document.getElementById("rumor-form"),
+        rumorInput: document.getElementById("rumor-input"),
+        rumorsFeed: document.getElementById("rumors-feed"),
+        buyTipButton: document.getElementById("buy-tip-button"), 
+        tipCost: document.getElementById("tip-cost"), 
+        newsFeed: document.getElementById("news-feed"), 
+        leaderboardList: document.getElementById("leaderboard-list"),
+        chatForm: document.getElementById("chat-form"),
+        chatInput: document.getElementById("chat-input"),
+        chatFeed: document.getElementById("chat-feed"),
+        historyTabButtons: document.querySelectorAll("#history-tabs-panel .tab-btn"),
+        globalHistoryFeed: document.getElementById("global-history-feed"),
+        personalHistoryFeed: document.getElementById("personal-history-feed"),
+        bondsForm: document.getElementById("bonds-form"),
+        bondAmount: document.getElementById("bond-amount"),
+        bondType: document.getElementById("bond-type"),
+        activeBondsFeed: document.getElementById("active-bonds-feed"),
+        matchInfo: document.getElementById("match-info"),
+        bettingForm: document.getElementById("betting-form"),
+        betAmount: document.getElementById("bet-amount"),
+        betTeamSelect: document.getElementById("bet-team"),
+        placeBetButton: document.getElementById("place-bet-button"),
+        activeBetsFeed: document.getElementById("active-bets-feed"),
+        modalOverlay: document.getElementById("user-profile-modal"),
+        modalCloseButton: document.getElementById("modal-close-button"),
+        modalUsername: document.getElementById("modal-username"),
+        modalTotalValue: document.getElementById("modal-total-value"),
+        modalTotalProfit: document.getElementById("modal-total-profit"),
+        modalCash: document.getElementById("modal-cash"),
+        modalJoinDate: document.getElementById("modal-join-date"),
+        modalSharesList: document.getElementById("modal-shares-list"),
+        modalPortfolioChartContainer: document.getElementById("modal-portfolio-chart-container"),
+        modalPrestigeLevel: document.getElementById("modal-prestige-level"), 
+        modalTotalTrades: document.getElementById("modal-total-trades"),
+        modalTipsPurchased: document.getElementById("modal-tips-purchased"),
+        modalBondsPurchased: document.getElementById("modal-bonds-purchased"),
+        prestigeInfo: document.getElementById("prestige-info"), 
+        prestigeNextGoal: document.getElementById("prestige-next-goal"), 
+        prestigeButton: document.getElementById("prestige-button"), 
+        audioKaching: document.getElementById("audio-kaching"),
+        audioError: document.getElementById("audio-error"),
+        audioNews: document.getElementById("audio-news"),
+        notificationContainer: document.getElementById("notification-container")
+    };
+
+    if(dom.themeSelect) dom.themeSelect.value = savedTheme;
+
+    // Listenery
+    dom.registerForm.addEventListener("submit", onRegister);
+    dom.loginForm.addEventListener("submit", onLogin);
+    dom.logoutButton.addEventListener("click", onLogout);
+    dom.marketTypeTabs.forEach(tab => tab.addEventListener("click", onSelectMarketType));
+    dom.companySelector.addEventListener("click", onSelectCompany);
+    dom.cryptoSelector.addEventListener("click", onSelectCompany);
+    dom.buyButton.addEventListener("click", buyShares);
+    dom.sellButton.addEventListener("click", sellShares);
+    dom.buyMaxButton.addEventListener("click", onBuyMax); 
+    dom.sellMaxButton.addEventListener("click", onSellMax); 
+    dom.rumorForm.addEventListener("submit", onPostRumor);
+    dom.chatForm.addEventListener("submit", onSendMessage);
+    dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
+    dom.bondsForm.addEventListener("submit", onBuyBond); 
+    dom.bettingForm.addEventListener("submit", onPlaceBet);
+    dom.resetPasswordLink.addEventListener("click", onResetPassword);
+    dom.themeSelect.addEventListener("change", onChangeTheme);
+    dom.buyTipButton.addEventListener("click", onBuyTip);
+    dom.prestigeButton.addEventListener("click", onPrestigeReset);
+    dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
+    dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
+    dom.historyTabButtons.forEach(btn => btn.addEventListener("click", onSelectHistoryTab));
+    dom.modalCloseButton.addEventListener("click", () => dom.modalOverlay.classList.add("hidden"));
+    dom.modalOverlay.addEventListener("click", (e) => { if (e.target === dom.modalOverlay) dom.modalOverlay.classList.add("hidden"); });
+    dom.showRegisterLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.add("show-register"); showAuthMessage(""); });
+    dom.showLoginLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.remove("show-register"); showAuthMessage(""); });
+    
+    // --- NAPRAWA SPLASH SCREENA ---
+    // Ukryj splash screen zaraz po załadowaniu DOM, aby odsłonić logowanie
+    setTimeout(() => {
+        const splash = document.getElementById("splash-screen");
+        if (splash) {
+            splash.classList.add("fade-out");
+            // Całkowite usunięcie z widoku po animacji
+            setTimeout(() => splash.style.display = 'none', 1000);
+        }
+    }, 1000);
+
+    startAuthListener();
+});
