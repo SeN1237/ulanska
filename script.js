@@ -26,6 +26,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- SEKCJA 1: ZMIENNE GLOBALNE ---
+let dom = {};
+
 let market = {
     ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [], type: 'stock' },
     brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [], type: 'stock' },
@@ -75,13 +77,10 @@ let currentBetSelection = null;
 // Unsubscribes
 let unsubscribePortfolio, unsubscribeRumors, unsubscribeNews, unsubscribeLeaderboard, unsubscribeChat, unsubscribeGlobalHistory, unsubscribePersonalHistory, unsubscribeLimitOrders, unsubscribeBonds, unsubscribeMatch, unsubscribeActiveBets;
 
-let dom = {};
-
 // ====================================================================
-// SEKCJA 2: FUNKCJE POMOCNICZE I DEFINICJE (PRZED UŻYCIEM!)
+// SEKCJA 2: FUNKCJE POMOCNICZE I UI
 // ====================================================================
 
-// --- UI HELPERS ---
 function formatujWalute(liczba) {
     if (typeof liczba !== 'number') liczba = 0;
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', minimumFractionDigits: 2 }).format(liczba);
@@ -146,63 +145,137 @@ function unlockAudio() {
     } catch (e) {}
 }
 
-// --- CORE LOGIC: PORTFOLIO ---
-function updatePortfolioUI() {
-    if (!dom || !dom.username) return;
-    const stars = getPrestigeStars(portfolio.prestigeLevel);
-    dom.username.innerHTML = `${portfolio.name} ${stars}`;
-    dom.tipCost.textContent = formatujWalute(TIP_COSTS[portfolio.prestigeLevel]);
-    dom.buyTipButton.disabled = portfolio.cash < TIP_COSTS[portfolio.prestigeLevel];
-    dom.cash.textContent = formatujWalute(portfolio.cash);
-    
-    let html = "";
-    COMPANY_ORDER.forEach(cid => html += `<p>${market[cid] ? market[cid].name : cid}: <strong id="shares-${cid}">${portfolio.shares[cid]||0}</strong> szt.</p>`);
-    dom.sharesList.innerHTML = html;
+// ====================================================================
+// SEKCJA 3: LOGIKA GIEŁDY I WYKRESÓW (LIVE UPDATES)
+// ====================================================================
 
-    let sharesValue = 0;
-    const series = [portfolio.cash]; const labels = ['Gotówka'];
-    COMPANY_ORDER.forEach(cid => {
-        const val = (portfolio.shares[cid] || 0) * (market[cid] ? market[cid].price : 0);
-        if(val > 0) { sharesValue += val; series.push(val); labels.push(market[cid].name); }
-    });
+// Funkcja startowa: generuje sztuczną historię, żeby wykres nie był pusty
+function generateInitialCandles(count, basePrice) {
+    let data = []; let lastClose = basePrice || 1;
+    let timestamp = new Date().getTime() - (count * 60000); // 1 minuta odstępu
+    for (let i = 0; i < count; i++) {
+        let open = lastClose;
+        let close = open + (Math.random() - 0.5) * (basePrice * 0.02);
+        let high = Math.max(open, close) + Math.random() * (basePrice * 0.01);
+        let low = Math.min(open, close) - Math.random() * (basePrice * 0.01);
+        
+        open = Math.max(0.1, open); high = Math.max(0.1, high); 
+        low = Math.max(0.1, low); close = Math.max(0.1, close);
 
-    const total = portfolio.cash + sharesValue;
-    const profit = total - portfolio.startValue;
-    if (!portfolioChart) initPortfolioChart();
-    portfolioChart.updateOptions({ series: series, labels: labels });
-
-    dom.totalValue.textContent = formatujWalute(total);
-    dom.totalProfit.textContent = formatujWalute(profit);
-    dom.totalProfit.style.color = profit >= 0 ? "var(--green)" : "var(--red)";
-    if (dom.modalOverlay && !dom.modalOverlay.classList.contains("hidden")) updatePrestigeButton(total, portfolio.prestigeLevel);
+        data.push({
+            x: new Date(timestamp),
+            y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
+        });
+        lastClose = close; timestamp += 60000;
+    }
+    return data;
 }
 
-function listenToPortfolioData(userId) {
-    unsubscribePortfolio = onSnapshot(doc(db, "uzytkownicy", userId), (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            portfolio.name = data.name;
-            portfolio.cash = data.cash;
-            portfolio.shares = data.shares || portfolio.shares;
-            portfolio.stats = data.stats || portfolio.stats;
-            portfolio.startValue = data.startValue;
-            portfolio.prestigeLevel = data.prestigeLevel || 0; 
-            updatePortfolioUI();
-            checkCryptoAccess();
+// --- KLUCZOWA FUNKCJA DLA WYKRESÓW ---
+// Dodaje nową cenę do historii wykresu
+function updateMarketHistory(cid, price) {
+    const hist = market[cid].history;
+    if (!hist || hist.length === 0) return;
+
+    const lastCandle = hist[hist.length - 1];
+    const lastTime = new Date(lastCandle.x).getTime();
+    const now = Date.now();
+
+    // Jeśli minęło więcej niż 60 sekund, robimy nową świecę
+    if (now - lastTime > 60000) {
+        const newCandle = {
+            x: new Date(now),
+            y: [price.toFixed(2), price.toFixed(2), price.toFixed(2), price.toFixed(2)]
+        };
+        hist.push(newCandle);
+        if (hist.length > 100) hist.shift(); // Trzymamy max 100 świec
+    } else {
+        // Aktualizujemy obecną świecę (High/Low/Close)
+        let high = Math.max(parseFloat(lastCandle.y[1]), price);
+        let low = Math.min(parseFloat(lastCandle.y[2]), price);
+        
+        lastCandle.y[1] = high.toFixed(2);
+        lastCandle.y[2] = low.toFixed(2);
+        lastCandle.y[3] = price.toFixed(2);
+    }
+}
+
+// Nasłuchiwanie cen z Firebase
+const cenyDocRef = doc(db, "global", "ceny_akcji");
+onSnapshot(cenyDocRef, (docSnap) => {
+    if (docSnap.exists()) {
+        const aktualneCeny = docSnap.data();
+        
+        for (const companyId in market) {
+            if (aktualneCeny[companyId] !== undefined) {
+                const newPrice = aktualneCeny[companyId];
+                
+                market[companyId].previousPrice = market[companyId].price;
+                market[companyId].price = newPrice;
+                
+                // 1. Generuj historię jeśli pusta
+                if (market[companyId].history.length === 0) {
+                     market[companyId].history = generateInitialCandles(30, newPrice);
+                } else {
+                // 2. Aktualizuj wykres na żywo
+                     updateMarketHistory(companyId, newPrice);
+                }
+            }
         }
+        
+        updatePriceUI(); 
+        updatePortfolioUI(); 
+        updateTickerTape(); 
+
+        // 3. Wymuś odświeżenie wykresu ApexCharts
+        if (chart && market[currentCompanyId] && market[currentCompanyId].history.length > 0) {
+             chart.updateSeries([{ data: market[currentCompanyId].history }]);
+        }
+
+        const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
+        if (currentUserId && !chartHasStarted && chartDataReady) {
+            if (!chart) initChart();
+            chartHasStarted = true;
+        }
+    }
+});
+
+// --- WYKRESY (INIT) ---
+function initChart() {
+    chart = new ApexCharts(dom.chartContainer, {
+        series: [{ data: market[currentCompanyId].history }],
+        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false} },
+        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+        xaxis: { type: 'datetime' },
+        yaxis: { labels: { formatter: v => v.toFixed(2) } },
+        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
     });
+    chart.render();
+}
+
+function initPortfolioChart() {
+    portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
+        series: [portfolio.cash], labels: ['Gotówka'],
+        chart: { type: 'donut', height: 300 }, colors: CHART_COLORS,
+        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+        legend: { position: 'bottom' }, dataLabels: { enabled: false }
+    });
+    portfolioChart.render();
 }
 
 function updatePriceUI() {
     if (!dom || !dom.stockPrice) return;
     const company = market[currentCompanyId];
     if (!company) return;
+    
     const oldPriceText = dom.stockPrice.textContent.replace(/\s*zł/g, '').replace(',', '.').replace(/\s/g, '');
     const oldPrice = parseFloat(oldPriceText);
     dom.stockPrice.textContent = formatujWalute(company.price);
+    
     const isCrypto = company.type === 'crypto';
     const greenClass = isCrypto ? 'flash-accent' : 'flash-green';
     const redClass = 'flash-red';
+
     if (!isNaN(oldPrice) && company.price > oldPrice) {
         dom.stockPrice.classList.remove(redClass, greenClass); dom.stockPrice.classList.add(greenClass); 
     } else if (!isNaN(oldPrice) && company.price < oldPrice) {
@@ -231,71 +304,71 @@ function updateTickerTape() {
     dom.tickerContent.innerHTML = tickerHTML + tickerHTML;
 }
 
-// --- CHARTS ---
-function generateInitialCandles(count, basePrice) {
-    let data = []; let lastClose = basePrice || 1;
-    let timestamp = new Date().getTime() - (count * 60000);
-    for (let i = 0; i < count; i++) {
-        let open = lastClose;
-        let close = open + (Math.random() - 0.5) * (basePrice * 0.02);
-        let high = Math.max(open, close) + Math.random() * (basePrice * 0.01);
-        let low = Math.min(open, close) - Math.random() * (basePrice * 0.01);
-        open = Math.max(0.1, open); high = Math.max(0.1, high); 
-        low = Math.max(0.1, low); close = Math.max(0.1, close);
-        data.push({ x: new Date(timestamp), y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)] });
-        lastClose = close; timestamp += 60000;
-    }
-    return data;
-}
+// ====================================================================
+// SEKCJA 4: RANKING (NOWA WERSJA - TABELA)
+// ====================================================================
 
-function updateMarketHistory(cid, price) {
-    const hist = market[cid].history;
-    if (!hist || hist.length === 0) return;
-    const lastCandle = hist[hist.length - 1];
-    const lastTime = new Date(lastCandle.x).getTime();
-    const now = Date.now();
-
-    if (now - lastTime > 60000) {
-        const newCandle = { x: new Date(now), y: [price.toFixed(2), price.toFixed(2), price.toFixed(2), price.toFixed(2)] };
-        hist.push(newCandle);
-        if (hist.length > 100) hist.shift();
-    } else {
-        let high = Math.max(parseFloat(lastCandle.y[1]), price);
-        let low = Math.min(parseFloat(lastCandle.y[2]), price);
-        lastCandle.y[1] = high.toFixed(2);
-        lastCandle.y[2] = low.toFixed(2);
-        lastCandle.y[3] = price.toFixed(2);
-    }
-}
-
-function initChart() {
-    chart = new ApexCharts(dom.chartContainer, {
-        series: [{ data: market[currentCompanyId].history }],
-        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false} },
-        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
-        xaxis: { type: 'datetime' },
-        yaxis: { labels: { formatter: v => v.toFixed(2) } },
-        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
+function listenToLeaderboard() {
+    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
+        if(!dom.leaderboardList) return;
+        
+        // Czyścimy kontener
+        dom.leaderboardList.innerHTML = "";
+        
+        // Tworzymy tabelę zamiast listy
+        const table = document.createElement("table");
+        table.className = "leaderboard-table";
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th class="rank-col">#</th>
+                    <th class="user-col">Gracz</th>
+                    <th class="val-col">Majątek</th>
+                    <th class="profit-col">Zysk</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+        
+        const tbody = table.querySelector("tbody");
+        let rank = 1;
+        
+        snap.forEach(doc => {
+            const u = doc.data();
+            const profit = (u.totalValue || 0) - (u.startValue || 1000);
+            const profitClass = profit >= 0 ? 'ticker-up' : 'ticker-down'; // Używamy gotowych kolorów
+            const profitSign = profit >= 0 ? '+' : '';
+            
+            const tr = document.createElement("tr");
+            if (doc.id === currentUserId) tr.classList.add("highlight-me");
+            
+            tr.innerHTML = `
+                <td class="rank-col">${rank}</td>
+                <td class="user-col">
+                    <span class="user-link" onclick="window.showUserProfile('${doc.id}')">${u.name}</span>
+                    ${getPrestigeStars(u.prestigeLevel)}
+                </td>
+                <td class="val-col">${formatujWalute(u.totalValue)}</td>
+                <td class="profit-col ${profitClass}">${profitSign}${formatujWalute(profit)}</td>
+            `;
+            tbody.appendChild(tr);
+            rank++;
+        });
+        
+        dom.leaderboardList.appendChild(table);
     });
-    chart.render();
-}
-function initPortfolioChart() {
-    portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
-        series: [portfolio.cash], labels: ['Gotówka'],
-        chart: { type: 'donut', height: 300 }, colors: CHART_COLORS,
-        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
-        legend: { position: 'bottom' }, dataLabels: { enabled: false }
-    });
-    portfolioChart.render();
 }
 
-// --- ZAKŁADY ---
+// ====================================================================
+// SEKCJA 5: ZAKŁADY I INNE FUNKCJE
+// ====================================================================
+
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
 
     if (!matchesCache || matchesCache.length === 0) {
-        dom.matchInfo.innerHTML = "<p>Brak meczy.</p>";
+        dom.matchInfo.innerHTML = "<p>Brak zaplanowanych meczów.</p>";
         return;
     }
 
@@ -312,6 +385,7 @@ function renderBettingPanel() {
 
     const navContainer = document.createElement("div");
     navContainer.className = "betting-days-nav";
+
     sortedDays.forEach(dayKey => {
         const btn = document.createElement("button");
         btn.className = "day-tab-btn";
@@ -435,7 +509,7 @@ function listenToActiveBets(userId) {
     });
 }
 
-// --- INNE FUNKCJE ---
+// --- HANDEL & PORTFOLIO ---
 function calculateTotalValue(cash, shares) {
     let val = cash;
     for(let cid in shares) if(market[cid]) val += shares[cid] * market[cid].price;
@@ -504,6 +578,53 @@ async function tradeShares(isBuy) {
 function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amountInput.value = Math.floor(portfolio.cash/p); }
 function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId]||0; }
 
+function updatePortfolioUI() {
+    if (!dom || !dom.username) return;
+    const stars = getPrestigeStars(portfolio.prestigeLevel);
+    dom.username.innerHTML = `${portfolio.name} ${stars}`;
+    dom.tipCost.textContent = formatujWalute(TIP_COSTS[portfolio.prestigeLevel]);
+    dom.buyTipButton.disabled = portfolio.cash < TIP_COSTS[portfolio.prestigeLevel];
+    dom.cash.textContent = formatujWalute(portfolio.cash);
+    
+    let html = "";
+    COMPANY_ORDER.forEach(cid => html += `<p>${market[cid] ? market[cid].name : cid}: <strong id="shares-${cid}">${portfolio.shares[cid]||0}</strong> szt.</p>`);
+    dom.sharesList.innerHTML = html;
+
+    let sharesValue = 0;
+    const series = [portfolio.cash]; const labels = ['Gotówka'];
+    COMPANY_ORDER.forEach(cid => {
+        const val = (portfolio.shares[cid] || 0) * (market[cid] ? market[cid].price : 0);
+        if(val > 0) { sharesValue += val; series.push(val); labels.push(market[cid].name); }
+    });
+
+    const total = portfolio.cash + sharesValue;
+    const profit = total - portfolio.startValue;
+    if (!portfolioChart) initPortfolioChart();
+    portfolioChart.updateOptions({ series: series, labels: labels });
+
+    dom.totalValue.textContent = formatujWalute(total);
+    dom.totalProfit.textContent = formatujWalute(profit);
+    dom.totalProfit.style.color = profit >= 0 ? "var(--green)" : "var(--red)";
+    if (dom.modalOverlay && !dom.modalOverlay.classList.contains("hidden")) updatePrestigeButton(total, portfolio.prestigeLevel);
+}
+
+function listenToPortfolioData(userId) {
+    unsubscribePortfolio = onSnapshot(doc(db, "uzytkownicy", userId), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            portfolio.name = data.name;
+            portfolio.cash = data.cash;
+            portfolio.shares = data.shares || portfolio.shares;
+            portfolio.stats = data.stats || portfolio.stats;
+            portfolio.startValue = data.startValue;
+            portfolio.prestigeLevel = data.prestigeLevel || 0; 
+            updatePortfolioUI();
+            checkCryptoAccess();
+        }
+    });
+}
+
+// --- LISTENERY INNE ---
 function listenToRumors() {
     unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
         dom.rumorsFeed.innerHTML = "";
@@ -542,17 +663,7 @@ async function onSendMessage(e) {
     dom.chatInput.value = "";
     setTimeout(() => isChatCooldown = false, 15000);
 }
-function listenToLeaderboard() {
-    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
-        dom.leaderboardList.innerHTML = "";
-        let r=1;
-        snap.forEach(d => {
-            const u = d.data();
-            dom.leaderboardList.innerHTML += `<li class="${d.id===currentUserId?'highlight-me':''}"><span>${r}. ${u.name} ${getPrestigeStars(u.prestigeLevel)}<small>Zysk: ${formatujWalute(u.totalValue-u.startValue)}</small></span><strong>${formatujWalute(u.totalValue)}</strong></li>`;
-            r++;
-        });
-    });
-}
+
 function listenToMarketNews() {
     unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5)), snap => {
         snap.docChanges().forEach(c => { if(c.type==='added') {
@@ -566,14 +677,6 @@ function listenToMarketNews() {
 function listenToGlobalHistory() { unsubscribeGlobalHistory = onSnapshot(query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15)), snap => { dom.globalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.globalHistoryFeed, d.data(), true)); }); }
 function listenToPersonalHistory(uid) { unsubscribePersonalHistory = onSnapshot(query(collection(db, "historia_transakcji"), where("userId","==",uid), orderBy("timestamp", "desc"), limit(15)), snap => { dom.personalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.personalHistoryFeed, d.data(), false)); }); }
 
-function displayHistoryItem(feed, item, isGlobal) {
-    const p = document.createElement("p");
-    const userPart = isGlobal ? `<span class="h-user clickable-user" onclick="showUserProfile('${item.userId}')">${item.userName}${getPrestigeStars(item.prestigeLevel)}</span> ` : "";
-    let typeCls = item.type==="KUPNO"?"h-action-buy":(item.type==="SPRZEDAŻ"?"h-action-sell":"h-total");
-    if(item.type.includes("Krypto")) typeCls = item.type.includes("KUPNO") ? "l-type-buy-crypto" : "l-type-sell-crypto";
-    p.innerHTML = `${userPart}<span class="${typeCls}">${item.type}</span> <span class="h-details">${item.companyName}</span> <span class="h-total">${formatujWalute(item.totalValue)}</span>`;
-    feed.prepend(p);
-}
 async function onPlaceLimitOrder(e) {
     e.preventDefault();
     if (!currentUserId) return;
@@ -619,27 +722,22 @@ async function onBuyBond(e) {
     if(amt <= 0 || amt > portfolio.cash) return showMessage("Błędna kwota", "error");
     const days = type==="1"?1:(type==="2"?2:3);
     const rate = type==="1"?0.05:(type==="2"?0.10:0.15);
-    const profit = amt * rate;
     try {
         await runTransaction(db, async t => {
-            const uRef = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(uRef)).data();
-            if(d.cash < amt) throw new Error("Brak środków");
-            t.update(uRef, { cash: d.cash - amt, totalValue: calculateTotalValue(d.cash-amt, d.shares), 'stats.bondsPurchased': increment(1) });
-            const bondRef = doc(collection(db, "active_bonds"));
-            t.set(bondRef, { userId: currentUserId, name: `Obligacja ${days}d (${rate*100}%)`, investment: amt, profit, redeemAt: Timestamp.fromMillis(Date.now()+(days*86400000)), status: "pending", createdAt: serverTimestamp() });
+            const ref = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(ref)).data();
+            t.update(ref, { cash: d.cash-amt, 'stats.bondsPurchased': increment(1) });
+            t.set(doc(collection(db, "active_bonds")), { userId: currentUserId, name: `Obligacja ${days}d`, investment: amt, profit: amt*rate, redeemAt: Timestamp.fromMillis(Date.now()+days*86400000), status: "pending", createdAt: serverTimestamp() });
         });
-        await addDoc(collection(db, "historia_transakcji"), { userId: currentUserId, userName: portfolio.name, type: "OBLIGACJA (ZAKUP)", companyName: `Obligacja ${days}d`, amount:0, pricePerShare:0, totalValue:-amt, timestamp: serverTimestamp(), status:"executed" });
-        showMessage("Kupiono obligację!", "success");
-    } catch(e) { showMessage(e.message, "error"); }
+        showMessage("Kupiono obligację", "success");
+    } catch(e) { showMessage("Błąd", "error"); }
 }
 function listenToActiveBonds(userId) {
     unsubscribeBonds = onSnapshot(query(collection(db, "active_bonds"), where("userId", "==", userId), orderBy("createdAt", "desc")), snap => {
-        dom.activeBondsFeed.innerHTML = snap.empty ? "<p>Brak obligacji.</p>" : "";
+        dom.activeBondsFeed.innerHTML = "";
         snap.forEach(d => {
             const b = d.data();
-            const st = b.status==='pending' ? `Oczekuje do ${b.redeemAt.toDate().toLocaleString()}` : 'Wykupiona';
-            dom.activeBondsFeed.innerHTML += `<p><strong>${b.name}</strong>: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} <br><small>${st}</small></p>`;
+            dom.activeBondsFeed.innerHTML += `<p>${b.name}: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} (${b.status})</p>`;
         });
     });
 }
@@ -732,7 +830,7 @@ function updatePrestigeButton(val, lvl) {
     }
 }
 
-// --- AUTH HELPERS ---
+// --- START APP ---
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
         if (user) {
@@ -760,6 +858,7 @@ function startAuthListener() {
         }
     });
 }
+
 async function onRegister(e) {
     e.preventDefault();
     const name = dom.registerForm.querySelector("#register-name").value;
@@ -787,7 +886,6 @@ async function onResetPassword(e) {
     try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
 }
 
-// --- DOM CONTENT LOADED (NA SAMYM KOŃCU) ---
 document.addEventListener("DOMContentLoaded", () => {
     const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
@@ -880,7 +978,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if(dom.themeSelect) dom.themeSelect.value = savedTheme;
 
-    // Listenery
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
@@ -908,7 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.showRegisterLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.add("show-register"); showAuthMessage(""); });
     dom.showLoginLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.remove("show-register"); showAuthMessage(""); });
 
-    // --- FIX SPLASH SCREEN ---
+    // FIX SPLASH SCREEN
     setTimeout(() => {
         const splash = document.getElementById("splash-screen");
         if (splash) {
@@ -919,3 +1016,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
     startAuthListener();
 });
+// --- KONIEC PLIKU ---
