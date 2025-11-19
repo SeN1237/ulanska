@@ -78,7 +78,7 @@ let unsubscribePortfolio, unsubscribeRumors, unsubscribeNews, unsubscribeLeaderb
 let dom = {};
 
 // =============================================================
-// === SEKCJA 2: DEFINICJE FUNKCJI (NAJPIERW FUNKCJE!) ===
+// === SEKCJA 2: DEFINICJE FUNKCJI (WSZYSTKIE FUNKCJE!) ===
 // =============================================================
 
 // --- AUTH HELPERS ---
@@ -544,6 +544,7 @@ async function onPostRumor(e) {
     await addDoc(collection(db, "plotki"), { text: txt, authorId: currentUserId, authorName: portfolio.name, prestigeLevel: portfolio.prestigeLevel, timestamp: new Date(), companyId: cid, sentiment: sent, impact: (Math.random()*0.04+0.01)*(sent==='positive'?1:-1) });
     dom.rumorInput.value = "";
 }
+
 function listenToChat() {
     unsubscribeChat = onSnapshot(query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30)), snap => {
         dom.chatFeed.innerHTML = "";
@@ -564,6 +565,7 @@ async function onSendMessage(e) {
     dom.chatInput.value = "";
     setTimeout(() => isChatCooldown = false, 15000);
 }
+
 function listenToLeaderboard() {
     unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
         dom.leaderboardList.innerHTML = "";
@@ -587,6 +589,15 @@ function listenToMarketNews() {
 }
 function listenToGlobalHistory() { unsubscribeGlobalHistory = onSnapshot(query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15)), snap => { dom.globalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.globalHistoryFeed, d.data(), true)); }); }
 function listenToPersonalHistory(uid) { unsubscribePersonalHistory = onSnapshot(query(collection(db, "historia_transakcji"), where("userId","==",uid), orderBy("timestamp", "desc"), limit(15)), snap => { dom.personalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.personalHistoryFeed, d.data(), false)); }); }
+
+function displayHistoryItem(feed, item, isGlobal) {
+    const p = document.createElement("p");
+    const userPart = isGlobal ? `<span class="h-user clickable-user" onclick="showUserProfile('${item.userId}')">${item.userName}${getPrestigeStars(item.prestigeLevel)}</span> ` : "";
+    let typeCls = item.type==="KUPNO"?"h-action-buy":(item.type==="SPRZEDAŻ"?"h-action-sell":"h-total");
+    if(item.type.includes("Krypto")) typeCls = item.type.includes("KUPNO") ? "l-type-buy-crypto" : "l-type-sell-crypto";
+    p.innerHTML = `${userPart}<span class="${typeCls}">${item.type}</span> <span class="h-details">${item.companyName}</span> <span class="h-total">${formatujWalute(item.totalValue)}</span>`;
+    feed.prepend(p);
+}
 
 function asyncLimitOrder(e) { /* ... */ } // Placeholder for brevity, assuming standard logic
 async function onPlaceLimitOrder(e) {
@@ -673,6 +684,156 @@ function onSelectHistoryTab(e) {
     const t = e.target.dataset.tab;
     dom.historyTabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === t));
     document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${t}`));
+}
+
+// =========================================================
+// === SEKCJA: BRAKUJĄCE FUNKCJE (NAPRAWIONY BŁĄD) ===
+// =========================================================
+
+// Generuje dane wskazówki (używane przez onBuyTip)
+function generateTipData() {
+    const isReal = Math.random() < 0.65; // 65% szans
+    const isPositive = Math.random() > 0.5;
+    const cid = COMPANY_ORDER[Math.floor(Math.random()*COMPANY_ORDER.length)];
+    const companyName = market[cid].name;
+
+    let message = "";
+    let executeAt = null;
+
+    if (isReal) {
+        const randomMs = Math.floor(Math.random() * (600000 - 120000 + 1)) + 120000; // 2-10 min
+        executeAt = Timestamp.fromMillis(Date.now() + randomMs);
+        message = isPositive ? `[PRAWDZIWE INFO]: Słyszałem, że ${companyName} ma niedługo wystrzelić...` : `[PRAWDZIWE INFO]: Lepiej pozbądź się ${companyName}, nadchodzą kłopoty.`;
+    } else {
+        const falsePositive = Math.random() > 0.5;
+        message = falsePositive ? `[FAŁSZYWKA]: Kumpel mówił, że ${companyName} to pewniak na wzrost. (Czy na pewno?)` : `[FAŁSZYWKA]: Podobno ${companyName} ma zaraz zbankrutować... (Lepiej to sprawdź).`;
+    }
+
+    return {
+        isReal: isReal,
+        companyId: cid,
+        impactType: isPositive ? 'positive' : 'negative',
+        message: message,
+        executeAt: executeAt
+    };
+}
+
+// Kupowanie wskazówki (naprawione)
+async function onBuyTip() {
+    const currentCost = TIP_COSTS[portfolio.prestigeLevel];
+    
+    if (portfolio.cash < currentCost) {
+        showMessage(`Nie masz wystarczającej gotówki. Wskazówka kosztuje ${formatujWalute(currentCost)}`, "error");
+        return;
+    }
+    
+    if (!confirm(`Czy na pewno chcesz wydać ${formatujWalute(currentCost)} na wskazówkę? Masz 65% szans, że będzie prawdziwa.`)) {
+        return;
+    }
+
+    const tipData = generateTipData(); 
+
+    try {
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) throw new Error("Nie znaleziono użytkownika");
+
+            const data = userDoc.data();
+            if (data.cash < currentCost) throw new Error("Brak środków");
+
+            const newCash = data.cash - currentCost;
+            const newTotalValue = calculateTotalValue(newCash, data.shares);
+            const newZysk = newTotalValue - data.startValue;
+
+            transaction.update(userDocRef, {
+                cash: newCash,
+                totalValue: newTotalValue,
+                zysk: newZysk,
+                'stats.tipsPurchased': increment(1) 
+            });
+            
+            const tipTransactionData = {
+                userId: currentUserId,
+                userName: data.name,
+                prestigeLevel: data.prestigeLevel || 0,
+                type: "WSKAZÓWKA",
+                companyId: tipData.companyId,
+                companyName: "Zakupiono tajną wskazówkę", 
+                amount: 0,
+                pricePerShare: 0,
+                totalValue: currentCost * -1, 
+                timestamp: serverTimestamp(),
+                clearedByOwner: false,
+                status: "executed", 
+                executedPrice: 0 
+            };
+            const historyCol = collection(db, "historia_transakcji");
+            transaction.set(doc(historyCol), tipTransactionData);
+
+            if (tipData.isReal) {
+                const pendingTipRef = doc(collection(db, "pending_tips"));
+                transaction.set(pendingTipRef, {
+                    userId: currentUserId,
+                    companyId: tipData.companyId,
+                    impactType: tipData.impactType,
+                    executeAt: tipData.executeAt
+                });
+            }
+        });
+
+        showNotification(tipData.message, 'tip');
+        showMessage(`Zakupiono wskazówkę za ${formatujWalute(currentCost)}!`, "success");
+        
+    } catch (error) {
+        console.error("Błąd zakupu wskazówki: ", error);
+        showMessage("Błąd zakupu: " + error.message, "error");
+    }
+}
+
+// Reset Prestiżu (naprawione)
+async function onPrestigeReset() {
+    const currentLevel = portfolio.prestigeLevel;
+    if (currentLevel >= PRESTIGE_REQUIREMENTS.length) return; 
+
+    const nextGoal = PRESTIGE_REQUIREMENTS[currentLevel];
+    if (portfolio.totalValue < nextGoal) {
+        showMessage("Nie masz wystarczającej wartości portfela, aby awansować.", "error");
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz awansować na Poziom Prestiżu ${currentLevel + 1}? Resetuje to Twój portfel do 1000 zł!`)) {
+        return;
+    }
+
+    try {
+        const userDocRef = doc(db, "uzytkownicy", currentUserId);
+        
+        await runTransaction(db, async (transaction) => {
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) throw new Error("Nie znaleziono użytkownika!");
+
+            const data = userDoc.data();
+            const nextLevel = (data.prestigeLevel || 0) + 1;
+            
+            transaction.update(userDocRef, {
+                cash: 1000.00,
+                shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, bartcoin: 0, igirium: 0 },
+                startValue: 1000.00,
+                zysk: 0.00,
+                totalValue: 1000.00,
+                prestigeLevel: nextLevel 
+            });
+        });
+        
+        showMessage(`AWANS! Witaj na Poziomie ${currentLevel + 1}!`, "success");
+        if (dom.modalOverlay) dom.modalOverlay.classList.add("hidden");
+
+    } catch (error) {
+        console.error("Błąd resetowania prestiżu: ", error);
+        showMessage("Błąd resetu: " + error.message, "error");
+    }
 }
 
 // --- MAIN INIT ---
@@ -802,7 +963,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if(dom.themeSelect) dom.themeSelect.value = savedTheme;
 
-    // Listenery - functions are now defined above!
+    // Listenery - teraz funkcje onBuyTip i onPrestigeReset są widoczne!
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
     dom.logoutButton.addEventListener("click", onLogout);
@@ -820,8 +981,8 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.bettingForm.addEventListener("submit", onPlaceBet);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
-    dom.buyTipButton.addEventListener("click", onBuyTip);
-    dom.prestigeButton.addEventListener("click", onPrestigeReset);
+    dom.buyTipButton.addEventListener("click", onBuyTip); // <-- Teraz to zadziała
+    dom.prestigeButton.addEventListener("click", onPrestigeReset); // <-- To też
     dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
     dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
     dom.historyTabButtons.forEach(btn => btn.addEventListener("click", onSelectHistoryTab));
