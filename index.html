@@ -246,66 +246,27 @@
             <section id="betting-panel" class="panel">
                 <h2>Zakłady Bukmacherskie</h2>
                 
-                <a href="https://sport.tvp.pl/90066400/losowanie-barazy-el-ms-2026-na-zywo-transmisja-online-live-stream-20112025-gdzie-ogladac" target="_blank" style="display: inline-block; margin-top: 10px; padding: 8px 15px; background: var(--blue, #2196F3); color: white; text-decoration: none; border-radius: 4px; font-size: 0.9em; font-weight: bold;">
-                    Czy polska trafi w losowaniu baraży na Włochy? (link do trnsmisji po kliknięciu napisu)
-                </a>
-
                 <div id="match-info">
-                    <p>...ładowanie aktywnego meczu...</p>
-                    <p id="draw-odds-display" class="hidden">Kurs na Remis: <strong>...</strong></p>
+                    <p>Ładowanie oferty...</p>
                 </div>
 
                 <form id="betting-form" class="hidden">
-                    <label for="bet-amount">Kwota zakładu (zł):</label>
-                    <input type="number" id="bet-amount" placeholder="0.00" min="1" step="0.01" required>
+                    <div style="margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 4px;">
+                        <select id="bet-team" style="display: none;"></select>
+                        
+                        <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
+                        <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" required style="width: 100%; box-sizing: border-box; padding: 10px;">
+                    </div>
                     
-                    <label for="bet-team">Wybierz drużynę:</label>
-                    <select id="bet-team" required>
-                        </select>
-                    
-                    <button type="submit" id="place-bet-button" class="action-btn-full">Postaw Zakład</button>
+                    <button type="submit" id="place-bet-button" class="action-btn-full">Zatwierdź Zakład</button>
                 </form>
 
                 <hr>
-                <h3>Twoje Aktywne Zakłady</h3>
+                <h3>Twoje Aktywne Kupony</h3>
                 <div id="active-bets-feed" class="feed-box history-feed">
                     <p>...brak aktywnych zakładów...</p>
                 </div>
-
-                <hr>
-                <h3>📅 Rozkład Jazdy (Harmonogram)</h3>
-                <div class="schedule-wrapper">
-                    <table class="schedule-table">
-                        <thead>
-                            <tr>
-                                <th>Godzina</th>
-                                <th>Wydarzenie</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>środa 16:45</td>
-                                <td>Ile osób będzie na konwersatorium o 16:45?</td>
-                                
-                            </tr>
-                            <tr>
-                                <td>czwartek 13:00</td>
-                                <td>Czy polska trafi w losowaniu baraży na Włochy?</td>
-                                
-                            </tr>
-                            <tr>
-                                <td>piatek 18:00</td>
-                                <td>Bruk-bet - Arka gdynia</td>
-                                
-                            </tr>
-                            <tr>
-                                <td>sobota 20:00</td>
-                                <td>Fame mma niektóre walki</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                </section>
+            </section>
                 </div>
                 
                 
