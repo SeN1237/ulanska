@@ -558,7 +558,7 @@ async function onPlaceBet(e) {
                 betOn: currentBetSelection.team,
                 odds: currentBetSelection.odds,
                 betAmount: amount,
-                matchResolveTime: null, 
+                
                 status: "pending",
                 createdAt: serverTimestamp()
             });
@@ -860,12 +860,12 @@ function updatePrestigeButton(val, lvl) {
     }
 }
 async function onPrestigeReset() {
-    if(!confirm("Resetujesz portfel do 1000 zł w zamian za prestiż. Kontynuować?")) return;
+    if(!confirm("Resetujesz portfel do 10000 zł w zamian za prestiż. Kontynuować?")) return;
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, "uzytkownicy", currentUserId);
             const d = (await t.get(ref)).data();
-            t.update(ref, { cash: 1000, shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,bartcoin:0,igirium:0}, startValue: 1000, zysk: 0, totalValue: 1000, prestigeLevel: (d.prestigeLevel||0)+1 });
+            t.update(ref, { cash: 10000, shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,bartcoin:0,igirium:0}, startValue: 10000, zysk: 0, totalValue: 10000, prestigeLevel: (d.prestigeLevel||0)+1 });
         });
         showMessage("Awans prestiżu!", "success"); dom.modalOverlay.classList.add("hidden");
     } catch(e) { showMessage(e.message, "error"); }
