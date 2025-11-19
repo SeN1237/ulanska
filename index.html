@@ -5,64 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Przerwa Techniczna</title>
     <style>
-        /* Ustawienia ogólne strony */
         body {
-            background-color: #000000; /* Czarne tło */
+            background-color: #000000;
             margin: 0;
             padding: 0;
-            height: 100vh; /* Pełna wysokość ekranu */
-            display: flex; /* Użycie Flexboxa do wyśrodkowania */
+            height: 100vh;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
         }
 
-        /* Styl dla głównego napisu z gradientem */
+        /* --- NAGŁÓWEK (ANIMOWANY GRADIENT) --- */
         h1 {
-            font-size: 5rem; /* Duży rozmiar czcionki */
-            font-weight: 800;
+            font-size: 5rem;
+            font-weight: 900;
             text-transform: uppercase;
             margin: 0;
+            text-align: center;
+            line-height: 1.2;
             
-            /* Tworzenie gradientu zielono-niebieskiego */
-            background: linear-gradient(90deg, #00ff00 0%, #00d4ff 100%);
+            /* Gradient: Zielony -> Niebieski -> Zielony */
+            background: linear-gradient(90deg, #00ff00 0%, #00d4ff 50%, #00ff00 100%);
+            background-size: 200% auto;
             
-            /* Przycięcie tła do kształtu tekstu */
             -webkit-background-clip: text;
             background-clip: text;
+            color: transparent;
             
-            /* Ustawienie koloru tekstu na przezroczysty, aby widać było tło */
-            color: transparent; 
-            
-            text-align: center;
+            animation: shine 3s linear infinite;
         }
 
-        /* Styl dla napisu poniżej */
+        @keyframes shine {
+            to { background-position: 200% center; }
+        }
+
+        /* --- ZEGAR ODLICZAJĄCY CZAS --- */
+        #timer {
+            font-family: 'Courier New', Courier, monospace; /* Czcionka maszynowa */
+            font-size: 3rem;
+            color: #ffffff;
+            margin: 20px 0;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.7); /* Lekka poświata */
+        }
+
+        .label {
+            font-size: 1rem;
+            color: #aaaaaa;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        /* --- RUCHOMY NAPIS --- */
+        .marquee-container {
+            width: 100%;
+            margin-top: 40px;
+            overflow: hidden;
+            position: relative;
+        }
+
         p {
-            color: #ffffff; /* Biały kolor tekstu */
+            color: #ffffff;
             font-size: 2rem;
-            margin-top: 20px;
             font-weight: 300;
-            opacity: 0.8; /* Lekka przezroczystość dla subtelniejszego efektu */
+            white-space: nowrap;
+            position: relative;
+            animation: moveRight 10s linear infinite;
         }
 
-        /* Dopasowanie do telefonów */
+        @keyframes moveRight {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100vw); }
+        }
+
+        /* Responsywność */
         @media (max-width: 600px) {
-            h1 {
-                font-size: 3rem;
-                padding: 0 20px;
-            }
-            p {
-                font-size: 1.2rem;
-            }
+            h1 { font-size: 2.5rem; }
+            #timer { font-size: 2rem; }
+            p { font-size: 1.2rem; }
         }
     </style>
 </head>
 <body>
 
     <h1>PRZERWA TECHNICZNA</h1>
-    <p>Powrót około 22:00</p>
+    
+    <div class="label">Pozostały czas do 22:00</div>
+    <div id="timer">Obliczanie...</div>
+
+    <div class="marquee-container">
+        <p>Strona będzie dostępna ponownie około godziny 22:00</p>
+    </div>
+
+    <script>
+        function updateCountdown() {
+            const now = new Date();
+            let target = new Date();
+            
+            // Ustawienie celu na dzisiaj na godzinę 22:00:00
+            target.setHours(22, 0, 0, 0);
+
+            // Jeśli już jest po 22:00, ustaw cel na jutro na 22:00
+            if (now > target) {
+                target.setDate(target.getDate() + 1);
+            }
+
+            const diff = target - now;
+
+            // Obliczenia matematyczne dla godzin, minut i sekund
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            // Formatowanie, aby zawsze były dwa zera (np. 05 zamiast 5)
+            const h = hours < 10 ? "0" + hours : hours;
+            const m = minutes < 10 ? "0" + minutes : minutes;
+            const s = seconds < 10 ? "0" + seconds : seconds;
+
+            // Wstawienie wyniku do HTML
+            document.getElementById("timer").innerHTML = h + ":" + m + ":" + s;
+        }
+
+        // Uruchomienie funkcji od razu i powtarzanie co 1 sekundę
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    </script>
 
 </body>
 </html>
