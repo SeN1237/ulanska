@@ -1688,3 +1688,109 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
         grid-template-columns: 1fr;
     }
 }
+/* --- NOWE STYLE: ZAKŁADY Z PODZIAŁEM NA DNI --- */
+
+/* Pasek z przyciskami dni */
+.betting-days-nav {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto; /* Przewijanie na telefonie */
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.day-tab-btn {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 8px 15px;
+    border-radius: 20px; /* Zaokrąglone przyciski */
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.day-tab-btn:hover {
+    border-color: var(--blue);
+    color: var(--text-color);
+}
+
+.day-tab-btn.active {
+    background-color: var(--blue);
+    color: white;
+    border-color: var(--blue);
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+}
+
+/* Tabela meczów */
+.betting-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.betting-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.8em;
+    padding: 5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.betting-table td {
+    padding: 10px 5px;
+    border-bottom: 1px dashed var(--border-color);
+    vertical-align: middle;
+}
+
+.betting-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Kolumny tabeli */
+.col-time { width: 15%; font-size: 0.85em; color: var(--text-muted); }
+.col-match { width: 40%; }
+.col-odds { width: 45%; }
+
+/* Przyciski kursów w tabeli */
+.odds-btn-group {
+    display: flex;
+    gap: 5px;
+}
+
+.table-bet-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.table-bet-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--blue);
+}
+
+.table-bet-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: transparent;
+}
+
+.table-bet-btn small {
+    display: block;
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* Statusy */
+.match-live { color: var(--red); font-weight: bold; animation: pulse 1.5s infinite; }
+.match-finished { color: var(--text-muted); font-style: italic; }
