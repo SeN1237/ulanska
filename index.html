@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Przerwa Techniczna</title>
+    <style>
+        /* Ustawienia ogólne strony */
+        body {
+            background-color: #000000; /* Czarne tło */
+            margin: 0;
+            padding: 0;
+            height: 100vh; /* Pełna wysokość ekranu */
+            display: flex; /* Użycie Flexboxa do wyśrodkowania */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Styl dla głównego napisu z gradientem */
+        h1 {
+            font-size: 5rem; /* Duży rozmiar czcionki */
+            font-weight: 800;
+            text-transform: uppercase;
+            margin: 0;
+            
+            /* Tworzenie gradientu zielono-niebieskiego */
+            background: linear-gradient(90deg, #00ff00 0%, #00d4ff 100%);
+            
+            /* Przycięcie tła do kształtu tekstu */
+            -webkit-background-clip: text;
+            background-clip: text;
+            
+            /* Ustawienie koloru tekstu na przezroczysty, aby widać było tło */
+            color: transparent; 
+            
+            text-align: center;
+        }
+
+        /* Styl dla napisu poniżej */
+        p {
+            color: #ffffff; /* Biały kolor tekstu */
+            font-size: 2rem;
+            margin-top: 20px;
+            font-weight: 300;
+            opacity: 0.8; /* Lekka przezroczystość dla subtelniejszego efektu */
+        }
+
+        /* Dopasowanie do telefonów */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 3rem;
+                padding: 0 20px;
+            }
+            p {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>PRZERWA TECHNICZNA</h1>
+    <p>Powrót około 22:00</p>
+
+</body>
+</html>
