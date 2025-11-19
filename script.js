@@ -654,7 +654,61 @@ function initChart() {
     });
     chart.render();
 }
-function startChartTicker() { setInterval(() => { if(chart && market[currentCompanyId].history.length > 0) chart.updateSeries([{ data: market[currentCompanyId].history }]); }, 15000); }
+// =================================================
+// NAPRAWIONA FUNKCJA TICKERA WYKRESU (Co 15 sekund)
+// =================================================
+function startChartTicker() {
+    // Ustawienie interwału na 15000 ms (15 sekund)
+    setInterval(() => {
+        // Sprawdź czy wykres i dane istnieją
+        if (!chart || !market[currentCompanyId]) return;
+
+        const now = new Date().getTime();
+        const currentPrice = market[currentCompanyId].price;
+        const history = market[currentCompanyId].history;
+
+        // Pobierz cenę zamknięcia (Close) z ostatniej świecy jako otwarcie (Open) nowej
+        // Jeśli brak historii, użyj obecnej ceny
+        const lastCandle = history.length > 0 ? history[history.length - 1] : null;
+        const openPrice = lastCandle ? parseFloat(lastCandle.y[3]) : currentPrice;
+        
+        // Symulacja High/Low (Najwyższa/Najniższa cena w ciągu tych 15 sekund)
+        // Dodajemy drobny szum losowy, żeby świeczka ładnie wyglądała (nie była płaską kreską)
+        // nawet jeśli cena z serwera się nie zmieniła
+        const volatility = currentPrice * 0.005; // 0.5% zmienności wizualnej
+        const randomHigh = Math.random() * volatility;
+        const randomLow = Math.random() * volatility;
+
+        const highPrice = Math.max(openPrice, currentPrice) + randomHigh;
+        const lowPrice = Math.min(openPrice, currentPrice) - randomLow;
+
+        // Tworzenie nowej świecy w formacie ApexCharts: [Open, High, Low, Close]
+        const newCandle = {
+            x: now,
+            y: [
+                openPrice.toFixed(2),
+                highPrice.toFixed(2),
+                lowPrice.toFixed(2),
+                currentPrice.toFixed(2)
+            ]
+        };
+
+        // Dodaj nową świecę do historii spółki
+        market[currentCompanyId].history.push(newCandle);
+
+        // (Opcjonalnie) Usuń najstarszą świecę, jeśli jest ich więcej niż 50, 
+        // aby wykres nie zjadał pamięci i był czytelny
+        if (market[currentCompanyId].history.length > 50) {
+            market[currentCompanyId].history.shift();
+        }
+
+        // Zaktualizuj wykres nowymi danymi
+        chart.updateSeries([{
+            data: market[currentCompanyId].history
+        }]);
+
+    }, 15000); // Czas w milisekundach: 15000ms = 15 sekund
+}
 function initPortfolioChart() {
     portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
         series: [portfolio.cash], labels: ['Gotówka'],
