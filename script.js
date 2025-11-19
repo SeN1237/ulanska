@@ -515,7 +515,14 @@ function renderBettingPanel() {
                 ${label}<small>${odds.toFixed(2)}</small>
             </button>`;
 
-        const oddsHtml = `<div class="odds-btn-group">${createBtn('teamA', match.oddsA, '1')}${createBtn('draw', match.oddsDraw, 'X')}${createBtn('teamB', match.oddsB, '2')}</div>`;
+        // --- NOWY KOD: Nazwy drużyn na przyciskach ---
+        const oddsHtml = `
+            <div class="odds-btn-group">
+                ${createBtn('teamA', match.oddsA, match.teamA)}
+                ${createBtn('draw', match.oddsDraw, 'Remis')}
+                ${createBtn('teamB', match.oddsB, match.teamB)}
+            </div>
+        `;
 
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
         tbody.appendChild(tr);
