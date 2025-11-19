@@ -1,4 +1,4 @@
-// --- SEKCJA 0: IMPORTY I KONFIGURACJA FIREBASE  ---
+// --- SEKCJA 0: IMPORTY I KONFIGURACJA FIREBASE ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
     getAuth, onAuthStateChanged, createUserWithEmailAndPassword, 
