@@ -26,8 +26,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- SEKCJA 1: ZMIENNE GLOBALNE ---
-let dom = {}; 
-
 let market = {
     ulanska:    { name: "Ułańska Dev",   price: 1, previousPrice: null, history: [], type: 'stock' },
     brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [], type: 'stock' },
@@ -77,9 +75,13 @@ let currentBetSelection = null;
 // Unsubscribes
 let unsubscribePortfolio, unsubscribeRumors, unsubscribeNews, unsubscribeLeaderboard, unsubscribeChat, unsubscribeGlobalHistory, unsubscribePersonalHistory, unsubscribeLimitOrders, unsubscribeBonds, unsubscribeMatch, unsubscribeActiveBets;
 
+let dom = {};
 
-// --- FUNKCJE POMOCNICZE UI ---
+// ====================================================================
+// SEKCJA 2: FUNKCJE POMOCNICZE I DEFINICJE (PRZED UŻYCIEM!)
+// ====================================================================
 
+// --- UI HELPERS ---
 function formatujWalute(liczba) {
     if (typeof liczba !== 'number') liczba = 0;
     return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', minimumFractionDigits: 2 }).format(liczba);
@@ -144,71 +146,51 @@ function unlockAudio() {
     } catch (e) {}
 }
 
-// --- WYKRESY (WERSJA PODSTAWOWA - STABILNA) ---
+// --- CORE LOGIC: PORTFOLIO ---
+function updatePortfolioUI() {
+    if (!dom || !dom.username) return;
+    const stars = getPrestigeStars(portfolio.prestigeLevel);
+    dom.username.innerHTML = `${portfolio.name} ${stars}`;
+    dom.tipCost.textContent = formatujWalute(TIP_COSTS[portfolio.prestigeLevel]);
+    dom.buyTipButton.disabled = portfolio.cash < TIP_COSTS[portfolio.prestigeLevel];
+    dom.cash.textContent = formatujWalute(portfolio.cash);
+    
+    let html = "";
+    COMPANY_ORDER.forEach(cid => html += `<p>${market[cid] ? market[cid].name : cid}: <strong id="shares-${cid}">${portfolio.shares[cid]||0}</strong> szt.</p>`);
+    dom.sharesList.innerHTML = html;
 
-function generateInitialCandles(count, basePrice) {
-    let data = []; let lastClose = basePrice || 1;
-    let timestamp = new Date().getTime() - (count * 60000);
-    for (let i = 0; i < count; i++) {
-        let open = lastClose;
-        let close = open + (Math.random() - 0.5) * (basePrice * 0.02);
-        let high = Math.max(open, close) + Math.random() * (basePrice * 0.01);
-        let low = Math.min(open, close) - Math.random() * (basePrice * 0.01);
-        
-        open = Math.max(0.1, open); high = Math.max(0.1, high); 
-        low = Math.max(0.1, low); close = Math.max(0.1, close);
+    let sharesValue = 0;
+    const series = [portfolio.cash]; const labels = ['Gotówka'];
+    COMPANY_ORDER.forEach(cid => {
+        const val = (portfolio.shares[cid] || 0) * (market[cid] ? market[cid].price : 0);
+        if(val > 0) { sharesValue += val; series.push(val); labels.push(market[cid].name); }
+    });
 
-        data.push({
-            x: new Date(timestamp),
-            y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
-        });
-        lastClose = close; timestamp += 60000;
-    }
-    return data;
+    const total = portfolio.cash + sharesValue;
+    const profit = total - portfolio.startValue;
+    if (!portfolioChart) initPortfolioChart();
+    portfolioChart.updateOptions({ series: series, labels: labels });
+
+    dom.totalValue.textContent = formatujWalute(total);
+    dom.totalProfit.textContent = formatujWalute(profit);
+    dom.totalProfit.style.color = profit >= 0 ? "var(--green)" : "var(--red)";
+    if (dom.modalOverlay && !dom.modalOverlay.classList.contains("hidden")) updatePrestigeButton(total, portfolio.prestigeLevel);
 }
 
-// Nasłuch cen (prosty)
-const cenyDocRef = doc(db, "global", "ceny_akcji");
-onSnapshot(cenyDocRef, (docSnap) => {
-    if (docSnap.exists()) {
-        const aktualneCeny = docSnap.data();
-        for (const companyId in market) {
-            if (aktualneCeny[companyId] !== undefined) {
-                market[companyId].previousPrice = market[companyId].price;
-                market[companyId].price = aktualneCeny[companyId];
-            }
+function listenToPortfolioData(userId) {
+    unsubscribePortfolio = onSnapshot(doc(db, "uzytkownicy", userId), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            portfolio.name = data.name;
+            portfolio.cash = data.cash;
+            portfolio.shares = data.shares || portfolio.shares;
+            portfolio.stats = data.stats || portfolio.stats;
+            portfolio.startValue = data.startValue;
+            portfolio.prestigeLevel = data.prestigeLevel || 0; 
+            updatePortfolioUI();
+            checkCryptoAccess();
         }
-        // Generowanie historii raz przy starcie
-        if (!chartHasStarted) {
-            for (const companyId in market) {
-                if (market[companyId].price && market[companyId].history.length === 0) {
-                    market[companyId].history = generateInitialCandles(50, market[companyId].price);
-                    market[companyId].previousPrice = market[companyId].price; 
-                }
-            }
-        }
-        updatePriceUI(); 
-        updatePortfolioUI(); 
-        updateTickerTape(); 
-
-        const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
-        if (currentUserId && !chartHasStarted && chartDataReady) {
-            if (!chart) initChart();
-            chartHasStarted = true;
-        }
-    }
-});
-
-function initChart() {
-    chart = new ApexCharts(dom.chartContainer, {
-        series: [{ data: market[currentCompanyId].history }],
-        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false} },
-        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
-        xaxis: { type: 'datetime' },
-        yaxis: { labels: { formatter: v => v.toFixed(2) } },
-        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
     });
-    chart.render();
 }
 
 function updatePriceUI() {
@@ -249,25 +231,71 @@ function updateTickerTape() {
     dom.tickerContent.innerHTML = tickerHTML + tickerHTML;
 }
 
-// --- ZAKŁADY (BETTING) ---
-function listenToActiveMatch() {
-    if (unsubscribeMatch) unsubscribeMatch();
-    unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
-        if (docSnap.exists()) {
-            matchesCache = docSnap.data().mecze || [];
-            renderBettingPanel();
-        } else {
-            dom.matchInfo.innerHTML = "<p>Brak danych.</p>";
-        }
-    });
+// --- CHARTS ---
+function generateInitialCandles(count, basePrice) {
+    let data = []; let lastClose = basePrice || 1;
+    let timestamp = new Date().getTime() - (count * 60000);
+    for (let i = 0; i < count; i++) {
+        let open = lastClose;
+        let close = open + (Math.random() - 0.5) * (basePrice * 0.02);
+        let high = Math.max(open, close) + Math.random() * (basePrice * 0.01);
+        let low = Math.min(open, close) - Math.random() * (basePrice * 0.01);
+        open = Math.max(0.1, open); high = Math.max(0.1, high); 
+        low = Math.max(0.1, low); close = Math.max(0.1, close);
+        data.push({ x: new Date(timestamp), y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)] });
+        lastClose = close; timestamp += 60000;
+    }
+    return data;
 }
 
+function updateMarketHistory(cid, price) {
+    const hist = market[cid].history;
+    if (!hist || hist.length === 0) return;
+    const lastCandle = hist[hist.length - 1];
+    const lastTime = new Date(lastCandle.x).getTime();
+    const now = Date.now();
+
+    if (now - lastTime > 60000) {
+        const newCandle = { x: new Date(now), y: [price.toFixed(2), price.toFixed(2), price.toFixed(2), price.toFixed(2)] };
+        hist.push(newCandle);
+        if (hist.length > 100) hist.shift();
+    } else {
+        let high = Math.max(parseFloat(lastCandle.y[1]), price);
+        let low = Math.min(parseFloat(lastCandle.y[2]), price);
+        lastCandle.y[1] = high.toFixed(2);
+        lastCandle.y[2] = low.toFixed(2);
+        lastCandle.y[3] = price.toFixed(2);
+    }
+}
+
+function initChart() {
+    chart = new ApexCharts(dom.chartContainer, {
+        series: [{ data: market[currentCompanyId].history }],
+        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false} },
+        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+        xaxis: { type: 'datetime' },
+        yaxis: { labels: { formatter: v => v.toFixed(2) } },
+        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
+    });
+    chart.render();
+}
+function initPortfolioChart() {
+    portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
+        series: [portfolio.cash], labels: ['Gotówka'],
+        chart: { type: 'donut', height: 300 }, colors: CHART_COLORS,
+        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+        legend: { position: 'bottom' }, dataLabels: { enabled: false }
+    });
+    portfolioChart.render();
+}
+
+// --- ZAKŁADY ---
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
 
     if (!matchesCache || matchesCache.length === 0) {
-        dom.matchInfo.innerHTML = "<p>Brak zaplanowanych meczów.</p>";
+        dom.matchInfo.innerHTML = "<p>Brak meczy.</p>";
         return;
     }
 
@@ -284,7 +312,6 @@ function renderBettingPanel() {
 
     const navContainer = document.createElement("div");
     navContainer.className = "betting-days-nav";
-
     sortedDays.forEach(dayKey => {
         const btn = document.createElement("button");
         btn.className = "day-tab-btn";
@@ -312,11 +339,8 @@ function renderBettingPanel() {
         const isResolved = match.status === 'resolved';
 
         let timeHtml = isResolved ? "Koniec" : (isClosed ? `<span class="match-live">LIVE</span>` : timeStr);
-        let matchHtml = `<strong>${match.teamA}</strong><br><small>vs</small><br><strong>${match.teamB}</strong>`;
-        if (isResolved) {
-            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
-            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
-        }
+        let matchHtml = `<strong>${match.teamA}</strong> vs <strong>${match.teamB}</strong>`;
+        if (isResolved) matchHtml += `<br><span class="match-finished">Wynik: ${match.winner}</span>`;
 
         const createBtn = (teamCode, odds, label) => `
             <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
@@ -336,7 +360,6 @@ function renderBettingPanel() {
     dom.matchInfo.appendChild(table);
 }
 
-// UDOSTĘPNIONE GLOBALNIE
 window.selectBet = function(id, team, odds, label) {
     currentBetSelection = { id, team, odds };
     dom.bettingForm.classList.remove("hidden");
@@ -350,13 +373,11 @@ async function onPlaceBet(e) {
     if (!currentBetSelection || !currentUserId) return;
     
     const matchData = matchesCache.find(m => m.id === currentBetSelection.id);
-    if (matchData) {
-        if (Date.now() >= matchData.closeTime.toDate().getTime()) {
-            showMessage("Niestety, czas na zakłady już minął!", "error");
-            dom.bettingForm.classList.add("hidden");
-            renderBettingPanel(); 
-            return;
-        }
+    if (matchData && Date.now() >= matchData.closeTime.toDate().getTime()) {
+        showMessage("Za późno! Zakłady zamknięte.", "error");
+        dom.bettingForm.classList.add("hidden");
+        renderBettingPanel(); 
+        return;
     }
 
     const amount = parseFloat(dom.betAmount.value);
@@ -384,15 +405,22 @@ async function onPlaceBet(e) {
                 createdAt: serverTimestamp()
             });
         });
-        await addDoc(collection(db, "historia_transakcji"), { userId: currentUserId, userName: portfolio.name, type: "ZAKŁAD SPORTOWY", companyName: "Bukmacher", amount: 1, pricePerShare: currentBetSelection.odds, totalValue: -amount, timestamp: serverTimestamp(), status: "executed" });
         showMessage("Zakład przyjęty!", "success");
         dom.betAmount.value = "";
         dom.bettingForm.classList.add("hidden");
-    } catch (err) {
-        console.error(err);
-        if (err.code === "permission-denied") showMessage("Błąd uprawnień.", "error");
-        else showMessage("Błąd: " + err.message, "error");
-    }
+    } catch (err) { console.error(err); showMessage(err.message, "error"); }
+}
+
+function listenToActiveMatch() {
+    if (unsubscribeMatch) unsubscribeMatch();
+    unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
+        if (docSnap.exists()) {
+            matchesCache = docSnap.data().mecze || [];
+            renderBettingPanel();
+        } else {
+            dom.matchInfo.innerHTML = "<p>Brak danych.</p>";
+        }
+    });
 }
 
 function listenToActiveBets(userId) {
@@ -407,7 +435,7 @@ function listenToActiveBets(userId) {
     });
 }
 
-// --- HANDEL & PORTFOLIO ---
+// --- INNE FUNKCJE ---
 function calculateTotalValue(cash, shares) {
     let val = cash;
     for(let cid in shares) if(market[cid]) val += shares[cid] * market[cid].price;
@@ -476,17 +504,6 @@ async function tradeShares(isBuy) {
 function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amountInput.value = Math.floor(portfolio.cash/p); }
 function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId]||0; }
 
-function initPortfolioChart() {
-    portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
-        series: [portfolio.cash], labels: ['Gotówka'],
-        chart: { type: 'donut', height: 300 }, colors: CHART_COLORS,
-        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
-        legend: { position: 'bottom' }, dataLabels: { enabled: false }
-    });
-    portfolioChart.render();
-}
-
-// --- LISTENERY INNE ---
 function listenToRumors() {
     unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
         dom.rumorsFeed.innerHTML = "";
@@ -557,7 +574,6 @@ function displayHistoryItem(feed, item, isGlobal) {
     p.innerHTML = `${userPart}<span class="${typeCls}">${item.type}</span> <span class="h-details">${item.companyName}</span> <span class="h-total">${formatujWalute(item.totalValue)}</span>`;
     feed.prepend(p);
 }
-
 async function onPlaceLimitOrder(e) {
     e.preventDefault();
     if (!currentUserId) return;
@@ -568,7 +584,11 @@ async function onPlaceLimitOrder(e) {
     const cid = currentCompanyId;
     const isBuy = type === 'buy';
     const isCrypto = market[cid].type === 'crypto';
+    
     if (amount <= 0 || limitPrice <= 0) return showMessage("Błędne dane", "error");
+    if (isBuy && amount * limitPrice > portfolio.cash) return showMessage("Brak gotówki", "error");
+    if (!isBuy && amount > (portfolio.shares[cid]||0)) return showMessage("Brak akcji", "error");
+
     try {
         const orderType = isBuy ? (isCrypto?"KUPNO (Limit, Krypto)":"KUPNO (Limit)") : (isCrypto?"SPRZEDAŻ (Limit, Krypto)":"SPRZEDAŻ (Limit)");
         await addDoc(collection(db, "limit_orders"), {
@@ -599,22 +619,27 @@ async function onBuyBond(e) {
     if(amt <= 0 || amt > portfolio.cash) return showMessage("Błędna kwota", "error");
     const days = type==="1"?1:(type==="2"?2:3);
     const rate = type==="1"?0.05:(type==="2"?0.10:0.15);
+    const profit = amt * rate;
     try {
         await runTransaction(db, async t => {
-            const ref = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(ref)).data();
-            t.update(ref, { cash: d.cash-amt, 'stats.bondsPurchased': increment(1) });
-            t.set(doc(collection(db, "active_bonds")), { userId: currentUserId, name: `Obligacja ${days}d`, investment: amt, profit: amt*rate, redeemAt: Timestamp.fromMillis(Date.now()+days*86400000), status: "pending", createdAt: serverTimestamp() });
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if(d.cash < amt) throw new Error("Brak środków");
+            t.update(uRef, { cash: d.cash - amt, totalValue: calculateTotalValue(d.cash-amt, d.shares), 'stats.bondsPurchased': increment(1) });
+            const bondRef = doc(collection(db, "active_bonds"));
+            t.set(bondRef, { userId: currentUserId, name: `Obligacja ${days}d (${rate*100}%)`, investment: amt, profit, redeemAt: Timestamp.fromMillis(Date.now()+(days*86400000)), status: "pending", createdAt: serverTimestamp() });
         });
-        showMessage("Kupiono obligację", "success");
-    } catch(e) { showMessage("Błąd", "error"); }
+        await addDoc(collection(db, "historia_transakcji"), { userId: currentUserId, userName: portfolio.name, type: "OBLIGACJA (ZAKUP)", companyName: `Obligacja ${days}d`, amount:0, pricePerShare:0, totalValue:-amt, timestamp: serverTimestamp(), status:"executed" });
+        showMessage("Kupiono obligację!", "success");
+    } catch(e) { showMessage(e.message, "error"); }
 }
 function listenToActiveBonds(userId) {
     unsubscribeBonds = onSnapshot(query(collection(db, "active_bonds"), where("userId", "==", userId), orderBy("createdAt", "desc")), snap => {
-        dom.activeBondsFeed.innerHTML = "";
+        dom.activeBondsFeed.innerHTML = snap.empty ? "<p>Brak obligacji.</p>" : "";
         snap.forEach(d => {
             const b = d.data();
-            dom.activeBondsFeed.innerHTML += `<p>${b.name}: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} (${b.status})</p>`;
+            const st = b.status==='pending' ? `Oczekuje do ${b.redeemAt.toDate().toLocaleString()}` : 'Wykupiona';
+            dom.activeBondsFeed.innerHTML += `<p><strong>${b.name}</strong>: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} <br><small>${st}</small></p>`;
         });
     });
 }
@@ -631,7 +656,6 @@ function onSelectHistoryTab(e) {
     document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${t}`));
 }
 
-// --- FUNKCJE PRZYCISKÓW (BRAKUJĄCE) ---
 async function onBuyTip() {
     const cost = TIP_COSTS[portfolio.prestigeLevel];
     if(portfolio.cash < cost) return showMessage("Brak środków", "error");
@@ -648,6 +672,7 @@ async function onBuyTip() {
         showNotification(`[${isReal?'PRAWDZIWE INFO':'FAŁSZYWKA'}] ${market[cid].name} może się zmienić...`, 'tip');
     } catch(e) { showMessage("Błąd", "error"); }
 }
+
 async function onPrestigeReset() {
     if(!confirm("Resetujesz portfel do 1000 zł w zamian za prestiż. Kontynuować?")) return;
     try {
@@ -658,6 +683,53 @@ async function onPrestigeReset() {
         });
         showMessage("Awans prestiżu!", "success"); dom.modalOverlay.classList.add("hidden");
     } catch(e) { showMessage(e.message, "error"); }
+}
+
+// --- MODALS ---
+window.showUserProfile = async function(uid) {
+    const d = (await getDoc(doc(db, "uzytkownicy", uid))).data();
+    dom.modalUsername.textContent = d.name;
+    dom.modalTotalValue.textContent = formatujWalute(d.totalValue);
+    dom.modalCash.textContent = formatujWalute(d.cash);
+    dom.modalPrestigeLevel.textContent = d.prestigeLevel;
+    dom.modalTotalTrades.textContent = d.stats?.totalTrades || 0;
+    dom.modalTipsPurchased.textContent = d.stats?.tipsPurchased || 0;
+    dom.modalBondsPurchased.textContent = d.stats?.bondsPurchased || 0;
+    
+    const s = [d.cash]; const l = ['Gotówka'];
+    let sharesHtml = "";
+    COMPANY_ORDER.forEach(cid => {
+        const amt = d.shares[cid]||0;
+        if(amt>0) {
+            const val = amt*(market[cid]?.price||0);
+            s.push(val); l.push(market[cid]?.name||cid);
+            sharesHtml += `<p>${market[cid]?.name||cid}: <strong>${amt}</strong></p>`;
+        }
+    });
+    dom.modalSharesList.innerHTML = sharesHtml || "<p>Brak akcji</p>";
+    
+    if(!modalPortfolioChart) modalPortfolioChart = new ApexCharts(dom.modalPortfolioChartContainer, { series: s, labels: l, chart: { type: 'donut', height: 250 }, theme: { mode: document.body.getAttribute('data-theme')==='light'?'light':'dark' }});
+    else modalPortfolioChart.updateOptions({ series: s, labels: l });
+    modalPortfolioChart.render();
+    
+    if(uid === currentUserId) {
+        dom.prestigeInfo.style.display = 'flex'; dom.prestigeButton.style.display = 'block';
+        updatePrestigeButton(d.totalValue, d.prestigeLevel||0);
+    } else {
+        dom.prestigeInfo.style.display = 'none'; dom.prestigeButton.style.display = 'none';
+    }
+    dom.modalOverlay.classList.remove("hidden");
+};
+
+function updatePrestigeButton(val, lvl) {
+    if(lvl >= PRESTIGE_REQUIREMENTS.length) {
+        dom.prestigeButton.textContent = "Max Poziom"; dom.prestigeButton.disabled = true;
+    } else {
+        const req = PRESTIGE_REQUIREMENTS[lvl];
+        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(req)}`;
+        dom.prestigeButton.textContent = val >= req ? `Awansuj na poziom ${lvl+1}` : `Brakuje ${formatujWalute(req-val)}`;
+        dom.prestigeButton.disabled = val < req;
+    }
 }
 
 // --- AUTH HELPERS ---
@@ -708,7 +780,6 @@ async function onRegister(e) {
 }
 async function onLogin(e) { e.preventDefault(); try { await signInWithEmailAndPassword(auth, dom.loginForm.querySelector("#login-email").value, dom.loginForm.querySelector("#login-password").value); } catch (err) { showAuthMessage(err.message, "error"); } }
 function onLogout() { signOut(auth); }
-function showAuthMessage(msg, type="info") { dom.authMessage.textContent = msg; dom.authMessage.style.color = type==="error" ? "var(--red)" : "var(--green)"; }
 async function onResetPassword(e) {
     e.preventDefault();
     const email = dom.loginForm.querySelector("#login-email").value;
@@ -716,7 +787,7 @@ async function onResetPassword(e) {
     try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
 }
 
-// --- DOM CONTENT LOADED (NA SAMYM KOŃCU!) ---
+// --- DOM CONTENT LOADED (NA SAMYM KOŃCU) ---
 document.addEventListener("DOMContentLoaded", () => {
     const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
@@ -837,14 +908,14 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.showRegisterLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.add("show-register"); showAuthMessage(""); });
     dom.showLoginLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.remove("show-register"); showAuthMessage(""); });
 
-    // Usuń Splash Screen po 1 sekundzie (aby nie wisiał)
+    // --- FIX SPLASH SCREEN ---
     setTimeout(() => {
         const splash = document.getElementById("splash-screen");
-        if(splash) {
-            splash.style.display = "none";
+        if (splash) {
+            splash.classList.add("fade-out");
+            setTimeout(() => splash.style.display = 'none', 1000);
         }
     }, 1000);
 
     startAuthListener();
 });
-// --- KONIEC PLIKU ---
