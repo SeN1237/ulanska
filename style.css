@@ -1890,20 +1890,22 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 
 .inner:after {
   z-index: 3;
-  top: 24%;
-  right: 24%;
-  bottom: 24%;
-  left: 24%;
+  /* ZMIANA Z 24% na 13% - Rozszerzamy ciemny pierścień */
+  top: 13%;
+  right: 13%;
+  bottom: 13%;
+  left: 13%;
   background-color: #4d4d4d;
   border: 3px solid #808080;
 }
 
 /* PIŁECZKA */
 .inner:before {
-  top: 24%;
-  bottom: 24%;
-  left: 24%;
-  right: 24%;
+  /* ZMIANA Z 24% na 13% - Wypychamy piłkę bliżej cyfr */
+  top: 13%;
+  bottom: 13%;
+  left: 13%;
+  right: 13%;
   content: '';
   color: #fff;
   font-size: 60px;
@@ -1961,10 +1963,11 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 
 .inner.rest:before {
   transition: top .5s ease-in, right .5s ease-in, bottom .5s ease-in, left .5s ease-in;
-  top: 25%;
-  right: 25%;
-  bottom: 24%;
-  left: 25%;
+  /* ZMIANA Z 25% na 13.5% - Pozycja spoczynkowa */
+  top: 13.5%;
+  right: 13.5%;
+  bottom: 13.5%;
+  left: 13.5%;
 }
 
 /* ROTACJA PÓL (0-36) - Skonwertowane z LESS Loop */
