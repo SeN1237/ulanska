@@ -1121,7 +1121,7 @@ window.playRoulette = async function(color) {
     // Obliczanie kąta obrotu (wizualizacja)
     const segmentAngle = 24;
     const randomOffset = Math.floor(Math.random() * 20) + 2; 
-    const baseRotation = (360 - (resultIndex * segmentAngle)); 
+    const baseRotation = (360 - ((resultIndex + 1) * segmentAngle));
     const extraSpins = 360 * 5; // 5 pełnych obrotów
     const finalRotation = extraSpins + baseRotation + randomOffset;
 
