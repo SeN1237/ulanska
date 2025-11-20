@@ -1912,43 +1912,47 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 }
 
 /* POZYCJE PIŁECZKI (Data Spinto) - Skonwertowane z LESS */
-.inner[data-spinto='1']:before { transform: rotateZ(-2602deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='2']:before { transform: rotateZ(-2774deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='3']:before { transform: rotateZ(-2850deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='4']:before { transform: rotateZ(-2793deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='5']:before { transform: rotateZ(-2642deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='6']:before { transform: rotateZ(-2734deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='7']:before { transform: rotateZ(-2526deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='8']:before { transform: rotateZ(-2673deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='9']:before { transform: rotateZ(-2564deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='10']:before { transform: rotateZ(-2652deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='11']:before { transform: rotateZ(-2693deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='12']:before { transform: rotateZ(-2868deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='13']:before { transform: rotateZ(-2714deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='14']:before { transform: rotateZ(-2582deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='15']:before { transform: rotateZ(-2813deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='16']:before { transform: rotateZ(-2622deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='17']:before { transform: rotateZ(-2755deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='18']:before { transform: rotateZ(-2545deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='19']:before { transform: rotateZ(-2803deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='20']:before { transform: rotateZ(-2592deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='21']:before { transform: rotateZ(-2784deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='22']:before { transform: rotateZ(-2554deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='23']:before { transform: rotateZ(-2662deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='24']:before { transform: rotateZ(-2632deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='25']:before { transform: rotateZ(-2764deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='26']:before { transform: rotateZ(-2840deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='27']:before { transform: rotateZ(-2724deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='28']:before { transform: rotateZ(-2877deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='29']:before { transform: rotateZ(-2535deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='30']:before { transform: rotateZ(-2684deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='31']:before { transform: rotateZ(-2573deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='32']:before { transform: rotateZ(-2822deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='33']:before { transform: rotateZ(-2612deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='34']:before { transform: rotateZ(-2745deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='35']:before { transform: rotateZ(-2499deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='36']:before { transform: rotateZ(-2703deg); transition: transform 9s ease-out; content: '\2022'; }
-.inner[data-spinto='0']:before { transform: rotateZ(-2831deg); transition: transform 9s ease-out; content: '\2022'; }
+/* POPRAWIONA LOGIKA TRAFIANIA KULI (Dopasowana do kolejności HTML: 32, 15, 19...) */
+/* Kąt wycinka = 360 / 37 = ~9.73 stopnia */
+/* Kolejność w HTML decyduje o indeksie (0 = 32, 1 = 15 itd.) */
+
+.inner[data-spinto='32']:before { transform: rotateZ(-2880deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='15']:before { transform: rotateZ(-2889.73deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='19']:before { transform: rotateZ(-2899.46deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='4']:before  { transform: rotateZ(-2909.19deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='21']:before { transform: rotateZ(-2918.92deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='2']:before  { transform: rotateZ(-2928.65deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='25']:before { transform: rotateZ(-2938.38deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='17']:before { transform: rotateZ(-2948.11deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='34']:before { transform: rotateZ(-2957.84deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='6']:before  { transform: rotateZ(-2967.57deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='27']:before { transform: rotateZ(-2977.30deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='13']:before { transform: rotateZ(-2987.03deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='36']:before { transform: rotateZ(-2996.76deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='11']:before { transform: rotateZ(-3006.49deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='30']:before { transform: rotateZ(-3016.22deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='8']:before  { transform: rotateZ(-3025.95deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='23']:before { transform: rotateZ(-3035.68deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='10']:before { transform: rotateZ(-3045.41deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='5']:before  { transform: rotateZ(-3055.14deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='24']:before { transform: rotateZ(-3064.87deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='16']:before { transform: rotateZ(-3074.60deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='33']:before { transform: rotateZ(-3084.33deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='1']:before  { transform: rotateZ(-3094.06deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='20']:before { transform: rotateZ(-3103.79deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='14']:before { transform: rotateZ(-3113.52deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='31']:before { transform: rotateZ(-3123.25deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='9']:before  { transform: rotateZ(-3132.98deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='22']:before { transform: rotateZ(-3142.71deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='18']:before { transform: rotateZ(-3152.44deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='29']:before { transform: rotateZ(-3162.17deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='7']:before  { transform: rotateZ(-3171.90deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='28']:before { transform: rotateZ(-3181.63deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='12']:before { transform: rotateZ(-3191.36deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='35']:before { transform: rotateZ(-3201.09deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='3']:before  { transform: rotateZ(-3210.82deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='26']:before { transform: rotateZ(-3220.55deg); transition: transform 6s ease-out; content: '\2022'; }
+.inner[data-spinto='0']:before  { transform: rotateZ(-3230.28deg); transition: transform 6s ease-out; content: '\2022'; }
 
 .inner.rest:before {
   transition: top .5s ease-in, right .5s ease-in, bottom .5s ease-in, left .5s ease-in;
@@ -2170,4 +2174,97 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
     
     .history-feed { max-height: 200px; }
     .limit-order-table { font-size: 0.8em; }
+}
+/* === CIEMNY MOTYW PANELU KASYNA === */
+.casino-controls {
+    background-color: var(--panel-color);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    border: 1px solid var(--border-color);
+}
+
+#casino-status {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    color: var(--text-color);
+    min-height: 1.5em;
+}
+
+.bet-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Ciemny input */
+.dark-input {
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 1.1em;
+    width: 120px;
+    text-align: center;
+}
+.dark-input:focus {
+    border-color: var(--green);
+    outline: none;
+}
+
+/* Siatka liczb */
+.bet-numbers-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr); /* 12 kolumn dla liczb 1-36 */
+    gap: 5px;
+    margin-bottom: 20px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Zero na całą szerokość góry */
+.num-0 {
+    grid-column: span 12;
+    background-color: var(--green);
+    border-color: var(--green);
+}
+
+.num-btn {
+    padding: 8px 0;
+    font-weight: bold;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+}
+.num-btn:hover { transform: scale(1.1); z-index: 2; }
+.num-btn.selected {
+    box-shadow: 0 0 10px var(--accent-color);
+    border-color: var(--accent-color);
+    transform: scale(1.15);
+    z-index: 3;
+}
+
+.num-red { background-color: var(--red); }
+.num-black { background-color: #222; }
+
+.spin-btn {
+    background: linear-gradient(45deg, var(--green), #1e7e34);
+    font-size: 1.2em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 10px;
+}
+
+/* Responsywność siatki na telefonach */
+@media (max-width: 500px) {
+    .bet-numbers-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+    .num-0 { grid-column: span 6; }
 }
