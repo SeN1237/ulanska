@@ -931,39 +931,97 @@ body[data-theme="light"] #place-bet-button {
 /* === Koniec Panelu Zakładów === */
 
 
-/* Panel Rankingu */
+/* =================================== */
+/* === NOWY WYGLĄD RANKINGU (LISTA) === */
+/* =================================== */
+
 #leaderboard-list {
-    padding-left: 20px;
+    padding-left: 0;
     margin: 0;
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
+    list-style: none;
 }
+
 #leaderboard-list li {
-    padding: 8px 0;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border-color);
-    font-size: 1.1em;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: background-color 0.3s ease; 
-    margin-left: -12px; 
-    padding-left: 12px; 
+    transition: background-color 0.2s ease;
 }
-#leaderboard-list li:last-child {
-    border-bottom: none;
+
+#leaderboard-list li:hover {
+    background-color: rgba(255, 255, 255, 0.03);
 }
-#leaderboard-list li strong {
-    font-weight: bold;
-    color: var(--text-color);
-}
-#leaderboard-list li span {
+
+/* Lewa sekcja (Rank, Nazwa, Gwiazdki, Zysk) */
+.leaderboard-left {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    gap: 2px;
 }
-#leaderboard-list li span small {
+
+/* Styl dla klikalnego obszaru */
+.clickable-area {
+    cursor: pointer;
+    padding-right: 15px; /* Większy obszar trafienia */
+}
+
+/* Pierwsza linia: Nr + Nazwa + Gwiazdki */
+.leaderboard-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.leaderboard-rank {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    min-width: 20px;
+}
+
+.leaderboard-name {
+    color: #FFFFFF !important; /* Biała nazwa */
+    font-weight: 700;
+    font-size: 1.05em;
+    transition: color 0.2s;
+}
+
+/* Podświetlenie nazwy po najechaniu na blok */
+.clickable-area:hover .leaderboard-name {
+    color: var(--blue) !important;
+    text-decoration: underline;
+}
+
+/* Druga linia: Zysk */
+.leaderboard-profit {
     font-size: 0.85em;
-    margin-top: 2px;
+    margin-left: 28px; /* Wcięcie pod nazwę */
+    font-weight: 500;
+    text-decoration: none !important;
+}
+
+/* Kolory zysku */
+.profit-plus { color: var(--green); }
+.profit-minus { color: var(--red); }
+
+/* Prawa strona: Wartość portfela */
+.leaderboard-total {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: var(--text-color);
+}
+
+/* Styl dla aktualnego gracza (Ty) */
+#leaderboard-list li.highlight-me {
+    background-color: rgba(255, 193, 7, 0.1);
+    border-left: 4px solid var(--accent-color);
+}
+
+body[data-theme="dark"] #leaderboard-list li.highlight-me {
+    background-color: rgba(255, 0, 255, 0.1); 
 }
 
 /* NOWE: Zakładki Typu Rynku (Akcje/Krypto) */
