@@ -1823,15 +1823,9 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   box-shadow: inset 0px 0px 0px 2px #b38600, 0px 0px 0px 2px #ffdb4d;
 }
 
+/* USUWAMY SZARĄ NAKŁADKĘ */
 .plate:before {
-  background: rgba(0, 0, 0, .65);
-  border: 1px solid silver;
-  box-shadow: inset 0px 0px 0px 2px #808080;
-  top: 12%;
-  left: 12%;
-  right: 12%;
-  bottom: 12%;
-  z-index: 1;
+  display: none;
 }
 
 .number {
@@ -1888,24 +1882,26 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   border-radius: 50%;
 }
 
+/* ZMIANA ŚRODKA NA MNIEJSZY I CIEMNY */
 .inner:after {
   z-index: 3;
-  /* ZMIANA Z 24% na 13% - Rozszerzamy ciemny pierścień */
-  top: 13%;
-  right: 13%;
-  bottom: 13%;
-  left: 13%;
-  background-color: #4d4d4d;
-  border: 3px solid #808080;
+  /* Zwiększamy te wartości, żeby środek był mniejszy */
+  top: 35%;
+  right: 35%;
+  bottom: 35%;
+  left: 35%;
+  background-color: #111; /* Ciemny środek zamiast szarego */
+  border: 2px solid #ffd700; /* Złota obwódka dla stylu */
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
-/* PIŁECZKA */
+/* PIŁECZKA W RUCHU */
 .inner:before {
-  /* ZMIANA Z 24% na 13% - Wypychamy piłkę bliżej cyfr */
-  top: 13%;
-  bottom: 13%;
-  left: 13%;
-  right: 13%;
+  /* 16% ustawia piłkę idealnie na środku kolorowych pól */
+  top: 16%;
+  bottom: 16%;
+  left: 16%;
+  right: 16%;
   content: '';
   color: #fff;
   font-size: 60px;
@@ -1961,13 +1957,14 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 .inner[data-spinto='26']:before { transform: rotateZ(-2529.73deg); transition: transform 6s ease-out; content: '\2022'; }
 .inner[data-spinto='0']:before  { transform: rotateZ(-2880.00deg); transition: transform 6s ease-out; content: '\2022'; }
 
+/* PIŁECZKA ZATRZYMANA */
 .inner.rest:before {
   transition: top .5s ease-in, right .5s ease-in, bottom .5s ease-in, left .5s ease-in;
-  /* ZMIANA Z 25% na 13.5% - Pozycja spoczynkowa */
-  top: 13.5%;
-  right: 13.5%;
-  bottom: 13.5%;
-  left: 13.5%;
+  /* Pozycja spoczynkowa też na 16% */
+  top: 16%;
+  right: 16%;
+  bottom: 16%;
+  left: 16%;
 }
 
 /* ROTACJA PÓL (0-36) - Skonwertowane z LESS Loop */
@@ -2018,10 +2015,11 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 .data {
   display: block;
   position: absolute;
-  top: 30%;
-  right: 30%;
-  bottom: 30%;
-  left: 30%;
+  /* Zmieniamy na 35%, żeby pasowało do nowego mniejszego środka */
+  top: 35%;
+  right: 35%;
+  bottom: 35%;
+  left: 35%;
   border-radius: 50%;
   animation: rotate-plate 24s reverse linear infinite;
   perspective: 2000px;
@@ -2112,77 +2110,6 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   100% { transform: rotateX(0deg); }
 }
 
-/* --- STYLE DLA URZĄDZEŃ MOBILNYCH (TELEFONY) & GRID MEDIA QUERIES --- */
-@media (min-width: 801px) {
-    .grid-container {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        grid-template-areas:
-            "market portfolio"
-            "market order"
-            "rumors leaderboard"
-            "bonds bonds"
-            "betting casino"  /* <-- ZMIANA: KASYNO OBOK ZAKŁADÓW */
-            "chat chat"
-            "history history"
-            "help help";
-        gap: 20px;
-    }
-}
-
-@media (max-width: 800px) {
-    body { padding: 10px; }
-    header {
-        flex-direction: column;
-        gap: 15px;
-        align-items: center;
-    }
-    header h1 { order: 1; }
-    #theme-switcher { margin-left: 0; order: 2; }
-    #archive-radio-player { order: 2; margin-left: 0; margin-top: 10px; }
-    #user-info { order: 3; width: 100%; text-align: center; justify-content: center; }
-    
-    .grid-container {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "market"
-            "portfolio"
-            "order"
-            "rumors"
-            "leaderboard"
-            "bonds"
-            "betting"
-            "casino" /* <-- DODANO KASYNO */
-            "chat"
-            "history"
-            "help";
-        gap: 15px; 
-    }
-    
-    /* Resetowanie grida portfela na mobilkach */
-    #portfolio-panel {
-        display: block;
-    }
-    #portfolio-chart-container {
-        min-height: 200px; /* Mniejszy wykres */
-    }
-
-    #auth-container { width: 100%; padding: 0; gap: 15px; }
-    header h1 { font-size: 1.5em; } 
-    h2, h3 { font-size: 1.1em; }
-    #price-container { font-size: 1.3em; }
-
-    /* Mniejsze zakładki na mobilkach */
-    .market-type-tab { font-size: 0.9em; padding: 10px 8px; }
-    .company-tab { padding: 8px 10px; font-size: 0.8em; }
-
-    .tab-btn { font-size: 0.9em; }
-    .order-tab-btn { font-size: 0.8em; }
-    #rumor-controls { flex-direction: column; align-items: stretch; }
-    
-    .history-feed { max-height: 200px; }
-    .limit-order-table { font-size: 0.8em; }
-}
 /* === CIEMNY MOTYW PANELU KASYNA === */
 .casino-controls {
     background-color: var(--panel-color);
