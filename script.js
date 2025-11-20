@@ -659,60 +659,67 @@ function initChart() {
     });
     chart.render();
 }
-// =================================================
-// NAPRAWIONA FUNKCJA TICKERA WYKRESU (Co 15 sekund)
-// =================================================
 function startChartTicker() {
-    // Ustawienie interwału na 15000 ms (15 sekund)
-    setInterval(() => {
-        // Sprawdź czy wykres i dane istnieją
-        if (!chart || !market[currentCompanyId]) return;
+    // 1. Czyścimy stary interwał, żeby wykres nie przyspieszał po przelogowaniu
+    if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
 
-        const now = new Date().getTime();
-        const currentPrice = market[currentCompanyId].price;
-        const history = market[currentCompanyId].history;
-
-        // Pobierz cenę zamknięcia (Close) z ostatniej świecy jako otwarcie (Open) nowej
-        // Jeśli brak historii, użyj obecnej ceny
-        const lastCandle = history.length > 0 ? history[history.length - 1] : null;
-        const openPrice = lastCandle ? parseFloat(lastCandle.y[3]) : currentPrice;
+    // 2. Ustawiamy pętlę co 15 sekund
+    window.chartTickerInterval = setInterval(() => {
         
-        // Symulacja High/Low (Najwyższa/Najniższa cena w ciągu tych 15 sekund)
-        // Dodajemy drobny szum losowy, żeby świeczka ładnie wyglądała (nie była płaską kreską)
-        // nawet jeśli cena z serwera się nie zmieniła
-        const volatility = currentPrice * 0.005; // 0.5% zmienności wizualnej
-        const randomHigh = Math.random() * volatility;
-        const randomLow = Math.random() * volatility;
+        // Pętla po WSZYSTKICH spółkach (żeby tło aktualizowało się nawet jak patrzysz na inną)
+        for (const companyId in market) {
+            const company = market[companyId];
+            const history = company.history;
+            
+            // Jeśli brak historii, pomiń
+            if (!history || history.length === 0) continue;
+            
+            // Pobieramy ostatnią świeczkę z historii
+            const lastCandle = history[history.length - 1];
+            
+            // --- Poprawne pobieranie czasu (ciągłość osi X) ---
+            const lastTime = new Date(lastCandle.x).getTime();
+            const newTime = lastTime + 15000; // Dodajemy 15 sekund
 
-        const highPrice = Math.max(openPrice, currentPrice) + randomHigh;
-        const lowPrice = Math.min(openPrice, currentPrice) - randomLow;
+            // --- Ciągłość ceny ---
+            // Otwarcie nowej świecy = Zamknięcie poprzedniej
+            // Dzięki temu wykres jest ciągły
+            const open = parseFloat(lastCandle.y[3]);
+            
+            // Zamknięcie nowej świecy = Aktualna cena z Firebase
+            const close = company.price; 
 
-        // Tworzenie nowej świecy w formacie ApexCharts: [Open, High, Low, Close]
-        const newCandle = {
-            x: now,
-            y: [
-                openPrice.toFixed(2),
-                highPrice.toFixed(2),
-                lowPrice.toFixed(2),
-                currentPrice.toFixed(2)
-            ]
-        };
+            // --- Symulacja ruchu (High/Low) ---
+            // Dodajemy "szum", żeby świeczka nie była płaską kreską, gdy cena stoi w miejscu
+            const volatility = company.price * 0.005; // 0.5% zmienności wizualnej
+            const randomHigh = Math.random() * volatility;
+            const randomLow = Math.random() * volatility;
 
-        // Dodaj nową świecę do historii spółki
-        market[currentCompanyId].history.push(newCandle);
+            const high = Math.max(open, close) + randomHigh;
+            const low = Math.min(open, close) - randomLow;
 
-        // (Opcjonalnie) Usuń najstarszą świecę, jeśli jest ich więcej niż 50, 
-        // aby wykres nie zjadał pamięci i był czytelny
-        if (market[currentCompanyId].history.length > 50) {
-            market[currentCompanyId].history.shift();
+            const newCandle = {
+                x: new Date(newTime),
+                y: [
+                    open.toFixed(2),
+                    high.toFixed(2),
+                    low.toFixed(2),
+                    close.toFixed(2)
+                ]
+            };
+            
+            // Dodaj nową świeczkę i usuń najstarszą (żeby nie zapchać pamięci)
+            history.push(newCandle);
+            if (history.length > 50) history.shift();
         }
-
-        // Zaktualizuj wykres nowymi danymi
-        chart.updateSeries([{
-            data: market[currentCompanyId].history
-        }]);
-
-    }, 15000); // Czas w milisekundach: 15000ms = 15 sekund
+        
+        // 3. Odśwież wykres TYLKO dla aktualnie wybranej spółki (jeśli wykres istnieje)
+        if (chart && market[currentCompanyId].history.length > 0) {
+            chart.updateSeries([{
+                data: market[currentCompanyId].history
+            }]);
+        }
+    }, 15000); // Wykonuj co 15 sekund
 }
 function initPortfolioChart() {
     portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
