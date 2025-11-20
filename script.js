@@ -224,6 +224,12 @@ document.addEventListener("DOMContentLoaded", () => {
         placeBetButton: document.getElementById("place-bet-button"),
         activeBetsFeed: document.getElementById("active-bets-feed"),
 
+        // KASYNO
+        casinoAmount: document.getElementById("casino-amount"),
+        casinoStatus: document.getElementById("casino-status"),
+        wheel: document.getElementById("roulette-wheel"),
+        casinoButtons: document.querySelectorAll(".casino-btn"),
+
         // Modal
         modalOverlay: document.getElementById("user-profile-modal"),
         modalCloseButton: document.getElementById("modal-close-button"),
@@ -1075,3 +1081,115 @@ async function onBuyTip() {
         showNotification(`[${isReal?'PRAWDZIWE INFO':'FAŁSZYWKA'}] ${market[cid].name} może ${isPos?'wzrosnąć':'spaść'}...`, 'tip');
     } catch(e) { showMessage("Błąd", "error"); }
 }
+
+
+// ===================================
+// === LOGIKA KASYNA (RULETKA) ===
+// ===================================
+
+let isSpinning = false;
+
+window.playRoulette = async function(color) {
+    if (isSpinning) return;
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    
+    const amount = parseInt(dom.casinoAmount.value);
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    isSpinning = true;
+    dom.casinoStatus.textContent = "Kręcimy...";
+    dom.casinoStatus.style.color = "var(--text-color)";
+    
+    // Blokada przycisków
+    dom.casinoButtons.forEach(b => b.disabled = true);
+
+    // 1. Losowanie wyniku (Client-side dla szybkości)
+    const resultIndex = Math.floor(Math.random() * 15); 
+    
+    let winningColor = 'green';
+    if (resultIndex !== 0) {
+        winningColor = (resultIndex % 2 !== 0) ? 'red' : 'black';
+    }
+
+    let multiplier = 0;
+    if (color === winningColor) {
+        if (color === 'green') multiplier = 14;
+        else multiplier = 2;
+    }
+
+    // Obliczanie kąta obrotu (wizualizacja)
+    const segmentAngle = 24;
+    const randomOffset = Math.floor(Math.random() * 20) + 2; 
+    const baseRotation = (360 - (resultIndex * segmentAngle)); 
+    const extraSpins = 360 * 5; // 5 pełnych obrotów
+    const finalRotation = extraSpins + baseRotation + randomOffset;
+
+    dom.wheel.style.transform = `rotate(${finalRotation}deg)`;
+
+    // 2. Aktualizacja Firebase (Transaction)
+    try {
+        // Czekamy na animację (3 sekundy)
+        await new Promise(r => setTimeout(r, 3000));
+
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            const userData = userDoc.data();
+
+            if (userData.cash < amount) {
+                throw new Error("Brak środków (transakcja)");
+            }
+
+            // Logika salda
+            let newCash = userData.cash;
+            let newZysk = userData.zysk;
+
+            if (multiplier > 0) {
+                // Wygrana
+                const winAmount = amount * multiplier; // To co wraca do portfela
+                newCash = newCash - amount + winAmount; 
+                newZysk += (winAmount - amount);
+            } else {
+                // Przegrana
+                newCash -= amount;
+                newZysk -= amount;
+            }
+
+            // Aktualizacja TYLKO salda (bez historii, oszczędzamy zapisy)
+            const newTotalValue = calculateTotalValue(newCash, userData.shares);
+            
+            t.update(userRef, { 
+                cash: newCash, 
+                totalValue: newTotalValue,
+                zysk: newZysk
+            });
+        });
+
+        // 3. UI po zakończeniu
+        if (multiplier > 0) {
+            dom.casinoStatus.innerHTML = `<span style="color:var(--green)">WYGRANA! +${formatujWalute(amount * multiplier)}</span>`;
+            dom.audioKaching.play().catch(()=>{});
+            showNotification(`Wygrałeś ${formatujWalute(amount * multiplier)} w ruletce!`, 'news', 'positive');
+        } else {
+            dom.casinoStatus.innerHTML = `<span style="color:var(--red)">Przegrana... -${formatujWalute(amount)}</span>`;
+            dom.audioError.play().catch(()=>{});
+        }
+
+    } catch (e) {
+        console.error(e);
+        dom.casinoStatus.textContent = "Błąd: " + e.message;
+        showMessage("Błąd transakcji", "error");
+    } finally {
+        isSpinning = false;
+        dom.casinoButtons.forEach(b => b.disabled = false);
+        // Reset koła
+        setTimeout(() => {
+            dom.wheel.style.transition = 'none';
+            dom.wheel.style.transform = `rotate(${baseRotation}deg)`;
+            setTimeout(() => {
+                dom.wheel.style.transition = 'transform 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
+            }, 50);
+        }, 2000);
+    }
+};
