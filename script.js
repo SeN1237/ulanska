@@ -1084,12 +1084,14 @@ async function onBuyTip() {
 
 
 // ===================================
-// === LOGIKA KASYNA (RULETKA) ===
+// === NOWA LOGIKA RULETKI (37 LICZB) ===
 // ===================================
 
 let isSpinning = false;
+// Definicja czerwonych liczb w ruletce europejskiej
+const RED_NUMBERS = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
 
-window.playRoulette = async function(color) {
+window.playRoulette = async function(betColor) {
     if (isSpinning) return;
     if (!currentUserId) return showMessage("Zaloguj się!", "error");
     
@@ -1097,80 +1099,101 @@ window.playRoulette = async function(color) {
     if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
     if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
 
+    // 1. Blokada UI
     isSpinning = true;
-    dom.casinoStatus.textContent = "Kręcimy...";
-    dom.casinoStatus.style.color = "var(--text-color)";
-    
-    // Blokada przycisków
+    dom.casinoStatus.textContent = "Rien ne va plus! (Koniec zakładów)";
     dom.casinoButtons.forEach(b => b.disabled = true);
+    dom.amountInput.disabled = true;
 
-    // 1. Losowanie wyniku (Client-side dla szybkości)
-    const resultIndex = Math.floor(Math.random() * 15); 
+    // Resetowanie widoku
+    const innerRing = document.querySelector('.inner');
+    const dataContainer = document.querySelector('.data');
+    const maskText = document.querySelector('.mask');
+    const resultNumberEl = document.querySelector('.result-number');
+    const resultColorEl = document.querySelector('.result-color');
+    const resultBg = document.querySelector('.result');
+
+    innerRing.removeAttribute('data-spinto');
+    innerRing.classList.remove('rest');
+    dataContainer.classList.remove('reveal');
+    maskText.textContent = "Kręcimy...";
+
+    // 2. Losowanie wyniku (0-36)
+    const winningNumber = Math.floor(Math.random() * 37);
     
-    let winningColor = 'green';
-    if (resultIndex !== 0) {
-        winningColor = (resultIndex % 2 !== 0) ? 'red' : 'black';
+    // Określenie koloru wyniku
+    let resultColor = 'black';
+    if (winningNumber === 0) {
+        resultColor = 'green';
+    } else if (RED_NUMBERS.includes(winningNumber)) {
+        resultColor = 'red';
     }
 
-    let multiplier = 0;
-    if (color === winningColor) {
-        if (color === 'green') multiplier = 14;
-        else multiplier = 2;
-    }
+    // 3. Animacja
+    // Ustawiamy atrybut data-spinto, co odpala CSS transition
+    setTimeout(() => {
+        innerRing.setAttribute('data-spinto', winningNumber);
+    }, 100);
 
-    // Obliczanie kąta obrotu (wizualizacja)
-    const segmentAngle = 24;
-    const randomOffset = Math.floor(Math.random() * 20) + 2; 
-    const baseRotation = (360 - ((resultIndex + 1) * segmentAngle));
-    const extraSpins = 360 * 5; // 5 pełnych obrotów
-    const finalRotation = extraSpins + baseRotation + randomOffset;
+    // Czas trwania animacji w CSS to 9 sekund
+    const spinDuration = 9000;
 
-    dom.wheel.style.transform = `rotate(${finalRotation}deg)`;
-
-    // 2. Aktualizacja Firebase (Transaction)
+    // 4. Oczekiwanie i rozliczenie
     try {
-        // Czekamy na animację (3 sekundy)
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, spinDuration));
+
+        // Efekt "opadnięcia" piłeczki
+        innerRing.classList.add('rest');
+
+        // Wyświetlenie wyniku na środku
+        resultNumberEl.textContent = winningNumber;
+        resultColorEl.textContent = resultColor === 'red' ? 'CZERWONE' : (resultColor === 'black' ? 'CZARNE' : 'ZIELONE');
+        resultBg.style.backgroundColor = resultColor === 'red' ? 'var(--red)' : (resultColor === 'black' ? '#111' : 'var(--green)');
+        dataContainer.classList.add('reveal');
+        
+        // Dodanie do historii (na górę listy)
+        const historyList = document.getElementById('previous-list');
+        const newItem = document.createElement('li');
+        newItem.className = `previous-result color-${resultColor}`;
+        newItem.textContent = winningNumber;
+        historyList.prepend(newItem);
+        if (historyList.children.length > 10) historyList.lastChild.remove(); // Trzymaj max 10 wyników
+
+        // Logika wygranej/przegranej
+        let multiplier = 0;
+        if (betColor === resultColor) {
+            if (betColor === 'green') multiplier = 36; // Standardowa wypłata za 0
+            else multiplier = 2;
+        }
 
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await t.get(userRef);
             const userData = userDoc.data();
 
-            if (userData.cash < amount) {
-                throw new Error("Brak środków (transakcja)");
-            }
+            if (userData.cash < amount) throw new Error("Brak środków przy rozliczaniu");
 
-            // Logika salda
             let newCash = userData.cash;
             let newZysk = userData.zysk;
 
             if (multiplier > 0) {
-                // Wygrana
-                const winAmount = amount * multiplier; // To co wraca do portfela
-                newCash = newCash - amount + winAmount; 
+                const winAmount = amount * multiplier;
+                newCash = newCash - amount + winAmount;
                 newZysk += (winAmount - amount);
             } else {
-                // Przegrana
                 newCash -= amount;
                 newZysk -= amount;
             }
 
-            // Aktualizacja TYLKO salda (bez historii, oszczędzamy zapisy)
             const newTotalValue = calculateTotalValue(newCash, userData.shares);
-            
-            t.update(userRef, { 
-                cash: newCash, 
-                totalValue: newTotalValue,
-                zysk: newZysk
-            });
+            t.update(userRef, { cash: newCash, totalValue: newTotalValue, zysk: newZysk });
         });
 
-        // 3. UI po zakończeniu
+        // UI końcowe
         if (multiplier > 0) {
             dom.casinoStatus.innerHTML = `<span style="color:var(--green)">WYGRANA! +${formatujWalute(amount * multiplier)}</span>`;
             dom.audioKaching.play().catch(()=>{});
-            showNotification(`Wygrałeś ${formatujWalute(amount * multiplier)} w ruletce!`, 'news', 'positive');
+            showNotification(`Ruletka: Wygrałeś ${formatujWalute(amount * multiplier)}!`, 'news', 'positive');
         } else {
             dom.casinoStatus.innerHTML = `<span style="color:var(--red)">Przegrana... -${formatujWalute(amount)}</span>`;
             dom.audioError.play().catch(()=>{});
@@ -1178,18 +1201,11 @@ window.playRoulette = async function(color) {
 
     } catch (e) {
         console.error(e);
-        dom.casinoStatus.textContent = "Błąd: " + e.message;
-        showMessage("Błąd transakcji", "error");
+        showMessage("Błąd gry: " + e.message, "error");
     } finally {
         isSpinning = false;
         dom.casinoButtons.forEach(b => b.disabled = false);
-        // Reset koła
-        setTimeout(() => {
-            dom.wheel.style.transition = 'none';
-            dom.wheel.style.transform = `rotate(${baseRotation}deg)`;
-            setTimeout(() => {
-                dom.wheel.style.transition = 'transform 3s cubic-bezier(0.25, 0.1, 0.25, 1)';
-            }, 50);
-        }, 2000);
+        dom.amountInput.disabled = false;
+        maskText.textContent = "Obstaw zakład";
     }
 };
