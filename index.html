@@ -259,11 +259,31 @@
                     <p>...brak aktywnych zakładów...</p>
                 </div>
             </section>
+
+            <section id="casino-panel" class="panel">
+                <h2>🎰 Ułańska Ruletka</h2>
+                <div class="casino-wrapper">
+                    <div class="roulette-container">
+                        <div id="roulette-wheel" class="wheel">
+                            <div class="wheel-center"></div>
+                        </div>
+                        <div class="wheel-marker">⬇</div>
+                    </div>
+                    
+                    <div class="casino-controls">
+                        <p id="casino-status">Postaw zakład i zakręć!</p>
+                        <div class="bet-inputs">
+                            <input type="number" id="casino-amount" placeholder="Stawka" min="1" style="width: 80%; margin-bottom: 10px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color);">
+                            <div class="casino-buttons">
+                                <button class="casino-btn btn-red" onclick="playRoulette('red')">Czerwone (x2)</button>
+                                <button class="casino-btn btn-black" onclick="playRoulette('black')">Czarne (x2)</button>
+                                <button class="casino-btn btn-green" onclick="playRoulette('green')">Zielone (x14)</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                
-                
             </section>
+            
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
                 <div id="chat-feed" class="feed-box">
