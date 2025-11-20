@@ -908,15 +908,40 @@ function listenToLeaderboard() {
         let r = 1;
         snap.forEach(d => {
             const u = d.data();
-            // ZMIANA: Dodano <strong class="clickable-user" ...> wokół u.name
+            
+            // Obliczanie zysku
+            const profitValue = u.totalValue - u.startValue;
+            
+            // Ustalanie koloru i znaku
+            let profitClass = "profit-plus";
+            let profitSign = "+";
+            if (profitValue < 0) {
+                profitClass = "profit-minus";
+                profitSign = ""; 
+            }
+
+            // Generowanie HTML (cały lewy blok jest klikalny)
             dom.leaderboardList.innerHTML += `
                 <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
-                    <span>
-                        ${r}. <strong class="clickable-user" onclick="showUserProfile('${d.id}')">${u.name}</strong> 
-                        ${getPrestigeStars(u.prestigeLevel)}
-                        <small>Zysk: ${formatujWalute(u.totalValue - u.startValue)}</small>
-                    </span>
-                    <strong>${formatujWalute(u.totalValue)}</strong>
+                    
+                    <div class="leaderboard-left clickable-area" onclick="showUserProfile('${d.id}')">
+                        <div class="leaderboard-top-row">
+                            <span class="leaderboard-rank">${r}.</span>
+                            <span class="leaderboard-name">
+                                ${u.name}
+                            </span>
+                            ${getPrestigeStars(u.prestigeLevel)}
+                        </div>
+                        
+                        <span class="leaderboard-profit ${profitClass}">
+                            Zysk: ${profitSign}${formatujWalute(profitValue)}
+                        </span>
+                    </div>
+
+                    <div class="leaderboard-total">
+                        ${formatujWalute(u.totalValue)}
+                    </div>
+
                 </li>`;
             r++;
         });
