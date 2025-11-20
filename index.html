@@ -318,16 +318,34 @@
                       </div>
 
                     <div class="casino-controls">
-                        <p id="casino-status">Wybierz kolor i stawkę</p>
-                        <div class="bet-inputs">
-                            <input type="number" id="casino-amount" placeholder="Stawka" min="1">
-                            <div class="casino-buttons">
-                                <button class="casino-btn btn-red" onclick="playRoulette('red')">Czerwone (x2)</button>
-                                <button class="casino-btn btn-black" onclick="playRoulette('black')">Czarne (x2)</button>
-                                <button class="casino-btn btn-green" onclick="playRoulette('green')">Zielone (x36)</button>
-                            </div>
-                        </div>
-                    </div>
+    <p id="casino-status">Obstaw zakład i zakręć!</p>
+    
+    <div class="bet-row">
+        <label>Stawka:</label>
+        <input type="number" id="casino-amount" class="dark-input" placeholder="Kwota" min="1" value="100">
+    </div>
+
+    <div class="bet-row">
+        <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴 Czerwone (x2)</button>
+        <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫ Czarne (x2)</button>
+        <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢 Zero (x36)</button>
+    </div>
+
+    <div class="bet-numbers-grid">
+        <button class="num-btn num-0" onclick="selectBetType('number', 0)">0</button>
+        <script>
+            // Szybki skrypt generujący HTML dla liczb 1-36 w HTML (żeby nie pisać ręcznie)
+            // Czerwone liczby w ruletce
+            const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+            for(let i=1; i<=36; i++) {
+                let colorClass = reds.includes(i) ? 'num-red' : 'num-black';
+                document.write(`<button class="num-btn ${colorClass}" onclick="selectBetType('number', ${i})">${i}</button>`);
+            }
+        </script>
+    </div>
+
+    <button id="spin-button" class="action-btn-full spin-btn" onclick="commitSpin()">ZAKRĘĆ KOŁEM!</button>
+</div>
                     
                     <div class="previous-results">
                         <ol class="previous-list" id="previous-list">
