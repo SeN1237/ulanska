@@ -723,10 +723,57 @@ function startChartTicker() {
 }
 function initPortfolioChart() {
     portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
-        series: [portfolio.cash], labels: ['Gotówka'],
-        chart: { type: 'donut', height: 300 }, colors: CHART_COLORS,
+        series: [portfolio.cash], 
+        labels: ['Gotówka'],
+        chart: { 
+            type: 'donut', 
+            height: 300 
+        }, 
+        colors: CHART_COLORS,
         theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
-        legend: { position: 'bottom' }, dataLabels: { enabled: false }
+        legend: { position: 'bottom' }, 
+        dataLabels: { enabled: false },
+        // --- NOWA SEKCJA: Konfiguracja środka wykresu ---
+        plotOptions: {
+            pie: {
+                donut: {
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true,
+                            offsetY: -10, // Przesunięcie nazwy (np. "Gotówka") nieco w górę
+                            fontSize: '14px',
+                            fontFamily: 'Inter, sans-serif'
+                        },
+                        value: {
+                            show: true,
+                            fontSize: '16px',
+                            fontFamily: 'Inter, sans-serif',
+                            fontWeight: 600,
+                            offsetY: 5, // Przesunięcie wartości w dół
+                            formatter: function (val) {
+                                // Formatowanie wartości konkretnego wycinka po najechaniu
+                                return formatujWalute(val);
+                            }
+                        },
+                        total: {
+                            show: true,
+                            showAlways: true, // To sprawia, że suma wyświetla się zawsze, gdy nie najeżdżasz
+                            label: 'Wartość Portfela',
+                            fontSize: '14px',
+                            fontFamily: 'Inter, sans-serif',
+                            fontWeight: 400,
+                            formatter: function (w) {
+                                // Obliczanie sumy wszystkich elementów (Gotówka + Akcje)
+                                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                return formatujWalute(total);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // --- KONIEC NOWEJ SEKCJI ---
     });
     portfolioChart.render();
 }
