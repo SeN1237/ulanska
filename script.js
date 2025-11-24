@@ -1245,17 +1245,32 @@ window.commitSpin = async function() {
     }
 };
 // ==========================================
-// === SYSTEM PVP (ANIMACJA CS:GO W PANELU) ===
+// === SYSTEM PVP (ZSYNCHRONIZOWANA RULETKA) ===
 // ==========================================
 
-// Zmienne konfiguracyjne animacji
+// Konfiguracja
 const playedAnimations = new Set(); 
-const CARD_WIDTH = 120; // Szerokość karty dopasowana do CSS
-const WINNER_INDEX = 60; // Indeks wygranej (im wyższy, tym dłużej kręci)
+const CARD_WIDTH = 120; 
+const WINNER_INDEX = 60; 
+
+// --- FUNKCJA POMOCNICZA: Generator liczb na podstawie ID ---
+// Dzięki temu Math.random() zostaje zastąpiony przez rng(), który dla tego samego seeda (ID walki)
+// zawsze generuje tę samą kolejność liczb u wszystkich graczy.
+function getSeededRandom(seedStr) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < seedStr.length; i++) {
+        h ^= seedStr.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+    }
+    return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return ((h >>> 0) / 4294967296);
+    }
+}
 
 // 1. Nasłuchiwanie aktywnych wyzwań
 function listenToPvP() {
-    // Pobieramy walki otwarte oraz te w trakcie losowania ('battling')
     const q = query(
         collection(db, "pvp_duels"), 
         where("status", "in", ["open", "battling"]), 
@@ -1268,7 +1283,6 @@ function listenToPvP() {
         let duels = [];
         snap.forEach(doc => duels.push({ id: doc.id, ...doc.data() }));
 
-        // Sortowanie od najnowszych
         duels.sort((a, b) => b.createdAt - a.createdAt);
 
         if (duels.length === 0) {
@@ -1277,11 +1291,10 @@ function listenToPvP() {
         }
 
         duels.forEach(duel => {
-            // --- LOGIKA ANIMACJI ---
-            // Jeśli pojedynek jest w trakcie losowania i jeszcze go nie wyświetliliśmy
+            // Jeśli status to 'battling', odpalamy animację (tylko raz dla danego ID)
             if (duel.status === 'battling' && !playedAnimations.has(duel.id)) {
                 playedAnimations.add(duel.id);
-                triggerGlobalPvPAnimation(duel); // <--- URUCHAMIA RULETKĘ W PANELU
+                triggerGlobalPvPAnimation(duel); 
             }
 
             const isMyDuel = duel.creatorId === currentUserId;
@@ -1390,7 +1403,6 @@ window.joinPvP = async function(duelId, amount, opponentName) {
                 t.update(creatorRef, { zysk: increment(-amount) });
             }
 
-            // Ustawiamy status na 'battling', co uruchomi animację u wszystkich
             t.update(duelRef, { 
                 status: "battling", 
                 winner: winnerName,
@@ -1409,18 +1421,19 @@ window.joinPvP = async function(duelId, amount, opponentName) {
     }
 };
 
-// 4. Funkcja ANIMACJI (CS:GO Style - wbudowana w panel)
+// 4. Funkcja ANIMACJI (Zsynchronizowana)
 function triggerGlobalPvPAnimation(duel) {
-    // Pobieramy elementy po ID z Twojego HTML
     const container = document.getElementById('pvp-embedded-roulette');
     const strip = document.getElementById('roulette-strip');
     const winnerText = document.getElementById('pvp-roulette-winner');
     const title = document.getElementById('pvp-vs-title');
 
-    // Pokazujemy kontener
+    // Inicjalizacja generatora losowego opartego na ID walki
+    // To jest klucz do synchronizacji!
+    const rng = getSeededRandom(duel.id);
+
     container.classList.remove('hidden');
     
-    // Reset stanu
     strip.innerHTML = "";
     strip.style.transition = "none";
     strip.style.transform = "translateX(0px)";
@@ -1430,15 +1443,17 @@ function triggerGlobalPvPAnimation(duel) {
     
     title.innerHTML = `<span style="color:var(--blue)">${duel.creatorName}</span> vs <span style="color:var(--red)">${duel.joinerName}</span>`;
 
-    // Generowanie kart
     const totalCards = 90;
     const cardsData = [];
 
     for (let i = 0; i < totalCards; i++) {
         if (i === WINNER_INDEX) {
+            // Karta zwycięzcy (zawsze ta sama pozycja)
             cardsData.push(duel.winner === duel.creatorName ? 'creator' : 'joiner');
         } else {
-            cardsData.push(Math.random() > 0.5 ? 'creator' : 'joiner');
+            // Wypełniacze losowane przez rng() zamiast Math.random()
+            // Dzięki temu u każdego kolejność kart będzie identyczna
+            cardsData.push(rng() > 0.5 ? 'creator' : 'joiner');
         }
     }
 
@@ -1452,10 +1467,13 @@ function triggerGlobalPvPAnimation(duel) {
         strip.appendChild(div);
     });
 
-    // Obliczenia pozycji
     const windowWidth = document.querySelector('.roulette-window.embedded').offsetWidth;
     const winnerCenterPosition = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2);
-    const randomOffset = (Math.random() - 0.5) * (CARD_WIDTH * 0.7);
+    
+    // Używamy rng() również do obliczenia przesunięcia (jitter)
+    // Dzięki temu u każdego pasek zatrzyma się w TYM SAMYM pikselu
+    const randomOffset = (rng() - 0.5) * (CARD_WIDTH * 0.7);
+    
     const targetTranslate = (windowWidth / 2) - (winnerCenterPosition + randomOffset);
 
     // Start animacji
@@ -1463,7 +1481,7 @@ function triggerGlobalPvPAnimation(duel) {
         strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
         strip.style.transform = `translateX(${targetTranslate}px)`;
         
-        // Wynik po zatrzymaniu
+        // Wynik
         setTimeout(() => {
             if (duel.winner === portfolio.name) {
                 winnerText.textContent = "WYGRAŁEŚ!";
@@ -1479,7 +1497,7 @@ function triggerGlobalPvPAnimation(duel) {
             }
             winnerText.classList.add('animate-winner-text');
 
-            // Ukrycie po chwili
+            // Ukrycie
             setTimeout(() => {
                 container.classList.add('hidden'); 
                 if (currentUserId === duel.joinerId) {
