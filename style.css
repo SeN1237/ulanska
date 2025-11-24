@@ -2390,7 +2390,17 @@ body[data-theme="dark"] .pvp-join-btn:hover:not(:disabled) {
     background: linear-gradient(to bottom, var(--panel-color), rgba(255, 215, 0, 0.05));
 }
 
-/* Animacja pulsująca dla nagłówka turnieju */
+/* Definicja delikatnego pulsowania neonu */
+@keyframes text-glow {
+    0% { text-shadow: 0 0 5px var(--accent-color); opacity: 1; }
+    50% { text-shadow: 0 0 20px var(--accent-color), 0 0 10px var(--accent-color); opacity: 0.8; }
+    100% { text-shadow: 0 0 5px var(--accent-color); opacity: 1; }
+}
+
 #tournament-panel h2 {
-    animation: flash-accent 3s infinite;
+    /* Używamy nowej animacji text-glow zamiast flash-accent */
+    animation: text-glow 3s infinite ease-in-out;
+    color: var(--accent-color); /* Fiolet/Róż */
+    border-bottom: none;
+    text-align: left; /* Lub center, zależnie jak wolisz */
 }
