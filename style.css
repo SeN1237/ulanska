@@ -2381,3 +2381,16 @@ body[data-theme="dark"] .pvp-join-btn:hover:not(:disabled) {
 .roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.9), transparent); }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* --- STYL DLA KAFELKA TURNIEJU --- */
+#tournament-panel {
+    /* Jeśli masz zdefiniowany grid-area w głównym kontenerze, możesz tu dodać: grid-area: tournament; */
+    border: 2px solid #FFD700; /* Złota ramka */
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
+    background: linear-gradient(to bottom, var(--panel-color), rgba(255, 215, 0, 0.05));
+}
+
+/* Animacja pulsująca dla nagłówka turnieju */
+#tournament-panel h2 {
+    animation: flash-accent 3s infinite;
+}
