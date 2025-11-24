@@ -2273,3 +2273,111 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 body[data-theme="dark"] .pvp-join-btn:hover:not(:disabled) {
     box-shadow: 0 0 15px #9966FF;
 }
+/* --- OSADZONA RULETKA PVP (EMBEDDED) --- */
+
+#pvp-embedded-roulette {
+    margin-top: 20px;
+    padding-top: 10px;
+    animation: fadeIn 0.5s ease;
+}
+
+.pvp-title-embedded {
+    text-align: center;
+    color: var(--text-color);
+    margin: 10px 0;
+    font-size: 1.2em;
+    letter-spacing: 1px;
+}
+
+/* Okno ruletki dopasowane do panelu */
+.roulette-window.embedded {
+    width: 100%;
+    height: 100px; /* Nieco mniejsza wysokość niż w modalu */
+    background-color: #000;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    margin: 0 auto;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.roulette-strip {
+    display: flex;
+    height: 100%;
+    width: max-content;
+    transform: translateX(0); 
+    will-change: transform;
+}
+
+.roulette-marker {
+    position: absolute;
+    top: 0; bottom: 0; left: 50%;
+    width: 4px;
+    background-color: #FFD700;
+    transform: translateX(-50%);
+    z-index: 10;
+    box-shadow: 0 0 10px #FFD700;
+}
+
+.roulette-card {
+    width: 120px; /* Węższe karty żeby lepiej wyglądały w panelu */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid #222;
+    box-sizing: border-box;
+    font-weight: bold;
+    font-size: 0.8em; /* Mniejsza czcionka */
+    padding: 5px;
+    text-align: center;
+    position: relative;
+}
+
+.card-creator {
+    background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border-bottom: 3px solid var(--blue);
+}
+
+.card-joiner {
+    background: linear-gradient(180deg, #8E0E00 0%, #1F1C18 100%);
+    color: white;
+    border-bottom: 3px solid var(--red);
+}
+
+.card-icon {
+    font-size: 1.5em; /* Mniejsze ikony */
+    margin-bottom: 2px;
+}
+
+.pvp-winner-text {
+    text-align: center;
+    font-size: 1.5em;
+    min-height: 1.2em;
+    margin-top: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-weight: 800;
+}
+
+.animate-winner-text {
+    opacity: 1;
+    animation: flash-accent 1s infinite;
+}
+
+/* Cienie po bokach dla głębi */
+.roulette-window.embedded::before, .roulette-window.embedded::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 40px;
+    z-index: 5;
+    pointer-events: none;
+}
+.roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,0.9), transparent); }
+.roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.9), transparent); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
