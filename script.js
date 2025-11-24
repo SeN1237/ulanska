@@ -84,6 +84,7 @@ let unsubscribeLimitOrders = null;
 let unsubscribeBonds = null;
 let unsubscribeMatch = null;
 let unsubscribeActiveBets = null;
+let unsubscribePvP = null;
 
 let dom = {};
 
@@ -229,7 +230,12 @@ document.addEventListener("DOMContentLoaded", () => {
         casinoStatus: document.getElementById("casino-status"),
         wheel: document.getElementById("roulette-wheel"),
         casinoButtons: document.querySelectorAll(".casino-btn"),
-
+        
+        // PVP
+        pvpForm: document.getElementById("pvp-create-form"),
+        pvpAmount: document.getElementById("pvp-amount"),
+        pvpFeed: document.getElementById("pvp-feed"),
+        
         // Modal
         modalOverlay: document.getElementById("user-profile-modal"),
         modalCloseButton: document.getElementById("modal-close-button"),
@@ -273,6 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
     dom.bondsForm.addEventListener("submit", onBuyBond); 
     dom.bettingForm.addEventListener("submit", onPlaceBet);
+    dom.pvpForm.addEventListener("submit", onCreatePvP);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
     dom.buyTipButton.addEventListener("click", onBuyTip);
@@ -347,6 +354,7 @@ function startAuthListener() {
             listenToActiveBonds(currentUserId);
             listenToActiveMatch();
             listenToActiveBets(currentUserId);
+            listenToPvP();
         } else {
             currentUserId = null;
             dom.simulatorContainer.classList.add("hidden");
@@ -355,6 +363,7 @@ function startAuthListener() {
             
             if (unsubscribePortfolio) unsubscribePortfolio();
             if (unsubscribeMatch) unsubscribeMatch();
+            if (unsubscribePvP) unsubscribePvP();
             // ... reszta unsubów ...
             
             chartHasStarted = false; chart = null; portfolioChart = null;
@@ -1233,5 +1242,203 @@ window.commitSpin = async function() {
         isSpinning = false;
         allBtns.forEach(b => b.disabled = false);
         dom.amountInput.disabled = false;
+    }
+};
+// ==========================================
+// === SYSTEM PVP (POJEDYNKI 1 vs 1) ===
+// ==========================================
+
+// 1. Nasłuchiwanie aktywnych wyzwań
+function listenToPvP() {
+    // Pobieramy tylko wyzwania ze statusem 'open', sortujemy od najnowszych
+    const q = query(collection(db, "pvp_duels"), where("status", "==", "open"), orderBy("createdAt", "desc"), limit(10));
+    
+    unsubscribePvP = onSnapshot(q, (snap) => {
+        dom.pvpFeed.innerHTML = "";
+        
+        if (snap.empty) {
+            dom.pvpFeed.innerHTML = "<p>Arena jest pusta. Stwórz wyzwanie!</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const duel = docSnap.data();
+            const isMyDuel = duel.creatorId === currentUserId;
+            
+            const div = document.createElement("div");
+            div.className = "pvp-item";
+            
+            // Logika przycisku: jeśli to moje wyzwanie -> zablokuj, jeśli cudze -> "WALCZ"
+            let btnHtml = "";
+            if (isMyDuel) {
+                btnHtml = `<button class="pvp-join-btn" disabled style="background:#555; cursor:default;">Twoje</button>`;
+            } else {
+                // Wywołujemy globalną funkcję joinPvP
+                btnHtml = `<button class="pvp-join-btn" onclick="joinPvP('${docSnap.id}', ${duel.amount}, '${duel.creatorName}')">WALCZ!</button>`;
+            }
+
+            div.innerHTML = `
+                <div class="pvp-info">
+                    <strong>${formatujWalute(duel.amount)}</strong>
+                    <span>vs ${duel.creatorName} ${getPrestigeStars(duel.creatorPrestige || 0)}</span>
+                </div>
+                <div>${btnHtml}</div>
+            `;
+            dom.pvpFeed.appendChild(div);
+        });
+    });
+}
+
+// 2. Tworzenie wyzwania
+async function onCreatePvP(e) {
+    e.preventDefault();
+    const amount = parseFloat(dom.pvpAmount.value);
+    
+    if (isNaN(amount) || amount < 1000) return showMessage("Minimum 1000 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            // Pobieramy dane użytkownika
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            const userData = userDoc.data();
+
+            if (userData.cash < amount) throw new Error("Za mało gotówki!");
+
+            // Zabieramy kasę twórcy
+            const newCash = userData.cash - amount;
+            const newVal = calculateTotalValue(newCash, userData.shares);
+            
+            t.update(userRef, { cash: newCash, totalValue: newVal });
+
+            // Tworzymy dokument wyzwania
+            const duelRef = doc(collection(db, "pvp_duels"));
+            t.set(duelRef, {
+                creatorId: currentUserId,
+                creatorName: portfolio.name,
+                creatorPrestige: portfolio.prestigeLevel || 0,
+                amount: amount,
+                status: "open",
+                createdAt: serverTimestamp()
+            });
+        });
+        
+        showMessage("Wyzwanie rzucone na arenę!", "success");
+        dom.pvpAmount.value = "";
+        
+        // Opcjonalnie: wiadomość na czat
+        await addDoc(collection(db, "chat_messages"), { 
+            text: `⚔️ Stworzyłem wyzwanie PvP na ${formatujWalute(amount)}! Kto się odważy?`, 
+            authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
+        });
+
+    } catch (e) {
+        showMessage("Błąd: " + e.message, "error");
+    }
+}
+
+// 3. Dołączanie do walki (Logika Transakcji)
+window.joinPvP = async function(duelId, amount, opponentName) {
+    if (!confirm(`Czy na pewno chcesz postawić ${formatujWalute(amount)} i walczyć z ${opponentName}? Szansa wygranej: 50%.`)) return;
+
+    if (portfolio.cash < amount) return showMessage("Nie stać Cię na tę walkę!", "error");
+
+    try {
+        let winnerName = "";
+        let loserName = "";
+        let winnerAmount = amount * 2; // Pula = 2x stawka
+
+        await runTransaction(db, async (t) => {
+            // Referencje
+            const duelRef = doc(db, "pvp_duels", duelId);
+            const joinerRef = doc(db, "uzytkownicy", currentUserId);
+            
+            // Pobieramy dane w transakcji
+            const duelDoc = await t.get(duelRef);
+            const joinerDoc = await t.get(joinerRef);
+            
+            // Walidacje
+            if (!duelDoc.exists()) throw new Error("Wyzwanie nie istnieje!");
+            if (duelDoc.data().status !== "open") throw new Error("Ktoś był szybszy!");
+            if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
+
+            const creatorRef = doc(db, "uzytkownicy", duelDoc.data().creatorId);
+
+            // RZUT MONETĄ
+            const creatorWins = Math.random() > 0.5;
+
+            // Obliczenia dla Joinera (Ty)
+            // Najpierw zabieramy stawkę
+            let joinerCash = joinerDoc.data().cash - amount;
+            let joinerProfitChange = -amount;
+            
+            let creatorCashChange = 0; // Twórca już wpłacił, więc bazowo 0
+            let creatorProfitChange = -amount; // Bazowo stracił wpłatę
+
+            if (creatorWins) {
+                // Twórca wygrywa pulę (swoje + twoje)
+                creatorCashChange = winnerAmount; 
+                creatorProfitChange = amount; // Zyskał twoją stawkę netto
+                
+                // Ty nic nie dostajesz (już zabraliśmy)
+                winnerName = duelDoc.data().creatorName;
+                loserName = portfolio.name;
+            } else {
+                // Ty wygrywasz pulę
+                joinerCash += winnerAmount;
+                joinerProfitChange = amount; // Zyskałeś stawkę twórcy netto
+
+                // Twórca nic nie dostaje
+                winnerName = portfolio.name;
+                loserName = duelDoc.data().creatorName;
+            }
+
+            // Aktualizujemy Joinera
+            t.update(joinerRef, { 
+                cash: joinerCash, 
+                totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares),
+                zysk: increment(joinerProfitChange)
+            });
+
+            // Aktualizujemy Twórcę (używamy increment dla bezpieczeństwa)
+            if (creatorWins) {
+                t.update(creatorRef, { 
+                    cash: increment(winnerAmount),
+                    totalValue: increment(winnerAmount),
+                    zysk: increment(amount)
+                });
+            } else {
+                t.update(creatorRef, {
+                    zysk: increment(-amount) // Tylko aktualizujemy statystykę zysku, gotówkę stracił przy tworzeniu
+                });
+            }
+
+            // Zamykamy wyzwanie
+            t.update(duelRef, { 
+                status: "closed", 
+                winner: winnerName,
+                joinerId: currentUserId,
+                joinerName: portfolio.name 
+            });
+        });
+
+        // Efekty po walce
+        if (winnerName === portfolio.name) {
+            dom.audioKaching.play().catch(()=>{});
+            showNotification(`WYGRANA PVP! Zgarniasz ${formatujWalute(winnerAmount)}!`, 'news', 'positive');
+        } else {
+            dom.audioError.play().catch(()=>{});
+            showNotification(`Przegrałeś pojedynek z ${opponentName}...`, 'news', 'negative');
+        }
+
+        // Info na czacie
+        await addDoc(collection(db, "chat_messages"), { 
+           text: `💀 PVP: ${winnerName} pokonał ${loserName} i zgarnął ${formatujWalute(amount*2)}!`, 
+           authorName: "SĘDZIA", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
+        });
+
+    } catch (e) {
+        showMessage("Błąd: " + e.message, "error");
     }
 };
