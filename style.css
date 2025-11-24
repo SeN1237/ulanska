@@ -469,7 +469,8 @@ body[data-theme="dark"] .clear-btn:hover {
             "chart shares"
             "chart hr2"
             "chart total"
-            "chart profit";
+            "chart profit"
+            "casino pvp";
         gap: 0 20px; /* 0 odstępu pionowego, 20px poziomego */
         align-content: start;
     }
@@ -2202,4 +2203,73 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
         grid-template-columns: repeat(6, 1fr);
     }
     .num-0 { grid-column: span 6; }
+}
+/* --- STYLE PVP --- */
+#pvp-panel {
+    grid-area: pvp;
+    border: 1px solid #9966FF; /* Fioletowy akcent wyróżniający */
+}
+
+.pvp-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#pvp-amount {
+    flex: 1;
+    padding: 10px;
+}
+
+.pvp-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(153, 102, 255, 0.1); /* Lekki fiolet */
+    border: 1px solid #9966FF;
+    border-radius: 6px;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pvp-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 0 10px rgba(153, 102, 255, 0.3);
+}
+
+.pvp-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.pvp-info strong {
+    color: #9966FF;
+    font-size: 1.2em;
+}
+
+.pvp-info span {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+.pvp-join-btn {
+    background-color: #9966FF;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.pvp-join-btn:disabled {
+    background-color: var(--text-muted);
+    cursor: default;
+    opacity: 0.5;
+}
+
+body[data-theme="dark"] .pvp-join-btn:hover:not(:disabled) {
+    box-shadow: 0 0 15px #9966FF;
 }
