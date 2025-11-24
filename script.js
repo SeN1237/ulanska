@@ -1245,36 +1245,58 @@ window.commitSpin = async function() {
     }
 };
 // ==========================================
-// === SYSTEM PVP (POJEDYNKI 1 vs 1) ===
+// === SYSTEM PVP (ANIMACJA CS:GO W PANELU) ===
 // ==========================================
+
+// Zmienne konfiguracyjne animacji
+const playedAnimations = new Set(); 
+const CARD_WIDTH = 120; // Szerokość karty dopasowana do CSS
+const WINNER_INDEX = 60; // Indeks wygranej (im wyższy, tym dłużej kręci)
 
 // 1. Nasłuchiwanie aktywnych wyzwań
 function listenToPvP() {
-    // Pobieramy tylko wyzwania ze statusem 'open', sortujemy od najnowszych
-    const q = query(collection(db, "pvp_duels"), where("status", "==", "open"), orderBy("createdAt", "desc"), limit(10));
+    // Pobieramy walki otwarte oraz te w trakcie losowania ('battling')
+    const q = query(
+        collection(db, "pvp_duels"), 
+        where("status", "in", ["open", "battling"]), 
+        limit(20) 
+    );
     
     unsubscribePvP = onSnapshot(q, (snap) => {
         dom.pvpFeed.innerHTML = "";
         
-        if (snap.empty) {
+        let duels = [];
+        snap.forEach(doc => duels.push({ id: doc.id, ...doc.data() }));
+
+        // Sortowanie od najnowszych
+        duels.sort((a, b) => b.createdAt - a.createdAt);
+
+        if (duels.length === 0) {
             dom.pvpFeed.innerHTML = "<p>Arena jest pusta. Stwórz wyzwanie!</p>";
             return;
         }
 
-        snap.forEach(docSnap => {
-            const duel = docSnap.data();
+        duels.forEach(duel => {
+            // --- LOGIKA ANIMACJI ---
+            // Jeśli pojedynek jest w trakcie losowania i jeszcze go nie wyświetliliśmy
+            if (duel.status === 'battling' && !playedAnimations.has(duel.id)) {
+                playedAnimations.add(duel.id);
+                triggerGlobalPvPAnimation(duel); // <--- URUCHAMIA RULETKĘ W PANELU
+            }
+
             const isMyDuel = duel.creatorId === currentUserId;
-            
             const div = document.createElement("div");
             div.className = "pvp-item";
             
-            // Logika przycisku: jeśli to moje wyzwanie -> zablokuj, jeśli cudze -> "WALCZ"
             let btnHtml = "";
-            if (isMyDuel) {
+            
+            if (duel.status === 'battling') {
+                div.classList.add('battling');
+                btnHtml = `<span class="pvp-status-battling">🎰 LOSOWANIE...</span>`;
+            } else if (isMyDuel) {
                 btnHtml = `<button class="pvp-join-btn" disabled style="background:#555; cursor:default;">Twoje</button>`;
             } else {
-                // Wywołujemy globalną funkcję joinPvP
-                btnHtml = `<button class="pvp-join-btn" onclick="joinPvP('${docSnap.id}', ${duel.amount}, '${duel.creatorName}')">WALCZ!</button>`;
+                btnHtml = `<button class="pvp-join-btn" onclick="joinPvP('${duel.id}', ${duel.amount}, '${duel.creatorName}')">WALCZ!</button>`;
             }
 
             div.innerHTML = `
@@ -1299,20 +1321,17 @@ async function onCreatePvP(e) {
 
     try {
         await runTransaction(db, async (t) => {
-            // Pobieramy dane użytkownika
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await t.get(userRef);
             const userData = userDoc.data();
 
             if (userData.cash < amount) throw new Error("Za mało gotówki!");
 
-            // Zabieramy kasę twórcy
             const newCash = userData.cash - amount;
             const newVal = calculateTotalValue(newCash, userData.shares);
             
             t.update(userRef, { cash: newCash, totalValue: newVal });
 
-            // Tworzymy dokument wyzwania
             const duelRef = doc(collection(db, "pvp_duels"));
             t.set(duelRef, {
                 creatorId: currentUserId,
@@ -1327,7 +1346,6 @@ async function onCreatePvP(e) {
         showMessage("Wyzwanie rzucone na arenę!", "success");
         dom.pvpAmount.value = "";
         
-        // Opcjonalnie: wiadomość na czat
         await addDoc(collection(db, "chat_messages"), { 
             text: `⚔️ Stworzyłem wyzwanie PvP na ${formatujWalute(amount)}! Kto się odważy?`, 
             authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
@@ -1338,103 +1356,51 @@ async function onCreatePvP(e) {
     }
 }
 
-// 3. Dołączanie do walki (Logika Transakcji)
+// 3. Dołączanie do walki
 window.joinPvP = async function(duelId, amount, opponentName) {
     if (!confirm(`Czy na pewno chcesz postawić ${formatujWalute(amount)} i walczyć z ${opponentName}? Szansa wygranej: 50%.`)) return;
-
     if (portfolio.cash < amount) return showMessage("Nie stać Cię na tę walkę!", "error");
 
     try {
         let winnerName = "";
-        let loserName = "";
-        let winnerAmount = amount * 2; // Pula = 2x stawka
+        let winnerAmount = amount * 2; 
 
         await runTransaction(db, async (t) => {
-            // Referencje
             const duelRef = doc(db, "pvp_duels", duelId);
             const joinerRef = doc(db, "uzytkownicy", currentUserId);
-            
-            // Pobieramy dane w transakcji
             const duelDoc = await t.get(duelRef);
             const joinerDoc = await t.get(joinerRef);
             
-            // Walidacje
             if (!duelDoc.exists()) throw new Error("Wyzwanie nie istnieje!");
             if (duelDoc.data().status !== "open") throw new Error("Ktoś był szybszy!");
             if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
 
             const creatorRef = doc(db, "uzytkownicy", duelDoc.data().creatorId);
-
-            // RZUT MONETĄ
             const creatorWins = Math.random() > 0.5;
-
-            // Obliczenia dla Joinera (Ty)
-            // Najpierw zabieramy stawkę
             let joinerCash = joinerDoc.data().cash - amount;
-            let joinerProfitChange = -amount;
             
-            let creatorCashChange = 0; // Twórca już wpłacił, więc bazowo 0
-            let creatorProfitChange = -amount; // Bazowo stracił wpłatę
-
             if (creatorWins) {
-                // Twórca wygrywa pulę (swoje + twoje)
-                creatorCashChange = winnerAmount; 
-                creatorProfitChange = amount; // Zyskał twoją stawkę netto
-                
-                // Ty nic nie dostajesz (już zabraliśmy)
                 winnerName = duelDoc.data().creatorName;
-                loserName = portfolio.name;
+                t.update(creatorRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(-amount) });
             } else {
-                // Ty wygrywasz pulę
-                joinerCash += winnerAmount;
-                joinerProfitChange = amount; // Zyskałeś stawkę twórcy netto
-
-                // Twórca nic nie dostaje
                 winnerName = portfolio.name;
-                loserName = duelDoc.data().creatorName;
+                joinerCash += winnerAmount;
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(amount) });
+                t.update(creatorRef, { zysk: increment(-amount) });
             }
 
-            // Aktualizujemy Joinera
-            t.update(joinerRef, { 
-                cash: joinerCash, 
-                totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares),
-                zysk: increment(joinerProfitChange)
-            });
-
-            // Aktualizujemy Twórcę (używamy increment dla bezpieczeństwa)
-            if (creatorWins) {
-                t.update(creatorRef, { 
-                    cash: increment(winnerAmount),
-                    totalValue: increment(winnerAmount),
-                    zysk: increment(amount)
-                });
-            } else {
-                t.update(creatorRef, {
-                    zysk: increment(-amount) // Tylko aktualizujemy statystykę zysku, gotówkę stracił przy tworzeniu
-                });
-            }
-
-            // Zamykamy wyzwanie
+            // Ustawiamy status na 'battling', co uruchomi animację u wszystkich
             t.update(duelRef, { 
-                status: "closed", 
+                status: "battling", 
                 winner: winnerName,
                 joinerId: currentUserId,
                 joinerName: portfolio.name 
             });
         });
 
-        // Efekty po walce
-        if (winnerName === portfolio.name) {
-            dom.audioKaching.play().catch(()=>{});
-            showNotification(`WYGRANA PVP! Zgarniasz ${formatujWalute(winnerAmount)}!`, 'news', 'positive');
-        } else {
-            dom.audioError.play().catch(()=>{});
-            showNotification(`Przegrałeś pojedynek z ${opponentName}...`, 'news', 'negative');
-        }
-
-        // Info na czacie
         await addDoc(collection(db, "chat_messages"), { 
-           text: `💀 PVP: ${winnerName} pokonał ${loserName} i zgarnął ${formatujWalute(amount*2)}!`, 
+           text: `⚔️ PVP: ${portfolio.name} przyjął wyzwanie ${opponentName}! Losowanie zwycięzcy...`, 
            authorName: "SĘDZIA", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
         });
 
@@ -1442,3 +1408,90 @@ window.joinPvP = async function(duelId, amount, opponentName) {
         showMessage("Błąd: " + e.message, "error");
     }
 };
+
+// 4. Funkcja ANIMACJI (CS:GO Style - wbudowana w panel)
+function triggerGlobalPvPAnimation(duel) {
+    // Pobieramy elementy po ID z Twojego HTML
+    const container = document.getElementById('pvp-embedded-roulette');
+    const strip = document.getElementById('roulette-strip');
+    const winnerText = document.getElementById('pvp-roulette-winner');
+    const title = document.getElementById('pvp-vs-title');
+
+    // Pokazujemy kontener
+    container.classList.remove('hidden');
+    
+    // Reset stanu
+    strip.innerHTML = "";
+    strip.style.transition = "none";
+    strip.style.transform = "translateX(0px)";
+    winnerText.textContent = "LOSOWANIE...";
+    winnerText.className = "pvp-winner-text"; 
+    winnerText.style.color = "var(--text-color)";
+    
+    title.innerHTML = `<span style="color:var(--blue)">${duel.creatorName}</span> vs <span style="color:var(--red)">${duel.joinerName}</span>`;
+
+    // Generowanie kart
+    const totalCards = 90;
+    const cardsData = [];
+
+    for (let i = 0; i < totalCards; i++) {
+        if (i === WINNER_INDEX) {
+            cardsData.push(duel.winner === duel.creatorName ? 'creator' : 'joiner');
+        } else {
+            cardsData.push(Math.random() > 0.5 ? 'creator' : 'joiner');
+        }
+    }
+
+    cardsData.forEach(type => {
+        const div = document.createElement('div');
+        const isCreator = type === 'creator';
+        div.className = `roulette-card ${isCreator ? 'card-creator' : 'card-joiner'}`;
+        const name = isCreator ? duel.creatorName : duel.joinerName;
+        const icon = isCreator ? '🔵' : '🔴';
+        div.innerHTML = `<div class="card-icon">${icon}</div><div>${name}</div>`;
+        strip.appendChild(div);
+    });
+
+    // Obliczenia pozycji
+    const windowWidth = document.querySelector('.roulette-window.embedded').offsetWidth;
+    const winnerCenterPosition = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2);
+    const randomOffset = (Math.random() - 0.5) * (CARD_WIDTH * 0.7);
+    const targetTranslate = (windowWidth / 2) - (winnerCenterPosition + randomOffset);
+
+    // Start animacji
+    setTimeout(() => {
+        strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
+        strip.style.transform = `translateX(${targetTranslate}px)`;
+        
+        // Wynik po zatrzymaniu
+        setTimeout(() => {
+            if (duel.winner === portfolio.name) {
+                winnerText.textContent = "WYGRAŁEŚ!";
+                winnerText.style.color = "var(--green)";
+                dom.audioKaching.play().catch(()=>{});
+            } else {
+                winnerText.textContent = `WYGRAŁ: ${duel.winner}`;
+                winnerText.style.color = (duel.winner === duel.creatorName) ? "var(--blue)" : "var(--red)";
+                
+                if(currentUserId === duel.creatorId || currentUserId === duel.joinerId) {
+                   if(duel.winner !== portfolio.name) dom.audioError.play().catch(()=>{});
+                }
+            }
+            winnerText.classList.add('animate-winner-text');
+
+            // Ukrycie po chwili
+            setTimeout(() => {
+                container.classList.add('hidden'); 
+                if (currentUserId === duel.joinerId) {
+                    closeDuelInDb(duel.id);
+                }
+            }, 5000); 
+
+        }, 5000); 
+
+    }, 100);
+}
+
+async function closeDuelInDb(duelId) {
+    try { await updateDoc(doc(db, "pvp_duels", duelId), { status: "closed" }); } catch(e) {}
+}
