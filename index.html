@@ -353,6 +353,24 @@
                     </div>
                 </div>
             </section>
+            <section id="pvp-panel" class="panel">
+    <h2>⚔️ Strefa Pojedynków PvP</h2>
+    <p>Postaw gotówkę i rzuć wyzwanie innemu graczowi. Zwycięzca (50/50) zgarnia całą pulę!</p>
+    
+    <form id="pvp-create-form">
+        <label>Stawka pojedynku (PLN):</label>
+        <div class="pvp-controls">
+            <input type="number" id="pvp-amount" placeholder="np. 10000" min="1000" class="dark-input">
+            <button type="submit" class="action-btn-full" style="background-color: #9966FF; color: white;">STWÓRZ WYZWANIE</button>
+        </div>
+    </form>
+
+    <hr>
+    <h3>🔥 Aktywne Wyzwania (Kliknij, by walczyć)</h3>
+    <div id="pvp-feed" class="feed-box">
+        <p>Brak śmiałków na arenie...</p>
+    </div>
+</section>
             <section id="chat-panel" class="panel">
                 <h2>Globalny Czat</h2>
                 <div id="chat-feed" class="feed-box">
