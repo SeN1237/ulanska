@@ -351,10 +351,10 @@ try {
       // Odbicie od dna (Różne poziomy dla krypto i akcji)
       const refPrice = companyReferencePrices[companyId] || 50;
       const supportLevel = cryptos.includes(companyId) ? refPrice * 0.10 : refPrice * 0.40;
-      const recoveryChance = cryptos.includes(companyId) ? 0.40 : 0.25;
+      const recoveryChance = cryptos.includes(companyId) ? 0.40 : 0.60;
       
       if (newPrice < supportLevel && newPrice > 1.00 && Math.random() < recoveryChance) {
-          newPrice += newPrice * (cryptos.includes(companyId) ? 0.25 : 0.10);
+          newPrice += newPrice * (cryptos.includes(companyId) ? 0.25 : 0.20);
       }
       
       newPrices[companyId] = parseFloat(Math.max(1.00, newPrice).toFixed(2));
