@@ -291,7 +291,7 @@ try {
     const allAssets = [...stocks, ...cryptos];
 
     const companyReferencePrices = {
-        ulanska: 1860.00, brzozair: 235.00, rychbud: 870.00, cosmosanit: 2000.00,
+        ulanska: 1860.00, brzozair: 2350.00, rychbud: 870.00, cosmosanit: 2000.00,
         bartcoin: 4000.00, igirium: 2000.00
     };
     
