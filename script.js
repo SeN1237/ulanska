@@ -899,12 +899,30 @@ async function onPostRumor(e) {
 }
 function listenToChat() {
     unsubscribeChat = onSnapshot(query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30)), snap => {
+        // 1. Renderowanie listy wiadomości (to już miałeś)
         dom.chatFeed.innerHTML = "";
-        snap.docs.reverse().forEach(d => {
+        // Tworzymy kopię tablicy (.slice), żeby reverse() nie psuło kolejności przy innych operacjach
+        snap.docs.slice().reverse().forEach(d => {
             const m = d.data();
             dom.chatFeed.innerHTML += `<p class="${m.authorId===currentUserId?'my-message':''}"><strong class="clickable-user" onclick="showUserProfile('${m.authorId}')">${m.authorName}</strong>${getPrestigeStars(m.prestigeLevel,'chat')}: ${m.text}</p>`;
         });
         dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
+
+        // 2. NOWOŚĆ: Obsługa powiadomień (Toast)
+        if (initialChatLoaded) {
+            snap.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const m = change.doc.data();
+                    // Wyświetl powiadomienie tylko jeśli wiadomość nie jest od nas
+                    if (m.authorId !== currentUserId) {
+                        showNotification(`${m.authorName}: ${m.text}`, 'chat');
+                    }
+                }
+            });
+        }
+        
+        // Ustawiamy flagę, że pierwsze ładowanie (stare wiadomości) zostało wykonane
+        initialChatLoaded = true;
     });
 }
 async function onSendMessage(e) {
