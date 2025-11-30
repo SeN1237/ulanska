@@ -1,553 +1,272 @@
-<!DOCTYPE html>   
+<!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WIG UŁAŃSKA</title>
-    
-    <link rel="stylesheet" href="style.css">
-    
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <title>WIG UŁAŃSKA 2.0</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-    <script type="module" src="script.js"></script>
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
 
-    <link rel="icon" type="image/png" href="favicon.png">
-    
-    <script src="https://www.youtube.com/iframe_api"></script> 
+        .content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
+            width: 100%;
+        }
+
+        /* --- STYLI I ANIMACJE NAPISÓW --- */
+
+        /* Definicja animacji pulsowania */
+        @keyframes pulse {
+            0% { transform: scale(1); text-shadow: 0 0 10px rgba(50, 205, 50, 0.2); }
+            50% { transform: scale(1.05); text-shadow: 0 0 20px rgba(30, 144, 255, 0.5); }
+            100% { transform: scale(1); text-shadow: 0 0 10px rgba(50, 205, 50, 0.2); }
+        }
+
+        /* Definicja animacji przepływu kolorów */
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .gradient-text {
+            /* Zwiększamy rozmiar tła, żeby móc nim poruszać */
+            background: linear-gradient(90deg, #32CD32, #1E90FF, #32CD32);
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin: 0;
+            padding: 0;
+            line-height: 1.1;
+            
+            /* Dodana animacja przepływu kolorów */
+            animation: gradientFlow 3s linear infinite;
+        }
+
+        h1 {
+            /* Zmniejszono z 6vw na 3vw */
+            font-size: 3vw; 
+            margin-bottom: 10px;
+        }
+
+        #timer {
+            /* Zmniejszono z 10vw na 5vw */
+            font-size: 5vw; 
+            font-variant-numeric: tabular-nums;
+            margin-top: 10px;
+            
+            /* Dodana animacja pulsowania dla zegara + dziedziczy przepływ kolorów */
+            animation: gradientFlow 3s linear infinite, pulse 1.5s infinite ease-in-out;
+        }
+
+        /* Responsywność dla małych ekranów */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; } /* Mniejsze */
+            #timer { font-size: 2.5rem; } /* Mniejsze */
+        }
+    </style>
 </head>
 <body>
 
-    <div id="splash-screen">
-        <h1 id="splash-title">WIG UŁAŃSKA</h1>
-    </div>
-    <div id="auth-container">
-        
-        <div class="panel auth-panel" id="login-panel">
-            <h2>Logowanie</h2>
-            <form id="login-form">
-                <label for="login-email">Email:</label>
-                <input type="email" id="login-email" required>
-                <label for="login-password">Hasło:</label>
-                <input type="password" id="login-password" required>
-                <button type="submit">Zaloguj</button>
-            </form>
-            <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
-            <p class="auth-toggle">Nie masz konta? <a href="#" id="show-register-link">Zarejestruj się</a></p>
-        </div>
+    <canvas id="chipCanvas"></canvas>
 
-        <div class="panel auth-panel" id="register-panel">
-            <h2>Rejestracja (Start 1000 zł)</h2>
-            <form id="register-form">
-                <label for="register-name">Twoja nazwa:</label>
-                <input type="text" id="register-name" required>
-                <label for="register-email">Email:</label>
-                <input type="email" id="register-email" required>
-                <label for="register-password">Hasło:</label>
-                <input type="password" id="register-password" minlength="6" required>
-                <button type="submit">Zarejestruj</button>
-            </form>
-            <p class="auth-toggle">Masz już konto? <a href="#" id="show-login-link">Zaloguj się</a></p>
-        </div>
-        
-        <p id="auth-message"></p>
+    <div class="content">
+        <h1 class="gradient-text">WIG UŁAŃSKA 2.0</h1>
+        <div id="timer" class="gradient-text">00:00:00</div>
     </div>
 
-
-    <div id="simulator-container" class="hidden">
-        
-        <header>
-            <h1>STOCK INDEX WIG UŁAŃSKA</h1>
-
-            <div id="theme-switcher">
-                <label for="theme-select">Motyw:</label>
-                <select id="theme-select">
-                    <option value="dark">Futurystyczny</option>
-                    <option value="dim">Szary (Oryg.)</option>
-                    <option value="light">Jasny</option>
-                </select>
-            </div>
-
-
-
-            <div id="user-info">
-                Witaj, <span id="username">Gracz</span>!
-                <button id="logout-button">Wyloguj</button>
-            </div>
-        </header>
-
-        <div class="ticker-wrap">
-            <div id="ticker-content">
-                <span>Ładowanie cen...</span>
-            </div>
-        </div>
-
-        <div class="grid-container">
-
-            <main id="market-panel" class="panel">
-                <div class="market-type-selector">
-                    <button class="market-type-tab active" data-market-type="stocks">Akcje</button>
-                    <button class="market-type-tab" data-market-type="crypto">Kryptowaluty</button>
-                </div>
-
-                <div id="company-selector">
-                    <button class="company-tab active" data-company="ulanska">Ułańska Dev</button>
-                    <button class="company-tab" data-company="rychbud">RychBud</button>
-                    <button class="company-tab" data-company="brzozair">BrzozAir</button>
-                    <button class="company-tab" data-company="cosmosanit">Cosmosanit</button>
-                </div>
-                
-                <div id="crypto-selector" class="hidden">
-                    <button class="company-tab" data-company="bartcoin">Bartcoin</button>
-                    <button class="company-tab" data-company="igirium">Igirium</button>
-                </div>
-
-                <h2 id="company-name">Ułańska Dev</h2>
-                <div id="price-container">
-                    Aktualna cena: <strong id="stock-price">75.00 zł</strong>
-                </div>
-                <div id="chart-container"></div>
-            </main>
-
-            <aside id="portfolio-panel" class="panel">
-                <h2>Mój Portfel (Live)</h2>
-                <div id="portfolio-chart-container"></div> <p>Gotówka: <strong id="cash">100.00</strong> zł</p>
-                <hr>
-                <div id="shares-list">
-                    <p>Ułańska Dev: <strong id="shares-ulanska">0</strong> szt.</p>
-                    <p>RychBud: <strong id="shares-rychbud">0</strong> szt.</p>
-                    <p>BrzozAir: <strong id="shares-brzozair">0</strong> szt.</p>
-                    <p>Cosmosanit: <strong id="shares-cosmosanit">0</strong> szt.</p>
-                    <hr class="crypto-hr">
-                    <p>Bartcoin: <strong id="shares-bartcoin">0</strong> szt.</p>
-                    <p>Igirium: <strong id="shares-igirium">0</strong> szt.</p>
-                </div>
-                <hr>
-                <p>Wartość portfela: <strong id="total-value">100.00</strong> zł</p>
-                <p>Całkowity zysk: <strong id="total-profit">0.00</strong> zł</p>
-            </aside>
-
-            <aside id="order-panel" class="panel">
-                <h2>Panel Zleceń</h2>
-                
-                <div class="crypto-gate-message">
-                    <h3>Handel Zablokowany</h3>
-                    <p>Handel kryptowalutami jest dostępny od <strong>Poziomu Prestiżu 3 (⭐️⭐️⭐️)</strong>.</p>
-                    <p>Możesz obserwować wykresy, ale zakup i sprzedaż są zablokowane.</p>
-                </div>
-
-                <div class="order-tabs">
-                    <button class="order-tab-btn active" data-order-type="market">Zlecenie Rynkowe (Kup/Sprzedaj)</button>
-                    <button class="order-tab-btn" data-order-type="limit">Zlecenie z Limitem</button>
-                </div>
-
-                <div id="order-market-container" class="order-container active">
-                    <div class="actions">
-                        <div class="label-with-max">
-                            <label for="amount-input">Ilość:</label>
-                            <span class="max-buttons-group">
-                                <button type="button" id="buy-max-button" class="max-btn">KUP MAX</button>
-                                <button type="button" id="sell-max-button" class="max-btn">SPRZEDAJ MAX</button>
-                            </span>
-                        </div>
-                        <input type="number" id="amount-input" placeholder="0" min="1">
-                        <button id="buy-button">KUP</button>
-                        <button id="sell-button">SPRZEDAJ</button>
-                    </div>
-                </div>
-
-                <div id="order-limit-container" class="order-container">
-                    <form id="limit-order-form">
-                        <label for="limit-type">Typ zlecenia:</label>
-                        <select id="limit-type">
-                            <option value="buy">Kupno (Limit)</option>
-                            <option value="sell">Sprzedaż (Limit)</option>
-                        </select>
-                        <label for="limit-amount">Ilość:</label>
-                        <input type="number" id="limit-amount" placeholder="0" min="1" required>
-                        <label for="limit-price">Cena Limitu (zł):</label>
-                        <input type="number" id="limit-price" placeholder="0.00" min="0.01" step="0.01" required>
-                        <button type="submit" id="limit-order-button">Złóż zlecenie z limitem</button>
-                    </form>
-                </div>
-                
-                <p id="message-box"></p>
-            </aside>
-
-            <section id="rumors-panel" class="panel">
-                <h3>Wiadomości Rynkowe</h3>
-                <div id="news-feed" class="feed-box"></div>
-                <hr> 
-                <h3>Globalne Plotki z Wpływem</h3>
-                <form id="rumor-form">
-                    <input type="text" id="rumor-input" placeholder="Wpisz treść plotki..." required>
-                    <div id="rumor-controls">
-                        <select id="rumor-company-select" required>
-                            <option value="ulanska" selected>Dot. Ułańska Dev</option>
-                            <option value="rychbud">Dot. RychBud</option>
-                            <option value="brzozair">Dot. BrzozAir</option>
-                            <option value="cosmosanit">Dot. Cosmosanit</option>
-                            <option value="bartcoin">Dot. Bartcoin (Krypto)</option>
-                            <option value="igirium">Dot. Igirium (Krypto)</option>
-                        </select>
-                        <div id="rumor-sentiment">
-                            <label><input type="radio" name="sentiment" value="positive" checked> Pozytywna</label>
-                            <label><input type="radio" name="sentiment" value="negative"> Negatywna</label>
-                        </div>
-                    </div>
-                    <button type="submit">Publikuj</button>
-                </form>
-                <div id="rumors-feed" class="feed-box">
-                    <p>...ładowanie plotek z serwera...</p>
-                </div>
-                <hr>
-                <button id="buy-tip-button" class="action-btn-full">
-                    Kup Wskazówkę (Koszt: <span id="tip-cost">1500</span> zł)
-                </button>
-            </section>
-                
-            <section id="leaderboard-panel" class="panel">
-                <h2>Ranking Graczy (TOP 10)</h2>
-                <ol id="leaderboard-list">
-                    <li>...ładowanie rankingu...</li>
-                </ol>
-            </section>
-
-            <section id="tournament-panel" class="panel">
-    <div class="panel-header-with-button">
-        <h2 style="color: var(--accent-color); border-bottom: none;"> WIELKI TURNIEJ </h2>
-    </div>
-    <div style="text-align: center; padding: 10px;">
-        <p style="font-size: 1.1em; margin-bottom: 10px;">
-            Start: <strong>26 listopad 2025 22:25</strong>
-        </p>
-        <p style="color: var(--text-muted); font-style: italic; margin-bottom: 15px;">
-            Turniej zmienił zasady z racji niekorzystnych warunków
-        </p>
-        <ul style="list-style: none; padding: 0; text-align: left; display: inline-block;">
-            <li> <strong>1 miejsce</strong> 50,000 </li>
-            <li> <strong>2 miejsce</strong> 25,000 </li>
-            <li> <strong>3 miejsce</strong> 12,500 </li>
-            <li> <strong>zasady:</strong> spisałem każdego aktualny stan ten kto wykręci procentowo największy zysk od dzisiaj do niedzieli wygrywa</li>
-            <li> <strong>ważne</strong> wygrana przechodzi na drugi sezon </li>
-        </ul>
-    </div>
-</section>
-
-                        <section id="tournament-panel" class="panel">
-    <div class="panel-header-with-button">
-        <h2 style="color: var(--accent-color); border-bottom: none;"> Reset </h2>
-    </div>
-    <div style="text-align: center; padding: 10px;">
-        <p style="font-size: 1.1em; margin-bottom: 10px;">
-             <strong>1 grudzień 2025 10:00</strong>
-        </p>
-        <p style="color: var(--text-muted); font-style: italic; margin-bottom: 15px;">
-            Reset i rozpoczęcie 2 sezonu
-        </p>
-        <ul style="list-style: none; padding: 0; text-align: left; display: inline-block;">
-            <li> <strong>o 10:00</strong> wszystkie statystyki będą zresetowane </li>
-            <li> <strong>wszystkie:</strong> zyski, gotówka, akcje, obligacje, zakłady itd.</li>
-             <li> <strong>update</strong>będzie aktualizacja zostaną zmienione nazwy niektórych spółek i będą nowości </li>
-        </ul>
-    </div>
-</section>
+    <script>
+        /* --- ODLICZANIE --- */
+        function updateTimer() {
+            const now = new Date();
+            let target = new Date();
             
-            <section id="bonds-panel" class="panel">
-                <h2>Obligacje Skarbowe (Pewny Zysk)</h2>
-                <p>Zainwestuj gotówkę w obligacje o gwarantowanym zwrocie. Pieniądze zostaną zablokowane do dnia wykupu (liczone jako pełne 24h od zakupu).</p>
-                <form id="bonds-form">
-                    <label for="bond-amount">Kwota inwestycji (zł):</label>
-                    <input type="number" id="bond-amount" placeholder="0.00" min="1" step="0.01" required>
-                    
-                    <label for="bond-type">Wariant obligacji:</label>
-                    <select id="bond-type" required>
-                        <option value="1">1 Dzień - 5% Zwrotu</option>
-                        <option value="2">2 Dni - 10% Zwrotu</option>
-                        <option value="3">3 Dni - 15% Zwrotu</option>
-                    </select>
-                    
-                    <button type="submit" id="buy-bond-button" class="action-btn-full">Kup Obligację</button>
-                </form>
-                <hr>
-                <h3>Twoje Aktywne Obligacje</h3>
-                <div id="active-bonds-feed" class="feed-box history-feed">
-                    <p>...brak aktywnych obligacji...</p>
-                </div>
-            </section>
-            
-            <section id="betting-panel" class="panel">
-                <h2>Zakłady Bukmacherskie</h2>
-                
-                <div id="match-info">
-                    <p>Ładowanie oferty...</p>
-                </div>
+            target.setHours(10, 0, 0, 0);
 
-                <form id="betting-form" class="hidden">
-                    <div style="margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 4px;">
-                        <select id="bet-team" style="display: none;"></select>
-                        
-                        <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
-                        <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" required style="width: 100%; box-sizing: border-box; padding: 10px;">
-                    </div>
-                    
-                    <button type="submit" id="place-bet-button" class="action-btn-full">Zatwierdź Zakład</button>
-                </form>
-
-                <hr>
-                <h3>Twoje Aktywne Kupony</h3>
-                <div id="active-bets-feed" class="feed-box history-feed">
-                    <p>...brak aktywnych zakładów...</p>
-                </div>
-            </section>
-
-            <section id="casino-panel" class="panel">
-                <h2>🎰 Ułańska Ruletka</h2>
-                
-                <div class="casino-wrapper">
-                    <div class="main-roulette">
-                        <div class="plate" id="plate">
-                          <ul class="inner">
-                            <li class="number"><label><input type="radio" name="pit" value="32" /><span class="pit">32</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="15" /><span class="pit">15</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="19" /><span class="pit">19</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="4" /><span class="pit">4</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="21" /><span class="pit">21</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="2" /><span class="pit">2</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="25" /><span class="pit">25</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="17" /><span class="pit">17</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="34" /><span class="pit">34</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="6" /><span class="pit">6</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="27" /><span class="pit">27</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="13" /><span class="pit">13</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="36" /><span class="pit">36</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="11" /><span class="pit">11</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="30" /><span class="pit">30</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="8" /><span class="pit">8</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="23" /><span class="pit">23</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="10" /><span class="pit">10</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="5" /><span class="pit">5</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="24" /><span class="pit">24</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="16" /><span class="pit">16</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="33" /><span class="pit">33</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="1" /><span class="pit">1</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="20" /><span class="pit">20</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="14" /><span class="pit">14</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="31" /><span class="pit">31</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="9" /><span class="pit">9</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="22" /><span class="pit">22</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="18" /><span class="pit">18</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="29" /><span class="pit">29</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="7" /><span class="pit">7</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="28" /><span class="pit">28</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="12" /><span class="pit">12</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="35" /><span class="pit">35</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="3" /><span class="pit">3</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="26" /><span class="pit">26</span></label></li>
-                            <li class="number"><label><input type="radio" name="pit" value="0" /><span class="pit">0</span></label></li>
-                          </ul>
-                          <div class="data">
-                            <div class="data-inner">
-                              <div class="mask">Obstaw zakład</div>
-                              <div class="result">
-                                <div class="result-number">--</div>
-                                <div class="result-color">--</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                    <div class="casino-controls">
-    <p id="casino-status">Obstaw zakład i zakręć!</p>
-    
-    <div class="bet-row">
-        <label>Stawka:</label>
-        <input type="number" id="casino-amount" class="dark-input" placeholder="Kwota" min="1" value="100">
-    </div>
-
-    <div class="bet-row">
-        <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴 Czerwone (x2)</button>
-        <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫ Czarne (x2)</button>
-        <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢 Zero (x36)</button>
-    </div>
-
-    <div class="bet-numbers-grid">
-        <button class="num-btn num-0" onclick="selectBetType('number', 0)">0</button>
-        <script>
-            // Szybki skrypt generujący HTML dla liczb 1-36 w HTML (żeby nie pisać ręcznie)
-            // Czerwone liczby w ruletce
-            const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-            for(let i=1; i<=36; i++) {
-                let colorClass = reds.includes(i) ? 'num-red' : 'num-black';
-                document.write(`<button class="num-btn ${colorClass}" onclick="selectBetType('number', ${i})">${i}</button>`);
+            if (now > target) {
+                target.setDate(target.getDate() + 1);
             }
-        </script>
-    </div>
 
-    <button id="spin-button" class="action-btn-full spin-btn" onclick="commitSpin()">ZAKRĘĆ KOŁEM!</button>
-</div>
-                    
-                    <div class="previous-results">
-                        <ol class="previous-list" id="previous-list">
-                           </ol>
-                    </div>
-                </div>
-            </section>
-            <section id="pvp-panel" class="panel">
-    <h2>⚔️ Strefa Pojedynków PvP</h2>
-    <p>Postaw gotówkę i rzuć wyzwanie innemu graczowi. Zwycięzca (50/50) zgarnia całą pulę!</p>
-    
-    <form id="pvp-create-form">
-        <label>Stawka pojedynku (PLN):</label>
-        <div class="pvp-controls">
-            <input type="number" id="pvp-amount" placeholder="np. 10000" min="1000" class="dark-input">
-            <button type="submit" class="action-btn-full" style="background-color: #9966FF; color: white;">STWÓRZ WYZWANIE</button>
-        </div>
-    </form>
+            const diff = target - now;
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diff / (1000 * 60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
 
-    <hr>
-    <h3>🔥 Aktywne Wyzwania (Kliknij, by walczyć)</h3>
-    <div id="pvp-feed" class="feed-box">
-        <p>Brak śmiałków na arenie...</p>
-    </div>
-</section>
-            <section id="chat-panel" class="panel">
-                <h2>Globalny Czat</h2>
-                <div id="chat-feed" class="feed-box">
-                    <p>...ładowanie czatu...</p>
-                </div>
-                <form id="chat-form">
-                    <input type="text" id="chat-input" placeholder="Wpisz wiadomość..." required>
-                    <button type="submit">Wyślij</button>
-                </form>
-                <div id="pvp-embedded-roulette" class="hidden">
-        <hr> <h3 id="pvp-vs-title" class="pvp-title-embedded">LOSOWANIE...</h3>
+            document.getElementById('timer').innerText = 
+                (hours < 10 ? "0" + hours : hours) + ":" + 
+                (minutes < 10 ? "0" + minutes : minutes) + ":" + 
+                (seconds < 10 ? "0" + seconds : seconds);
+        }
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        /* --- SYMULACJA ŻETONÓW --- */
+        const canvas = document.getElementById('chipCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let chips = [];
+        const mouse = { x: -1000, y: -1000 };
         
-        <div class="roulette-window embedded">
-            <div class="roulette-marker"></div>
-            <div id="roulette-strip" class="roulette-strip">
-                </div>
-        </div>
+        // ZWIĘKSZONO LICZBĘ ŻETONÓW (bo są mniejsze)
+        const chipCount = 100; 
+        const repelRadius = 200;
 
-        <h3 id="pvp-roulette-winner" class="pvp-winner-text">...</h3>
-    </div>
-            </section>
+        const chipStyles = [
+            { main: '#0055aa', accent: '#ffffff' },
+            { main: '#d40000', accent: '#ffffff' },
+            { main: '#f0f0f0', accent: '#0055aa' },
+            { main: '#111111', accent: '#ffffff' } 
+        ];
 
-            <section id="radio-panel" class="panel">
-                <h2>🎧 Strefa Muzyki</h2>
-                <div class="video-container">
-                    <iframe 
-                        width="100%" 
-                        height="250" 
-                        src="https://www.youtube.com/embed/N2iGDpu-3ZI?si=9cOCpOaC0hfUCehx" 
-                        title="YouTube video player" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        referrerpolicy="strict-origin-when-cross-origin" 
-                        allowfullscreen>
-                    </iframe>
-                </div>
-            </section>               
-            
-            <section id="history-tabs-panel" class="panel">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" data-tab="global-history">Globalna Historia</button>
-                    <button class="tab-btn" data-tab="personal-history">Moja Historia</button>
-                    <button class="tab-btn" data-tab="limit-orders">Zlecenia Limit</button>
-                </div>
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-                <div id="tab-global-history" class="tab-content active">
-                    <div class="panel-header-with-button">
-                        <h2>Globalna Historia Transakcji</h2>
-                        <span></span>
-                    </div>
-                    <div id="global-history-feed" class="feed-box history-feed">
-                        <p>...ładowanie transakcji...</p>
-                    </div>
-                </div>
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        class Chip {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(randomY = false) {
+                this.x = Math.random() * width;
+                this.y = randomY ? Math.random() * height : -50;
                 
-                <div id="tab-personal-history" class="tab-content">
-                    <div class="panel-header-with-button">
-                        <h2>Moja Historia Transakcji</h2>
-                        </div>
-                    <div id="personal-history-feed" class="feed-box history-feed">
-                        <p>...ładowanie transakcji...</p>
-                    </div>
-                </div>
-
-                <div id="tab-limit-orders" class="tab-content">
-                    <div class="panel-header-with-button">
-                        <h2>Moje Zlecenia Oczekujące</h2>
-                         </div>
-                    <div id="limit-orders-feed" class="feed-box history-feed">
-                        <p>...ładowanie zleceń...</p>
-                    </div>
-                </div>
-            </section>
-
-            <section id="help-panel" class="panel">
-                <h2>Jak Grać? - System Prestiżu i Wskazówek</h2>
-                <p>Witaj na WIG Ułańska! Twoim celem jest pomnażanie kapitału. Oto nowe, zaawansowane mechaniki:</p>
+                // ZMNIEJSZONO ŻETONY
+                // Było: 25 + Math.random() * 15
+                // Jest: 12 + Math.random() * 8 (zakres ok. 12px - 20px promienia)
+                this.radius = 12 + Math.random() * 8; 
                 
-                <h3>⭐️ System Prestiżu</h3>
-                <p>W panelu "Globalne Plotki" możesz kupić wskazówkę. Jest to ryzykowna, hazardowa mechanika. Płacisz za losową informację, która może, ale nie musi, być prawdziwa. Masz 65% szans na to że się sprawdzi. Wskazówka spełnia się do 30 sekund od załadowania ceny. Najlepiej poczekać aż cena się odświerzy kupić wskazówkę. I kupić akcje. Ponieważ cena odświerza się co 30 sekund.</p>
-                <ul>
-                    <li><strong>Poziom 1 (⭐️)</strong>: Wymagane <strong>15,000 zł</strong></li>
-                    <li><strong>Poziom 2 (⭐️⭐️)</strong>: Wymagane <strong>30,000 zł</strong></li>
-                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Wymagane <strong>60,000 zł</strong> (Odblokowuje Handel Krypto)</li>
-                    <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Wymagane <strong>120,000 zł</strong></li>
-                </ul>
+                this.style = chipStyles[Math.floor(Math.random() * chipStyles.length)];
                 
-                <h3>🕵️‍♂️ Wykup Wskazówek</h3>
-                <p>W panelu "Globalne Plotki" możesz kupić wskazówkę. Masz **65% szans**, że wskazówka będzie prawdziwa (i spełni się w ciągu 2-10 minut) oraz 35% szans, że będzie fałszywa. To ryzykowna mechanika.</p>
-                <p>Prestiż daje Ci zniżkę na tę mechanikę:</p>
-                <ul>
-                    <li><strong>Brak Prestiżu</strong>: Koszt 1500 zł</li>
-                    <li><strong>Poziom 1 (⭐️)</strong>: Koszt 1400 zł (Zniżka 100 zł)</li>
-                    <li><strong>Poziom 2 (⭐️⭐️)</strong>: Koszt 1200 zł (Zniżka 300 zł)</li>
-                    <li><strong>Poziom 3 (⭐️⭐️⭐️)</strong>: Koszt 1100 zł (Zniżka 400 zł)</li>
-                    <li><strong>Poziom 4 (⭐️⭐️⭐️⭐️)</strong>: Koszt 1000 zł (Zniżka 500 zł)</li>
-                </ul>
+                this.speedY = 2 + Math.random() * 3;
+                this.vx = 0;
+                this.vy = 0;
+                
+                this.angle = Math.random() * Math.PI * 2;
+                this.spinSpeed = (Math.random() - 0.5) * 0.1;
+            }
 
-                <h3>💰 Handel Kryptowalutami</h3>
-                <p>Osiągnięcie <strong>Poziomu Prestiżu 3 (⭐️⭐️⭐️)</strong> odblokowuje dostęp do handlu kryptowalutami. Możesz przeglądać ich wykresy wcześniej, ale możliwość kupna i sprzedaży jest zablokowana.</p>
-                <p>Kryptowaluty (jak Bartcoin czy Igirium) to aktywa o <strong>ekstremalnie wysokiej zmienności</strong>. Mogą przynieść ogromne zyski w krótkim czasie, ale wiążą się z proporcjonalnie wysokim ryzykiem gwałtownej utraty kapitału. Inwestuj ostrożnie!</p>
+            update() {
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
-            </section>
-        </div> 
-    </div> 
+                if (distance < repelRadius) {
+                    const force = (repelRadius - distance) / repelRadius;
+                    const angle = Math.atan2(dy, dx);
+                    const push = 20 * force;
+                    
+                    this.vx += Math.cos(angle) * push;
+                    this.vy += Math.sin(angle) * push;
+                }
 
-    <div id="user-profile-modal" class="modal-overlay hidden">
-        <div class="modal-content panel">
-            <button id="modal-close-button" class="modal-close">&times;</button>
-            <h2 id="modal-username">Profil Gracza</h2>
-            <hr>
-            <div class="modal-body">
-                <div id="modal-portfolio-chart-container"></div>
-                <div id="modal-stats">
-                    <p>Wartość Portfela: <strong id="modal-total-value">...</strong></p>
-                    <p>Całkowity Zysk: <strong id="modal-total-profit">...</strong></p>
-                    <p>Gotówka: <strong id="modal-cash">...</strong></p>
-                    <p>Data Dołączenia: <strong id="modal-join-date">...</strong></p>
-                    <hr>
-                    <p>Wszystkie Transakcje: <strong id="modal-total-trades">...</strong></p>
-                    <p>Kupione Wskazówki: <strong id="modal-tips-purchased">...</strong></p>
-                    <p>Kupione Obligacje: <strong id="modal-bonds-purchased">...</strong></p>
-                    <hr>
-                    <p id="prestige-info">Poziom Prestiżu: <strong id="modal-prestige-level">0</strong></p>
-                    <p id="prestige-next-goal">Następny poziom: 15,000 zł</p>
-                    <button id="prestige-button" class="action-btn-full" disabled>Zwiększ Poziom Prestiżu (Reset)</button>
-                </div>
-            </div>
-            <h3>Posiadane Akcje i Aktywa</h3>
-            <div id="modal-shares-list" class="feed-box">
-                <p>...ładowanie aktywów...</p>
-            </div>
-        </div>
-    </div>
-    <div id="notification-container"></div>
-    <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
-    <audio id="audio-error"src="error.mp3" preload="auto"></audio>
-    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio> 
+                this.x += this.vx;
+                this.y += this.speedY + this.vy;
+                this.angle += this.spinSpeed;
+
+                this.vx *= 0.92;
+                this.vy *= 0.92;
+
+                if (this.y > height + 50) {
+                    this.reset();
+                }
+                if (this.x < -50) this.x = width + 50;
+                if (this.x > width + 50) this.x = -50;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // 1. Główny kolor
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.style.main;
+                ctx.fill();
+                ctx.lineWidth = 1.5; // Cieńszy obrys dla mniejszych żetonów
+                ctx.strokeStyle = '#ddd';
+                ctx.stroke();
+
+                // 2. Paski
+                const stripes = 6;
+                for (let i = 0; i < stripes; i++) {
+                    ctx.save();
+                    ctx.rotate((Math.PI * 2 / stripes) * i);
+                    ctx.fillStyle = this.style.accent;
+                    ctx.beginPath();
+                    ctx.rect(this.radius * 0.6, -this.radius * 0.15, this.radius * 0.4, this.radius * 0.3);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 3. Wewnętrzne koła
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.55, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.45, 0, Math.PI * 2);
+                ctx.fillStyle = this.style.main;
+                ctx.fill();
+                ctx.strokeStyle = this.style.accent;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        for (let i = 0; i < chipCount; i++) {
+            chips.push(new Chip());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            chips.forEach(chip => {
+                chip.update();
+                chip.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>
