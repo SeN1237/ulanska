@@ -1212,11 +1212,13 @@ function renderBettingPanel() {
     }
 
     // --- IKONY DYSCYPLIN ---
-    const sportIcons = {
+	const sportIcons = {
         'football': '<i class="fa-solid fa-futbol"></i>',
+        'soccer': '<i class="fa-solid fa-futbol"></i>',
         'ski': '<i class="fa-solid fa-person-skiing"></i>',
         'f1': '<i class="fa-solid fa-flag-checkered"></i>',
         'mma': '<i class="fa-solid fa-hand-fist"></i>',
+        'snooker': '<i class="fa-solid fa-pool-8-ball"></i>', // <-- NOWE: Snooker
         'default': '<i class="fa-solid fa-calendar-day"></i>'
     };
 
