@@ -750,13 +750,36 @@ function onSelectCompany(e) { if(e.target.classList.contains("company-tab")) cha
 function changeCompany(cid) {
     if(!market[cid]) return;
     currentCompanyId = cid;
+    
+    // 1. Zaktualizuj nazwę spółki
     dom.companyName.textContent = market[cid].name;
+    
+    // 2. Zaktualizuj aktywne przyciski
     document.querySelectorAll(".company-tab").forEach(t => t.classList.toggle("active", t.dataset.company === cid));
-    if(chart) chart.updateSeries([{ data: market[cid].history || [] }]);
-    updatePriceUI();
+    
+    // 3. Reset i przerysowanie wykresu (to już masz, ale dla pewności jest tutaj)
+    if (chart) {
+        chart.destroy();
+        chart = null;
+    }
+    if(dom.chartContainer) dom.chartContainer.innerHTML = "";
+    initChart();
+
+    // --- POPRAWKA CENY (FIX) ---
+    // Pobieramy aktualną cenę nowo wybranej spółki
+    const newPrice = market[cid].price;
+    
+    // Zamiast czekać na updatePriceUI (które może animować),
+    // WYMUSZAMY natychmiastowe wpisanie nowej ceny do HTML.
+    dom.stockPrice.textContent = formatujWalute(newPrice);
+    
+    // Ważne: Resetujemy "zapamiętaną" cenę wyświetlaną dla tej spółki,
+    // aby kolejna aktualizacja z tickera nie zwariowała.
+    market[cid].displayedPrice = newPrice;
+    // ---------------------------
+
     checkCryptoAccess();
 }
-
 async function buyShares() { await tradeShares(true); }
 async function sellShares() { await tradeShares(false); }
 async function tradeShares(isBuy) {
