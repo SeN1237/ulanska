@@ -1207,13 +1207,23 @@ function renderBettingPanel() {
     dom.bettingForm.classList.add("hidden");
 
     if (!matchesCache || matchesCache.length === 0) {
-        dom.matchInfo.innerHTML = "<p>Obecnie brak zaplanowanych meczów.</p>";
+        dom.matchInfo.innerHTML = "<p>Obecnie brak zaplanowanych wydarzeń.</p>";
         return;
     }
 
+    // --- IKONY DYSCYPLIN ---
+    const sportIcons = {
+        'football': '<i class="fa-solid fa-futbol"></i>',
+        'ski': '<i class="fa-solid fa-person-skiing"></i>',
+        'f1': '<i class="fa-solid fa-flag-checkered"></i>',
+        'mma': '<i class="fa-solid fa-hand-fist"></i>',
+        'default': '<i class="fa-solid fa-calendar-day"></i>'
+    };
+
+    // --- GRUPOWANIE PO DATACH ---
     const matchesByDay = {};
     matchesCache.forEach(match => {
-        const date = match.closeTime.toDate();
+        const date = match.closeTime.toDate ? match.closeTime.toDate() : new Date(match.closeTime);
         const dateKey = date.toISOString().split('T')[0];
         if (!matchesByDay[dateKey]) matchesByDay[dateKey] = [];
         matchesByDay[dateKey].push(match);
@@ -1222,6 +1232,7 @@ function renderBettingPanel() {
     const sortedDays = Object.keys(matchesByDay).sort();
     if (!activeDayTab || !matchesByDay[activeDayTab]) activeDayTab = sortedDays[0];
 
+    // --- NAWIGACJA DAT ---
     const navContainer = document.createElement("div");
     navContainer.className = "betting-days-nav";
 
@@ -1234,16 +1245,18 @@ function renderBettingPanel() {
         const btnLabel = dateObj.toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' });
         btn.textContent = btnLabel.charAt(0).toUpperCase() + btnLabel.slice(1);
         
-        btn.onclick = () => { 
-            activeDayTab = dayKey; 
-            renderBettingPanel();
-        };
+        btn.onclick = () => { activeDayTab = dayKey; renderBettingPanel(); };
         navContainer.appendChild(btn);
     });
     dom.matchInfo.appendChild(navContainer);
 
+    // --- TABELA ---
     const dayMatches = matchesByDay[activeDayTab];
-    dayMatches.sort((a, b) => a.closeTime.seconds - b.closeTime.seconds);
+    dayMatches.sort((a, b) => {
+        const tA = a.closeTime.toDate ? a.closeTime.toDate() : new Date(a.closeTime);
+        const tB = b.closeTime.toDate ? b.closeTime.toDate() : new Date(b.closeTime);
+        return tA - tB;
+    });
 
     const table = document.createElement("table");
     table.className = "betting-table";
@@ -1251,8 +1264,8 @@ function renderBettingPanel() {
         <thead>
             <tr>
                 <th class="col-time">Godzina</th>
-                <th class="col-match">Mecz</th>
-                <th class="col-odds">Kursy (1 - X - 2)</th>
+                <th class="col-match">Wydarzenie</th>
+                <th class="col-odds">Opcje / Kursy</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -1260,35 +1273,68 @@ function renderBettingPanel() {
     const tbody = table.querySelector("tbody");
 
     dayMatches.forEach(match => {
-        
         const tr = document.createElement("tr");
-        const date = match.closeTime.toDate();
+        const date = match.closeTime.toDate ? match.closeTime.toDate() : new Date(match.closeTime);
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
         
         const isClosed = match.status !== 'open';
         const isResolved = match.status === 'resolved';
+        const icon = sportIcons[match.sport] || sportIcons['default'];
 
+        // Status czasu
         let timeHtml = timeStr;
         if (isResolved) timeHtml = "Koniec";
         else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
 
-        let matchHtml = `<strong>${match.teamA}</strong> <small>vs</small> <strong>${match.teamB}</strong>`;
-        if (isResolved) {
-            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
-            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
+        // Tytuł meczu (Obsługa 3 zawodników w tytule)
+        let vsText = `<strong>${match.teamA}</strong> <small>vs</small> <strong>${match.teamB}</strong>`;
+        if (match.teamC) {
+            vsText += ` <small>vs</small> <strong>${match.teamC}</strong>`;
         }
 
+        // 1. Sprawdzamy czy w bazie jest pole "eventName", jeśli nie -> wyświetlamy ID
+        // Możesz w bazie dodać pole "eventName": "Grand Prix Monako"
+        const displayLabel = match.eventName || match.id;
+
+        let matchHtml = `<div style="display:flex; align-items:center; gap:10px;">
+                            <span style="color:var(--accent-color); font-size:1.3em;">${icon}</span>
+                            <div style="display:flex; flex-direction:column; justify-content:center;">
+                                <span style="font-size:0.7em; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">
+                                    ${displayLabel}
+                                </span>
+                                <div style="line-height:1.2;">${vsText}</div>
+                            </div>
+                         </div>`;
+                         
+        if (isResolved) {
+            let w = match.winner;
+            if (w === 'draw') w = "REMIS";
+            else if (w === 'teamA') w = match.teamA;
+            else if (w === 'teamB') w = match.teamB;
+            else if (w === 'teamC') w = match.teamC;
+            
+            matchHtml += `<br><span class="match-finished">Wygrał: ${w}</span>`;
+        }
+
+        // --- GENEROWANIE PRZYCISKÓW ---
         const createBtn = (teamCode, odds, label) => `
             <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
-                onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
+                onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB}${match.teamC ? ' vs '+match.teamC : ''} [${label}]')">
                 <span style="display:block; font-size:0.75em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:85px;">${label}</span>
                 <small style="color:var(--accent-color); font-weight:bold; font-size:0.9em;">${odds.toFixed(2)}</small>
             </button>`;
 
-        const oddsHtml = `<div class="odds-btn-group">
+        const hasDraw = !match.teamC && (match.oddsDraw && match.oddsDraw > 1.0);
+        const hasTeamC = match.teamC && match.oddsC;
+
+        let oddsHtml = `<div class="odds-btn-group">
             ${createBtn('teamA', match.oddsA, match.teamA)}
-            ${createBtn('draw', match.oddsDraw, 'REMIS')}
+            
+            ${hasDraw ? createBtn('draw', match.oddsDraw, 'REMIS') : ''}
+            
             ${createBtn('teamB', match.oddsB, match.teamB)}
+            
+            ${hasTeamC ? createBtn('teamC', match.oddsC, match.teamC) : ''}
         </div>`;
 
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
@@ -1297,7 +1343,6 @@ function renderBettingPanel() {
     
     dom.matchInfo.appendChild(table);
 }
-
 window.selectBet = function(id, team, odds, label) {
     currentBetSelection = { id, team, odds, matchTitle: label };
     
