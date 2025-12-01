@@ -1,1703 +1,519 @@
-/* --- SEKCJA 0: IMPORT I DEFINICJE MOTYWÓW --- */   
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-
-body[data-theme="dark"] {
-    --bg-color: #0A0A0A;
-    --panel-color: #121212;
-    --border-color: #2F2F2F;
-    --text-color: #E0E0E0;
-    --text-muted: #888;
-    --green: #00FF7F;
-    --red: #FF4500;
-    --blue: #00BFFF;
-    --accent-color: #FF00FF;
-    --prestige-star: #FFD700; /* Złoty kolor dla gwiazdek */
-}
-body[data-theme="light"] {
-    --bg-color: #F4F7F6;
-    --panel-color: #FFFFFF;
-    --border-color: #DDE2E1;
-    --text-color: #111111;
-    --text-muted: #555;
-    --green: #28a745;
-    --red: #dc3545;
+/* --- ZMIENNE I RESET --- */
+:root {
+    --bg-dark: #0f0c29;
+    --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --text-main: #ffffff;
+    --text-muted: #b3b3b3;
+    --accent-color: #00d2ff;
+    --accent-gradient: linear-gradient(90deg, #00d2ff, #3a7bd5);
+    --green: #00e676;
+    --red: #ff1744;
+    --font-main: 'Inter', sans-serif;
+    --radius: 16px;
     --blue: #007bff;
-    --accent-color: #F58400;
-    --prestige-star: #E6A700;
 }
-body[data-theme="dim"] {
-    --bg-color: #1a1e25;
-    --panel-color: #252a34;
-    --border-color: #3b4252;
-    --text-color: #e5e9f0;
-    --text-muted: #a3acb9;
-    --green: #28a745;
-    --red: #dc3545;
-    --blue: #007bff;
-    --accent-color: #ffc107;
-    --prestige-star: #ffc107;
-}
-
-
-/* --- SEKCJA 1: USTAWIENIA GLOBALNE --- */
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-color);
     margin: 0;
-    padding: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    font-family: var(--font-main);
+    background: var(--bg-dark);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
     min-height: 100vh;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
 }
 
-.panel, input, button, select, #leaderboard-list li {
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.2s ease;
-}
+* { box-sizing: border-box; }
+a { text-decoration: none; color: var(--accent-color); }
+button, input, select { font-family: inherit; }
 
-
-/* =================================== */
-/* === SEKCJA 1.5: ANIMACJA STARTOWA === */
-/* =================================== */
-
-#splash-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: var(--bg-color); 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    animation: fadeOutSplash 1s ease-out 9s forwards;
-    opacity: 1; 
-}
-
-#splash-title {
-    font-size: 3em;
-    font-weight: 700;
-    animation: colorChangeSplash 9s ease-in-out forwards;
-}
-
-@keyframes colorChangeSplash {
-    0% {
-        color: #FFFFFF; 
-        opacity: 0;
-        transform: scale(0.8);
-    }
-    10% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    45% {
-        color: var(--blue); 
-    }
-    80% {
-        color: var(--green);
-    }
-    100% {
-        color: var(--green);
-        opacity: 0;
-        transform: scale(1.2);
-    }
-}
-
-@keyframes fadeOutSplash {
-    0% {
-        opacity: 1;
-    }
-    99% {
-        opacity: 0;
-    }
-    100% {
-        opacity: 0;
-        visibility: hidden; 
-    }
-}
-
-@media (max-width: 800px) {
-    #splash-title {
-        font-size: 2em; 
-    }
-}
-
-/* =================================== */
-/* ======== KONIEC SEKCJI 1.5 ======== */
-/* =================================== */
-
-
-/* --- STYLE LOGOWANIA --- */
-#auth-container {
-    display: flex;
-    max-width: 400px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 50px;
-}
-.auth-panel {
-    flex: 1;
-    min-width: 300px;
-    background-color: var(--panel-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+/* --- KLASY UŻYTKOWE (GLASS) --- */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: var(--glass-border);
+    border-radius: var(--radius);
     padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-.auth-panel h2 {
-    margin-top: 0;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-    color: var(--text-muted);
-}
-.auth-panel form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-.auth-panel label {
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-.auth-panel input {
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border-radius: 4px;
-    font-size: 1em;
-}
-body[data-theme="dark"] .auth-panel input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 8px var(--blue);
-    outline: none;
-}
-.auth-panel button {
-    padding: 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 1em;
-    background-color: var(--blue);
-    color: white;
-    margin-top: 10px;
-}
-body[data-theme="dark"] .auth-panel button:hover {
-    box-shadow: 0 0 10px var(--blue);
-}
-
-#reset-password-link {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.9em;
-    margin-top: 10px;
-    display: inline-block;
-}
-#reset-password-link:hover {
-    color: var(--blue);
-    text-decoration: underline;
-}
-
-#register-panel {
-    display: none;
-}
-#auth-container.show-register #register-panel {
-    display: block;
-}
-#auth-container.show-register #login-panel {
-    display: none;
-}
-.auth-toggle {
-    text-align: center;
-    margin-top: 15px;
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-.auth-toggle a {
-    color: var(--blue);
-    text-decoration: none;
-    font-weight: bold;
-}
-.auth-toggle a:hover {
-    text-decoration: underline;
-}
-#auth-message {
-    width: 100%;
-    text-align: center;
-    font-size: 1.1em;
-    min-height: 20px;
-    margin-top: 15px;
-}
-
-
-.hidden {
-    display: none !important;
-}
-
-/* --- STYLE SYMULATORA --- */
-#simulator-container {
-    width: 100%;
-    max-width: 1400px;
-}
-
-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 20px;
+    box-shadow: var(--glass-shadow);
     margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-}
-header h1 { 
-    margin: 0; 
-    color: var(--blue);
-    order: 1;
-}
-#theme-switcher {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.9em;
-    margin-left: auto;
-    order: 2;
-}
-#theme-switcher select {
-    background-color: var(--panel-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 3px 5px;
-    font-family: 'Inter', sans-serif;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-#user-info {
-    order: 3;
-    display: flex; /* NOWOŚĆ: dla gwiazdek */
-    align-items: center;
-    gap: 5px;
-}
-#logout-button {
-    background: var(--red); color: white; border: none;
-    padding: 5px 10px; border-radius: 4px; cursor: pointer;
-    font-size: 0.8em; margin-left: 10px;
-}
-body[data-theme="dark"] #logout-button:hover {
-    box-shadow: 0 0 10px var(--red);
 }
 
-/* --- NOWE STYLE DLA RADIA (ARCHIVE.ORG) --- */
-#archive-radio-player {
-    display: flex;
-    align-items: center;
-    order: 2; /* Ten sam order co theme-switcher */
-    margin-left: 20px; /* Drobny odstęp */
-}
-#archive-radio-player iframe {
-    border: 1px solid var(--border-color); /* Lepsze wpasowanie w motyw */
-    border-radius: 4px;
-}
-/* --- KONIEC STYLI RADIA --- */
+.hidden { display: none !important; }
 
-
-/* =================================== */
-/* === SEKCJA 3.5: PASEK GIEŁDOWY (TICKER) === */
-/* =================================== */
-.ticker-wrap {
-    width: 100%;
-    overflow: hidden;
-    background-color: var(--panel-color); 
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 10px 0;
-    box-sizing: border-box;
-    margin-bottom: 20px; 
-}
-
-#ticker-content {
-    display: inline-block; 
-    white-space: nowrap; 
-    
-    transform: translateX(-50%);
-    animation: ticker-scroll-right 60s linear infinite; 
-}
-
-#ticker-content:hover {
-    animation-play-state: paused;
-}
-
-.ticker-item {
-    display: inline-block;
-    padding: 0 20px;
-    font-size: 1.1em;
-    color: var(--text-muted);
-    border-right: 1px solid var(--border-color);
-}
-.ticker-item strong {
-    color: var(--text-color);
-    margin-left: 8px;
-    margin-right: 5px;
-}
-.ticker-up {
-    color: var(--green) !important;
-    font-weight: bold;
-}
-.ticker-down {
-    color: var(--red) !important;
-    font-weight: bold;
-}
-
-@keyframes ticker-scroll-right {
-    0% {
-        transform: translateX(-50%); 
-    }
-    100% {
-        transform: translateX(0); 
-    }
-}
-
-@media (max-width: 800px) {
-    .ticker-item {
-        font-size: 0.9em;
-        padding: 0 15px;
-    }
-    #ticker-content {
-        animation-duration: 40s;
-    }
-}
-/* =================================== */
-/* ======== KONIEC SEKCJI 3.5 ======== */
-/* =================================== */
-
-
-/* === ZAKTUALIZOWANA SIATKA (GRID) === */
-/* Zostanie zdefiniowana na końcu pliku w media queries */
-
-#market-panel { grid-area: market; }
-#portfolio-panel { grid-area: portfolio; }
-#order-panel { grid-area: order; }
-#rumors-panel { grid-area: rumors; }
-#leaderboard-panel { grid-area: leaderboard; }
-#bonds-panel { grid-area: bonds; }
-#betting-panel { grid-area: betting; } 
-#casino-panel { grid-area: casino; text-align: center; } /* <-- NOWE */
-#chat-panel { grid-area: chat; }
-#history-tabs-panel { grid-area: history; }
-#help-panel { grid-area: help; }
-
-
-.panel {
-    background-color: var(--panel-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-h2, h3 { 
-    margin-top: 0; border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px; color: var(--text-muted); font-size: 1.2em;
-}
-
-/* === NOWE STYLE DLA NAGŁÓWKA Z PRZYCISKIEM === */
-.panel-header-with-button {
+/* --- TOP BAR & TICKER --- */
+.main-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 15px; 
+    padding: 15px 30px;
+    background: rgba(0,0,0,0.3);
+    backdrop-filter: blur(5px);
+    border-bottom: var(--glass-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
-.panel-header-with-button h2 {
-    border-bottom: none; 
-    margin-bottom: 0; 
-    padding-bottom: 10px; 
-}
-.clear-btn {
-    background: none;
-    border: 1px solid var(--red);
-    color: var(--red);
-    padding: 3px 8px;
-    font-size: 0.8em;
-    border-radius: 4px;
-    font-weight: bold;
+
+.logo-area h1 { margin: 0; font-size: 1.5rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+
+.top-controls { display: flex; align-items: center; gap: 15px; }
+.user-badge { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.1); transition: 0.3s; }
+.user-badge:hover { background: rgba(255,255,255,0.2); }
+#logout-button { background: transparent; border: none; color: var(--red); font-size: 1.2rem; cursor: pointer; }
+#mute-button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
     cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: 0.3s;
+    padding: 5px;
 }
-.clear-btn:hover {
-    background: rgba(220, 53, 69, 0.1);
-    opacity: 1;
-}
-body[data-theme="dark"] .clear-btn:hover {
-    background: rgba(255, 69, 0, 0.1);
-    box-shadow: 0 0 5px var(--red);
-}
-/* === KONIEC NOWYCH STYLI === */
 
-
-/* Panel Rynku i Wykresu */
-#price-container { font-size: 1.5em; margin-bottom: 20px; }
-#stock-price { 
-    font-weight: bold; 
-    transition: color 0.3s ease, background-color 0.3s ease, text-shadow 0.3s ease; 
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-#chart-container { width: 100%; min-height: 300px; }
-
-/* Panel Portfela */
-#portfolio-chart-container {
-    min-height: 150px;
-    margin-bottom: 15px;
-}
-/* Ustawienie portfela w dwóch kolumnach na większych ekranach */
-@media (min-width: 801px) {
-    #portfolio-panel {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-areas: 
-            "header header"
-            "chart list"
-            "chart cash"
-            "chart hr1"
-            "chart shares_header"
-            "chart shares"
-            "chart hr2"
-            "chart total"
-            "chart profit"
-            "casino pvp";
-        gap: 0 20px; /* 0 odstępu pionowego, 20px poziomego */
-        align-content: start;
-    }
-    #portfolio-panel h2 { grid-area: header; }
-    #portfolio-chart-container { grid-area: chart; min-height: 300px; margin-bottom: 0; }
-    #portfolio-panel > p:nth-of-type(1) { grid-area: cash; margin: 0; } /* Gotówka */
-    #portfolio-panel > hr:nth-of-type(1) { grid-area: hr1; }
-    /* Ten div jest generowany przez JS, ale dodajemy styl, jakby był */
-    #shares-list { grid-area: shares; }
-    #portfolio-panel > hr:nth-of-type(2) { grid-area: hr2; }
-    #portfolio-panel > p:nth-of-type(2) { grid-area: total; margin: 5px 0; } /* Wartość */
-    #portfolio-panel > p:nth-of-type(3) { grid-area: profit; margin: 5px 0; } /* Zysk */
-}
-@media (min-width: 1200px) {
-    /* Na bardzo dużych ekranach, pozwól wykresowi być większym */
-    #portfolio-panel {
-        grid-template-columns: 1.5fr 1fr;
-    }
+#mute-button:hover {
+    color: var(--accent-color);
+    transform: scale(1.1);
 }
 
 
-#portfolio-panel p {
-    margin: 10px 0; font-size: 1.1em;
-    display: flex; justify-content: space-between;
-    align-items: center; 
-}
-#portfolio-panel hr {
-    border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;
-}
-/* NOWY: HR dla kryptowalut */
-.crypto-hr {
-    border-top: 1px dashed var(--accent-color) !important;
-}
+.ticker-wrap { background: rgba(0,0,0,0.6); overflow: hidden; padding: 8px 0; border-bottom: var(--glass-border); white-space: nowrap; }
+#ticker-content { display: inline-block; animation: ticker 40s linear infinite; }
+.ticker-item { margin: 0 20px; font-size: 0.9rem; }
+.ticker-item strong { color: var(--text-main); }
+.ticker-up { color: var(--green); }
+.ticker-down { color: var(--red); }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
-#total-value, #total-profit { font-size: 1.2em; font-weight: bold; }
-
-#total-value {
-    transition: color 0.3s ease, background-color 0.3s ease, text-shadow 0.3s ease; 
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 5px; 
+/* --- NAWIGACJA GŁÓWNA --- */
+.main-nav { display: flex; justify-content: center; gap: 20px; margin: 20px 0; padding: 0 10px; }
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+.nav-btn:hover { color: var(--text-main); }
+.nav-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
 
+/* --- SEKCJE WIDOKÓW --- */
+.view-section { display: none; padding: 0 20px 40px 20px; max-width: 1400px; margin: 0 auto; }
+.view-section.active { display: block; animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- WIDOK 1: GIEŁDA (GRID) --- */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 350px; gap: 20px; }
+
+/* Panel Rynku */
+.market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.market-type-selector button { background: transparent; border: none; color: var(--text-muted); font-weight: bold; padding: 5px 10px; cursor: pointer; border-radius: 5px; }
+.market-type-selector button.active { background: rgba(255,255,255,0.1); color: var(--text-main); }
+.price-big { text-align: right; }
+.price-big span { display: block; font-size: 0.9rem; color: var(--text-muted); }
+.price-big strong { font-size: 2rem; font-weight: 800; color: var(--green); }
+
+.chip-container { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.company-tab { background: rgba(0,0,0,0.3); border: var(--glass-border); color: var(--text-muted); padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: 0.3s; }
+.company-tab:hover, .company-tab.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); }
 
 /* Panel Zleceń */
-/* NOWY: Wiadomość o blokadzie Krypto */
-.crypto-gate-message {
-    display: none; /* Domyślnie ukryte */
-    background-color: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 15px;
-    text-align: center;
-}
-.crypto-gate-message h3 {
-    margin-top: 0;
-    color: var(--accent-color);
-    border-bottom: none;
-    padding-bottom: 5px;
-}
-.crypto-gate-message p {
-    margin: 5px 0;
-    color: var(--text-muted);
-    font-size: 0.9em;
-}
-/* Kiedy jest aktywna blokada */
-#order-panel.crypto-locked .order-tabs,
-#order-panel.crypto-locked .order-container {
-    display: none;
-}
-#order-panel.crypto-locked .crypto-gate-message {
-    display: block;
-}
+.panel-head { border-bottom: var(--glass-border); padding-bottom: 10px; margin-bottom: 15px; }
+.panel-head h2, .panel-head h3 { margin: 0; font-size: 1.1rem; color: var(--accent-color); display: flex; align-items: center; gap: 8px; }
 
+.order-tabs { display: flex; border-bottom: var(--glass-border); margin-bottom: 15px; }
+.order-tab-btn { flex: 1; background: transparent; border: none; padding: 10px; color: var(--text-muted); cursor: pointer; font-weight: bold; }
+.order-tab-btn.active { color: var(--text-main); border-bottom: 2px solid var(--accent-color); }
 
-.order-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
-    margin: -20px -20px 20px -20px; /* Rozciągnij na całą szerokość panelu */
-}
-.order-tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    padding: 10px 15px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: bold;
-    border-bottom: 3px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease;
-}
-.order-tab-btn:hover {
-    color: var(--text-color);
-}
-.order-tab-btn.active {
-    color: var(--blue);
-    border-bottom-color: var(--blue);
-}
-.order-container {
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-}
-.order-container.active {
-    display: flex;
-}
-#limit-order-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-#limit-order-form label {
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-#limit-order-form input, #limit-order-form select {
-    padding: 10px; 
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color); 
-    color: var(--text-color);
-    border-radius: 4px; 
-    font-size: 1.1em;
-}
-#limit-order-button {
-    background-color: var(--accent-color);
-    color: white;
-}
-body[data-theme="dark"] #limit-order-button:hover {
-    box-shadow: 0 0 10px var(--accent-color);
-}
-body[data-theme="light"] #limit-order-button {
-    color: #111;
-}
+.order-container { display: none; flex-direction: column; gap: 10px; }
+.order-container.active { display: flex; }
 
-.actions {
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap: 10px; 
+.input-row { display: flex; gap: 10px; }
+input, select { flex: 1; background: rgba(0,0,0,0.4); border: var(--glass-border); color: white; padding: 12px; border-radius: 8px; outline: none; transition: 0.3s; }
+input:focus, select:focus { border-color: var(--accent-color); }
+.max-btns { display: flex; flex-direction: column; gap: 2px; }
+.max-btns button { font-size: 0.7rem; background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; padding: 2px 5px; border-radius: 4px; }
+
+.action-buttons { display: flex; gap: 10px; margin-top: 10px; }
+.btn-buy { flex: 1; background: var(--green); border: none; color: #000; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+.btn-sell { flex: 1; background: var(--red); border: none; color: white; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+.btn-buy:hover, .btn-sell:hover { transform: scale(1.02); }
+.btn-accent { background: var(--accent-gradient); border: none; color: white; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; }
+
+/* Newsy */
+.small-feed { max-height: 150px; overflow-y: auto; font-size: 0.9rem; }
+.rumor-opts { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.rumor-opts button { background: var(--accent-color); border: none; padding: 10px; border-radius: 8px; cursor: pointer; }
+
+/* --- SIDEBAR & PORTFOLIO (POPRAWKI) --- */
+.wallet-summary { display: flex; justify-content: space-between; margin-bottom: 15px; }
+.wallet-item { display: flex; flex-direction: column; }
+.wallet-item .label { font-size: 0.8rem; color: var(--text-muted); }
+.wallet-item .value { font-weight: bold; }
+.wallet-item .value.accent { color: var(--accent-color); }
+
+/* Kontener Wykresu - Wyśrodkowanie */
+#portfolio-chart-container {
+    display: flex;
+    justify-content: center;
     align-items: center;
-}
-.actions label {
-    grid-column: 1 / 3; 
-    font-size: 0.9em; 
-    color: var(--text-muted);
-}
-#amount-input {
-    grid-column: 1 / 3; 
-    padding: 10px; 
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color); 
-    color: var(--text-color);
-    border-radius: 4px; 
-    font-size: 1.1em;
-}
-body[data-theme="dark"] #amount-input:focus,
-body[data-theme="dark"] #limit-order-form input:focus,
-body[data-theme="dark"] #limit-order-form select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 8px var(--blue);
-    outline: none;
-}
-button {
-    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
-    font-weight: bold; font-size: 1em; transition: transform 0.1s ease, box-shadow 0.2s ease;
-}
-button:active { transform: scale(0.98); }
-#buy-button { background-color: var(--green); color: white; }
-#sell-button { background-color: var(--red); color: white; }
-
-body[data-theme="dark"] #buy-button:hover {
-    box-shadow: 0 0 10px var(--green);
-}
-body[data-theme="dark"] #sell-button:hover {
-    box-shadow: 0 0 10px var(--red);
+    min-height: 260px;
+    margin-bottom: 10px;
 }
 
-#message-box {
-    margin-top: 15px; font-style: italic; min-height: 20px;
-}
-
-/* Style przycisków MAX */
-.label-with-max {
-    grid-column: 1 / 3; 
-    display: flex;
-    justify-content: space-between; 
-    align-items: center; 
-    font-size: 0.9em;
-    color: var(--text-muted);
-    margin-bottom: -5px; 
-}
-.max-buttons-group {
-    display: flex;
-    gap: 5px; 
-}
-.max-btn {
-    background: none;
-    border: 1px solid var(--accent-color);
-    color: var(--accent-color);
-    padding: 2px 8px;
-    font-size: 0.8em;
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-}
-.max-btn:hover {
-    background: rgba(255, 193, 7, 0.1);
-    color: var(--accent-color);
-}
-body[data-theme="dark"] .max-btn:hover {
-    background: rgba(255, 0, 255, 0.1);
-    box-shadow: 0 0 5px var(--accent-color);
-}
-body[data-theme="light"] .max-btn:hover {
-    background: rgba(245, 132, 0, 0.1);
-}
-.max-btn:active {
-    transform: scale(0.97);
-}
-#sell-max-button {
-    border-color: var(--red);
-    color: var(--red);
-}
-#sell-max-button:hover {
-    background: rgba(220, 53, 69, 0.1);
-}
-body[data-theme="dark"] #sell-max-button:hover {
-    background: rgba(255, 69, 0, 0.1);
-    box-shadow: 0 0 5px var(--red);
-}
-body[data-theme="light"] #sell-max-button:hover {
-    background: rgba(220, 53, 69, 0.1);
-}
-
-
-/* Panel Plotek i Newsów */
-.feed-box {
-    max-height: 200px; 
-    overflow-y: auto; 
-    margin-bottom: 15px;
-}
-.feed-box p {
-    margin: 5px 0; font-style: italic;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 5px;
-    word-break: break-word;
-}
-.feed-box p:last-child { border-bottom: none; }
-/* Usunięcie marginesu dla feedów, które mają nowy nagłówek */
-.panel-header-with-button + .feed-box {
-    margin-bottom: 0;
-}
-
-
-#rumor-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px; 
-}
-#rumor-input, #rumor-company-select {
-    padding: 10px; border: 1px solid var(--border-color);
-    background-color: var(--bg-color); color: var(--text-color);
-    border-radius: 4px; font-size: 1em;
-}
-body[data-theme="dark"] #rumor-input:focus,
-body[data-theme="dark"] #rumor-company-select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 8px var(--blue);
-    outline: none;
-}
-#rumor-controls {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-#rumor-company-select {
-    padding: 8px; flex-grow: 1;
-}
-#rumor-sentiment {
-    display: flex;
-    gap: 10px;
-    flex-grow: 1;
-}
-#rumor-sentiment label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-#rumor-form button {
-    background-color: var(--blue); color: white;
-}
-body[data-theme="dark"] #rumor-form button:hover {
-    box-shadow: 0 0 10px var(--blue);
-}
-#rumors-panel hr {
-    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
-}
-
-/* NOWY: Ogólny styl dla przycisków akcji */
-.action-btn-full {
-    width: 100%;
-    background-color: var(--blue);
-    color: white;
-    padding: 12px; border: none; border-radius: 4px; cursor: pointer;
-    font-weight: bold; font-size: 1em;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-}
-.action-btn-full:active {
-    transform: scale(0.98);
-}
-body[data-theme="dark"] .action-btn-full:hover {
-    box-shadow: 0 0 10px var(--blue);
-}
-.action-btn-full:disabled {
-    background-color: var(--text-muted);
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-body[data-theme="dark"] .action-btn-full:disabled:hover {
-    box-shadow: none;
-}
-/* Przycisk kupna wskazówki */
-#buy-tip-button {
-    background-color: var(--accent-color);
-    color: white;
-}
-body[data-theme="dark"] #buy-tip-button:hover {
-    box-shadow: 0 0 10px var(--accent-color);
-}
-body[data-theme="light"] #buy-tip-button {
-    color: #111;
-}
-
-/* --- Panel Obligacji --- */
-#bonds-panel p {
-    font-size: 0.95em;
-    color: var(--text-muted);
-    line-height: 1.6;
-    font-style: normal;
-    border: none;
-}
-#bonds-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+/* Nowy styl listy aktywów (flexbox dla rozstrzelenia tekstu) */
+.assets-list {
     margin-top: 15px;
 }
-#bonds-form label {
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-#bonds-form input, #bonds-form select {
-    padding: 10px; 
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color); 
-    color: var(--text-color);
-    border-radius: 4px; 
-    font-size: 1.1em;
-}
-body[data-theme="dark"] #bonds-form input:focus,
-body[data-theme="dark"] #bonds-form select:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    outline: none;
-}
-#buy-bond-button {
-    background-color: var(--green); /* Zielony, bo to 'pewny' zakup */
-    color: white;
-}
-body[data-theme="dark"] #buy-bond-button:hover {
-    box-shadow: 0 0 10px var(--green);
-}
-#bonds-panel hr {
-    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
-}
-#active-bonds-feed {
-    max-height: 150px; /* Mniejsza wysokość niż inne feedy */
-}
-/* --- Koniec Panelu Obligacji --- */
 
-
-/* =================================== */
-/* === NOWY: Panel Zakładów Sportowych === */
-/* =================================== */
-#betting-panel #match-info p {
-    font-size: 1.1em;
-    color: var(--text-muted);
-    line-height: 1.6;
-    font-style: normal;
-    border: none;
-    margin: 5px 0;
-}
-#betting-panel #match-info p strong {
-    color: var(--text-color);
-}
-/* NOWY: Styl dla kursu na remis */
-#draw-odds-display {
-    font-style: italic;
-    color: var(--blue) !important;
-}
-#draw-odds-display strong {
-    color: var(--blue) !important;
-}
-
-#betting-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
-}
-#betting-form label {
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-#betting-form input, #betting-form select {
-    padding: 10px; 
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color); 
-    color: var(--text-color);
-    border-radius: 4px; 
-    font-size: 1.1em;
-}
-body[data-theme="dark"] #betting-form input:focus,
-body[data-theme="dark"] #betting-form select:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 8px var(--accent-color);
-    outline: none;
-}
-#place-bet-button {
-    background-color: var(--accent-color);
-    color: white;
-}
-body[data-theme="dark"] #place-bet-button:hover {
-    box-shadow: 0 0 10px var(--accent-color);
-}
-body[data-theme="light"] #place-bet-button {
-    color: #111;
-}
-#betting-panel hr {
-    border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;
-}
-#active-bets-feed {
-    max-height: 150px;
-}
-/* === Koniec Panelu Zakładów === */
-
-
-/* =================================== */
-/* === NOWY WYGLĄD RANKINGU (LISTA) === */
-/* =================================== */
-
-#leaderboard-list {
-    padding-left: 0;
-    margin: 0;
-    max-height: 300px;
-    overflow-y: auto;
-    list-style: none;
-}
-
-#leaderboard-list li {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color);
+.assets-list .asset-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: background-color 0.2s ease;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.15); /* Przerywana linia */
+    font-size: 0.9rem;
 }
 
-#leaderboard-list li:hover {
-    background-color: rgba(255, 255, 255, 0.03);
+.assets-list .asset-row:last-child {
+    border-bottom: none;
 }
 
-/* Lewa sekcja (Rank, Nazwa, Gwiazdki, Zysk) */
-.leaderboard-left {
+.assets-list .asset-name {
+    color: var(--text-muted);
+}
+
+.assets-list .asset-value {
+    font-weight: bold;
+    color: #fff;
+}
+
+/* Leaderboard i inne feedy */
+#leaderboard-list { padding-left: 0; list-style: none; margin: 0; }
+#leaderboard-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.highlight-me { color: var(--accent-color); font-weight: bold; }
+
+/* --- ZAKŁADKI I HISTORIA (NOWY GRID) --- */
+
+/* Style zakładek (przyciski) */
+.tab-buttons { display: flex; gap: 5px; margin-bottom: 10px; }
+.tab-btn { background: rgba(0,0,0,0.3); border: none; color: var(--text-muted); padding: 5px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
+.tab-btn.active { background: var(--accent-color); color: #000; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Kontener listy */
+.history-feed {
+    max-height: 350px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
 
-/* Styl dla klikalnego obszaru */
-.clickable-area {
-    cursor: pointer;
-    padding-right: 15px; /* Większy obszar trafienia */
-}
-
-/* Pierwsza linia: Nr + Nazwa + Gwiazdki */
-.leaderboard-top-row {
-    display: flex;
+/* Wiersz tabeli - Grid */
+.history-row {
+    display: grid;
+    /* 4 kolumny: Kto/Kiedy | Typ | Co | Ile */
+    grid-template-columns: 1.2fr 0.8fr 1.5fr 1fr; 
     align-items: center;
-    gap: 8px;
-}
-
-.leaderboard-rank {
-    color: var(--text-muted);
-    font-size: 0.9em;
-    min-width: 20px;
-}
-
-.leaderboard-name {
-    color: #FFFFFF !important; /* Biała nazwa */
-    font-weight: 700;
-    font-size: 1.05em;
-    transition: color 0.2s;
-}
-
-/* Podświetlenie nazwy po najechaniu na blok */
-.clickable-area:hover .leaderboard-name {
-    color: var(--blue) !important;
-    text-decoration: underline;
-}
-
-/* Druga linia: Zysk */
-.leaderboard-profit {
+    padding: 8px 10px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
     font-size: 0.85em;
-    margin-left: 28px; /* Wcięcie pod nazwę */
-    font-weight: 500;
-    text-decoration: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.2s;
 }
 
-/* Kolory zysku */
-.profit-plus { color: var(--green); }
-.profit-minus { color: var(--red); }
-
-/* Prawa strona: Wartość portfela */
-.leaderboard-total {
-    font-weight: bold;
-    font-size: 1.1em;
-    color: var(--text-color);
+.history-row:hover {
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Styl dla aktualnego gracza (Ty) */
-#leaderboard-list li.highlight-me {
-    background-color: rgba(255, 193, 7, 0.1);
-    border-left: 4px solid var(--accent-color);
+/* Komórki */
+.h-col {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Kropki jak tekst jest za długi */
+    padding-right: 5px;
 }
 
-body[data-theme="dark"] #leaderboard-list li.highlight-me {
-    background-color: rgba(255, 0, 255, 0.1); 
+/* Style konkretnych danych */
+.h-user { font-weight: bold; color: var(--text-main); cursor: pointer; }
+.h-user:hover { text-decoration: underline; color: var(--accent-color); }
+.h-time { color: var(--text-muted); font-family: monospace; }
+
+.h-type { font-weight: 800; font-size: 0.9em; text-transform: uppercase; }
+.h-buy { color: var(--green); }
+.h-sell { color: var(--red); }
+.h-bond { color: #FFD700; }
+.h-bet { color: var(--accent-color); }
+.h-neutral { color: var(--blue); }
+
+.h-asset { color: var(--text-muted); font-style: italic; }
+
+.h-val { 
+    text-align: right; 
+    font-weight: bold; 
+    color: var(--text-main); 
 }
 
-/* NOWE: Zakładki Typu Rynku (Akcje/Krypto) */
-.market-type-selector {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
-    margin: -20px -20px 10px -20px; /* Rozciągnij na całą szerokość panelu */
+/* Responsywność */
+@media (max-width: 500px) {
+    .history-row {
+        grid-template-columns: 1fr 0.8fr 1.2fr 1fr;
+        font-size: 0.75em;
+        padding: 6px;
+    }
 }
-.market-type-tab {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    padding: 12px 15px;
-    cursor: pointer;
-    font-size: 1.1em;
-    font-weight: bold;
-    border-bottom: 3px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.market-type-tab:hover {
-    color: var(--text-color);
-}
-.market-type-tab.active {
-    color: var(--green);
-    border-bottom-color: var(--green);
-}
-body[data-theme="dark"] .market-type-tab.active {
-    text-shadow: 0 0 5px var(--green);
+/* --- WIDOK 2: ROZRYWKA --- */
+.entertainment-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.entertainment-wallet-bar { display: flex; justify-content: center; align-items: center; padding: 15px; margin-bottom: 20px; font-size: 1.2rem; }
+.cash-highlight { color: var(--green); margin-left: 10px; font-size: 1.5rem; }
+
+/* Kasyno i Gry */
+.center-content { text-align: center; }
+.casino-wrapper { display: flex; flex-direction: column; align-items: center; }
+.bet-row { display: flex; gap: 10px; justify-content: center; margin: 10px 0; }
+.casino-btn { border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 5px; color: white; }
+.btn-red { background: var(--red); }
+.btn-black { background: #111; }
+.btn-green { background: var(--green); color: #000; }
+.bet-numbers-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; max-width: 400px; margin: 10px auto; }
+.num-btn { padding: 5px; font-size: 0.8rem; border: none; color: white; cursor: pointer; }
+.num-red { background: var(--red); }
+.num-black { background: #333; }
+.num-0 { grid-column: span 12; background: var(--green); }
+.num-btn.selected, .casino-btn.selected { box-shadow: 0 0 10px white; transform: scale(1.1); }
+
+/* PvP */
+.pvp-item { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border: 1px solid rgba(153, 102, 255, 0.3); }
+.pvp-join-btn { background: #9966FF; border: none; color: white; padding: 5px 15px; border-radius: 4px; cursor: pointer; }
+
+/* Czat */
+.chat-box { height: 300px; overflow-y: auto; display: flex; flex-direction: column; }
+.chat-box p { margin: 5px 0; padding: 5px 10px; background: rgba(0,0,0,0.2); border-radius: 5px; font-size: 0.9rem; }
+.chat-box .my-message { align-self: flex-end; background: rgba(0, 210, 255, 0.2); text-align: right; }
+#chat-form { display: flex; gap: 10px; margin-top: 10px; }
+
+/* --- WIDOK 3: INFO --- */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.highlight-panel { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.1); }
+.highlight-text { font-size: 1.5rem; font-weight: bold; color: #ffd700; margin: 10px 0; }
+.clean-list { list-style: none; padding: 0; text-align: left; display: inline-block; }
+.clean-list li { margin: 5px 0; }
+.prizes { display: flex; justify-content: center; gap: 20px; font-size: 1.2rem; font-weight: bold; margin-top: 10px; }
+
+/* --- RESPANSYWNOŚĆ --- */
+@media (max-width: 900px) {
+    .dashboard-grid, .entertainment-grid, .info-grid { grid-template-columns: 1fr; }
+    .main-nav { overflow-x: auto; justify-content: flex-start; }
+    .nav-btn { white-space: nowrap; }
 }
 
-/* Zakładki spółek */
-#company-selector, #crypto-selector {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
-    margin: 0 -20px 15px -20px; /* Usunięto margines górny */
-    padding: 0 10px; /* Dodano padding boczny */
-    flex-wrap: wrap;
-    background-color: var(--bg-color); /* Tło, aby zakryć linię pod spodem */
-    border-top: 1px solid var(--border-color); /* Linia oddzielająca od zakładki Akcje/Krypto */
-}
-#crypto-selector {
-    border-bottom-color: var(--accent-color);
-}
+/* --- LOGOWANIE --- */
+#auth-container { display: flex; justify-content: center; align-items: center; min-height: 80vh; flex-direction: column; gap: 20px; }
+.auth-panel { width: 100%; max-width: 400px; text-align: center; }
+.auth-header { margin-bottom: 20px; color: var(--accent-color); }
+.input-group { position: relative; margin-bottom: 15px; }
+.input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+.input-group input { width: 100%; padding-left: 40px; }
+.btn-primary { background: var(--accent-gradient); border: none; color: white; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.auth-footer { margin-top: 20px; font-size: 0.9rem; }
+.auth-footer a { color: var(--accent-color); }
+#auth-message { color: var(--red); text-align: center; font-weight: bold; }
 
-.company-tab {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    padding: 10px 15px;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: bold;
-    border-bottom: 3px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    flex-grow: 1; /* Aby zakładki wypełniły przestrzeń */
-    text-align: center;
-}
-.company-tab:hover {
-    color: var(--text-color);
-}
-/* Aktywna zakładka akcji */
-.company-tab.active {
-    color: var(--blue);
-    border-bottom-color: var(--blue);
-}
-body[data-theme="dark"] .company-tab.active {
-    text-shadow: 0 0 5px var(--blue);
-}
+/* Animacje Splash */
+#splash-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; justify-content: center; align-items: center; animation: fadeOut 1s ease 2s forwards; }
+#splash-title { font-size: 3rem; animation: scaleUp 2s ease forwards; }
+@keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
+@keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* Aktywna zakładka krypto */
-#crypto-selector .company-tab.active {
-    color: var(--accent-color);
-    border-bottom-color: var(--accent-color);
-}
-body[data-theme="dark"] #crypto-selector .company-tab.active {
-    text-shadow: 0 0 5px var(--accent-color);
-}
+/* =============================================== */
+/* === OSADZONA RULETKA PVP (FIX SZEROKOŚCI) === */
+/* =============================================== */
 
-
-/* Panel portfela */
-#shares-list p {
-    margin: 10px 0;
-    font-size: 1.1em;
-    display: flex;
-    justify-content: space-between;
-}
-#shares-list p strong {
-    color: var(--text-muted);
-}
-
-/* --- STYLE DLA CZATU --- */
-#chat-feed {
-    height: 150px; 
-    font-style: normal; 
-}
-#chat-feed p {
-    margin: 3px 0;
-    padding: 3px;
-    border-bottom: none; 
-    font-style: normal; 
-}
-#chat-feed p strong {
-    color: var(--blue); 
-}
-#chat-feed p.my-message strong {
-    color: var(--accent-color);
-}
-/* NOWY: Klikalna nazwa użytkownika */
-.clickable-user {
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    transition: text-decoration-color 0.2s ease;
-}
-.clickable-user:hover {
-    text-decoration-color: var(--blue);
-}
-#chat-feed p.my-message .clickable-user:hover {
-    text-decoration-color: var(--accent-color);
-}
-
-/* NOWE: Style dla gwiazdek */
-.prestige-stars {
-    display: inline-block;
-    margin-left: 4px;
-    line-height: 1;
-}
-.star-icon {
-    color: var(--prestige-star);
-    font-size: 1.1em;
-    text-shadow: 0 0 3px var(--prestige-star);
-}
-/* Mniejsze gwiazdki w czacie */
-#chat-feed .star-icon {
-    font-size: 0.9em;
-}
-
-
-#chat-form {
-    display: flex;
-    gap: 10px;
-    margin-top: 15px; 
-}
-#chat-input {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border-radius: 4px;
-    font-size: 1em;
-}
-body[data-theme="dark"] #chat-input:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    outline: none;
-}
-#chat-form button {
-    background-color: var(--green);
-    color: white;
-}
-body[data-theme="dark"] #chat-form button:hover {
-    box-shadow: 0 0 10px var(--green);
-}
-
-/* --- STYLE DLA PANELU ZAKŁADEK (Historia i Zlecenia) --- */
-.tab-buttons {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
-    margin: -20px -20px 0 -20px; /* Rozciągnij na całą szerokość panelu */
-    flex-wrap: wrap;
-}
-.tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    padding: 10px 15px;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: bold;
-    border-bottom: 3px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease;
-}
-.tab-btn:hover {
-    color: var(--text-color);
-}
-.tab-btn.active {
-    color: var(--accent-color);
-    border-bottom-color: var(--accent-color);
-}
-body[data-theme="dark"] .tab-btn.active {
-    text-shadow: 0 0 5px var(--accent-color);
-}
-.tab-content {
-    display: none;
-    padding-top: 20px;
-}
-.tab-content.active {
-    display: block;
-}
-
-
-/* --- STYLE DLA HISTORII TRANSAKCJI --- */
-.history-feed {
-    max-height: 200px;
-    font-style: normal;
-}
-.history-feed p {
-    font-style: normal;
-    font-size: 0.9em;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 5px;
-}
-.history-feed .h-user {
-    font-weight: bold;
-    color: var(--blue);
-}
-.history-feed .h-action-buy {
-    font-weight: bold;
-    color: var(--green);
-}
-.history-feed .h-action-sell {
-    font-weight: bold;
-    color: var(--red);
-}
-.history-feed .h-details {
-    color: var(--text-color);
-}
-.history-feed .h-total {
-    color: var(--text-muted);
-    font-style: italic;
-    flex-basis: 100%;
-    text-align: right;
-}
-/* Specjalny styl dla wskazówek w historii */
-.history-feed .h-action-tip {
-    font-weight: bold;
-    color: var(--accent-color);
-}
-/* NOWY: Specjalny styl dla obligacji w historii */
-.history-feed .h-action-bond {
-    font-weight: bold;
-    color: var(--green);
-}
-/* NOWY: Specjalny styl dla krypto w historii */
-.history-feed .h-action-buy-crypto {
-    font-weight: bold;
-    color: var(--accent-color);
-}
-.history-feed .h-action-sell-crypto {
-    font-weight: bold;
-    color: #FF6384; /* Inny odcień czerwieni dla krypto */
-}
-
-.history-feed .h-status-pending {
-    color: var(--blue);
-}
-
-
-/* --- NOWE STYLE DLA ZLECEŃ LIMIT --- */
-#limit-orders-feed {
-    max-height: 200px;
-    overflow-y: auto;
-}
-.limit-order-table {
+#pvp-embedded-roulette {
+    margin-top: 20px;
+    padding-top: 10px;
+    animation: fadeIn 0.5s ease;
     width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9em;
-}
-.limit-order-table th, .limit-order-table td {
-    padding: 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-.limit-order-table th {
-    color: var(--text-muted);
-    font-size: 0.9em;
-}
-.l-type-buy { color: var(--green); font-weight: bold; }
-.l-type-sell { color: var(--red); font-weight: bold; }
-/* NOWY: Style dla krypto w zleceniach */
-.l-type-buy-crypto { color: var(--accent-color); font-weight: bold; }
-.l-type-sell-crypto { color: #FF6384; font-weight: bold; }
-
-.l-status-pending { color: var(--blue); font-style: italic; }
-.l-status-executed { color: var(--green); }
-.l-status-cancelled { color: var(--text-muted); text-decoration: line-through; }
-
-.cancel-order-btn {
-    background: none;
-    border: 1px solid var(--red);
-    color: var(--red);
-    padding: 3px 8px;
-    font-size: 0.9em;
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s ease, background-color 0.2s ease;
-}
-.cancel-order-btn:hover {
-    background: rgba(220, 53, 69, 0.1);
-    opacity: 1;
-}
-.cancel-order-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-    border-color: var(--text-muted);
-    color: var(--text-muted);
-}
-.cancel-order-btn:disabled:hover {
-    background: none;
+    max-width: 100%;       /* Zabezpieczenie kontenera */
+    overflow: hidden;      /* Ukrywa wszystko, co wystaje poza ten div */
+    position: relative;
 }
 
-
-/* --- MIGOTANIE I RANKING --- */
-@keyframes flash-green {
-    0% { background-color: rgba(40, 167, 69, 0.5); }
-    100% { background-color: transparent; }
-}
-body[data-theme="dark"] @keyframes flash-green {
-    0% { background-color: rgba(0, 255, 127, 0.4); text-shadow: 0 0 5px var(--green); }
-    100% { background-color: transparent; text-shadow: none; }
-}
-@keyframes flash-red {
-    0% { background-color: rgba(220, 53, 69, 0.5); }
-    100% { background-color: transparent; }
-}
-body[data-theme="dark"] @keyframes flash-red {
-    0% { background-color: rgba(255, 69, 0, 0.4); text-shadow: 0 0 5px var(--red); }
-    100% { background-color: transparent; text-shadow: none; }
-}
-
-/* NOWE: Migotanie dla Krypto */
-@keyframes flash-accent {
-    0% { background-color: rgba(255, 193, 7, 0.5); }
-    100% { background-color: transparent; }
-}
-body[data-theme="dark"] @keyframes flash-accent {
-    0% { background-color: rgba(255, 0, 255, 0.4); text-shadow: 0 0 5px var(--accent-color); }
-    100% { background-color: transparent; text-shadow: none; }
-}
-
-
-.flash-green { animation: flash-green 0.7s ease-out; }
-.flash-red { animation: flash-red 0.7s ease-out; }
-.flash-accent { animation: flash-accent 0.7s ease-out; } /* Dla krypto */
-
-#leaderboard-list li.highlight-me {
-    background-color: rgba(255, 193, 7, 0.15);
-    border-left: 3px solid var(--accent-color);
-    padding-left: 9px; 
-}
-body[data-theme="dark"] #leaderboard-list li.highlight-me {
-    background-color: rgba(255, 0, 255, 0.1); 
-}
-body[data-theme="light"] #leaderboard-list li.highlight-me {
-    background-color: rgba(245, 132, 0, 0.1); 
-}
-
-/* NOWY: Panel Pomocy */
-#help-panel h3 {
+.pvp-title-embedded {
+    text-align: center;
     color: var(--text-color);
-    border-bottom: none;
-    font-size: 1.1em;
-}
-#help-panel p {
-    font-size: 0.95em;
-    color: var(--text-muted);
-    line-height: 1.6;
-}
-#help-panel ul {
-    font-size: 0.95em;
-    color: var(--text-muted);
-    line-height: 1.6;
-    padding-left: 20px;
-}
-#help-panel li {
-    margin-bottom: 5px;
-}
-#help-panel strong {
-    color: var(--text-color);
+    margin: 10px 0;
+    font-size: 1.2em;
+    letter-spacing: 1px;
 }
 
-/* --- SEKCJA 9: POWIADOMIENIA (TOASTY) --- */
-
-#notification-container {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 10000;
-    display: flex;
-    flex-direction: column-reverse; /* Nowe elementy pojawiają się na dole */
-    gap: 10px;
-}
-
-.notification-toast {
-    background-color: var(--panel-color);
-    border: 1px solid var(--border-color);
+/* Okno ruletki - "Viewport" */
+.roulette-window.embedded {
+    width: 100%;
+    height: 100px;
+    background-color: #000;
+    position: relative;    /* Ważne dla absolute w środku */
+    overflow: hidden;      /* Kluczowe: przycina pasek */
+    border: 2px solid var(--border-color);
     border-radius: 6px;
-    padding: 15px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    font-size: 0.9em;
-    width: 300px; /* Stała szerokość */
-    animation: toast-fade-in 0.5s ease forwards;
-    opacity: 0; /* Zacznij jako niewidoczny */
-    transform: translateX(-100%);
+    margin: 0 auto;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    box-sizing: border-box;
 }
 
-.notification-toast strong {
-    color: var(--text-color);
-    display: block;
-    margin-bottom: 5px;
-    font-size: 1.1em;
-}
-.notification-toast p {
-    margin: 0;
-    font-style: normal;
-    color: var(--text-muted);
-    border: none;
-    padding: 0;
-}
-.notification-toast p strong {
-    /* Styl dla nazwy użytkownika w czacie */
-    color: var(--blue);
-    display: inline;
-}
-
-/* Style dla typów */
-.toast-chat .toast-chat-header {
-    color: var(--accent-color) !important;
-}
-
-.toast-news.toast-positive {
-    border-left: 4px solid var(--green);
-}
-.toast-news.toast-positive > strong {
-    color: var(--green);
-}
-
-.toast-news.toast-negative {
-    border-left: 4px solid var(--red);
-}
-.toast-news.toast-negative > strong {
-    color: var(--red);
-}
-
-/* NOWY: Typ wskazówki */
-.toast-tip {
-    border-left: 4px solid var(--accent-color);
-}
-.toast-tip > strong {
-    color: var(--accent-color);
-}
-
-
-/* Animacje Wejścia/Wyjścia */
-@keyframes toast-fade-in {
-    from {
-        opacity: 0;
-        transform: translateX(-100%);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-/* Animacja wyjścia będzie dodana przez JS */
-.toast-fade-out {
-    animation: toast-fade-out 0.5s ease forwards;
-}
-
-@keyframes toast-fade-out {
-    from {
-        opacity: 1;
-        transform: translateX(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateX(-100%);
-    }
-}
-
-
-
-    /* Styl dla tabeli harmonogramu */
-    .schedule-wrapper {
-        margin-top: 20px;
-        overflow-x: auto; /* Przewijanie na telefonach */
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid #444;
-    }
-
-    .schedule-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em;
-        color: #e0e0e0;
-    }
-
-    .schedule-table thead {
-        background-color: #2a2a2a; /* Ciemne tło nagłówka */
-        color: #fff;
-        text-transform: uppercase;
-        font-size: 0.85em;
-        letter-spacing: 1px;
-    }
-
-    .schedule-table th, .schedule-table td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #444;
-    }
-
-    .schedule-table tbody tr:hover {
-        background-color: rgba(255, 255, 255, 0.05); /* Podświetlenie wiersza */
-    }
-
-    .schedule-table tbody tr:last-of-type td {
-        border-bottom: none;
-    }
-
-    .odds-cell {
-        font-weight: bold;
-        color: #4caf50; /* Zielony kolor dla kursów */
-        font-family: monospace;
-    }
-
-    .status-live {
-        color: #ff4444;
-        font-weight: bold;
-        animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-
-/* =================================== */
-/* === SEKCJA 10: MODAL PROFILU UŻYTKOWNIKA === */
-/* =================================== */
-
-.modal-overlay {
-    position: fixed;
+/* Pasek z kartami - FIX ROZPYCHANIA */
+.roulette-strip {
+    display: flex;
+    height: 100%;
+    width: max-content;
+    
+    /* --- KLUCZOWE ZMIANY --- */
+    position: absolute;    /* Wyjmuje pasek z przepływu dokumentu */
     top: 0;
     left: 0;
-    width: 100%;
+    /* ----------------------- */
+    
+    transform: translateX(0); 
+    will-change: transform;
+}
+
+/* --- KURSOR RULETKI --- */
+.roulette-marker {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #FFD700;
+    z-index: 1000;
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Trójkąt na górze */
+.roulette-marker::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 15px solid #FFD700;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+    z-index: 1001;
+}
+
+/* Trójkąt na dole */
+.roulette-marker::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 15px solid #FFD700;
+    filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.8));
+    z-index: 1001;
+}
+
+/* Karty */
+.roulette-card {
+    width: 120px;
+    height: 100%;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 9990;
-    animation: fadeInModal 0.3s ease;
-}
-.modal-overlay.hidden {
-    display: none;
-}
-@keyframes fadeInModal {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-.modal-content {
-    width: 90%;
-    max-width: 700px;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    animation: slideInModal 0.3s ease-out;
-}
-@keyframes slideInModal {
-    from { transform: translateY(-30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-.modal-close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 2.5em;
+    border-right: 1px solid #222;
+    box-sizing: border-box;
     font-weight: bold;
-    color: var(--text-muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-    line-height: 1;
-}
-.modal-close:hover {
-    color: var(--red);
+    font-size: 0.8em;
+    padding: 5px;
+    text-align: center;
+    position: relative;
+    background-color: #1a1a1a;
 }
 
-.modal-body {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 20px;
-    margin: 20px 0;
-}
-#modal-portfolio-chart-container {
-    min-height: 250px;
-}
-#modal-stats p {
-    margin: 10px 0;
-    font-size: 1.1em;
-    display: flex;
-    justify-content: space-between;
-}
-#modal-stats p strong {
-    color: var(--text-color);
-}
-#modal-shares-list {
-    max-height: 150px;
-    overflow-y: auto;
-}
-#modal-shares-list p {
-    font-style: normal;
-    display: flex;
-    justify-content: space-between;
-    font-size: 1em;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 5px;
-    margin: 5px 0;
-}
-#modal-shares-list p strong {
-    color: var(--text-muted);
-}
-#modal-total-profit[data-profit-sign="positive"] {
-    color: var(--green);
-}
-#modal-total-profit[data-profit-sign="negative"] {
-    color: var(--red);
+.card-creator {
+    background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border-bottom: 4px solid var(--blue);
 }
 
-/* NOWY: Style dla przycisku prestiżu */
-#prestige-info, #prestige-next-goal {
-    font-size: 0.9em !important;
-    color: var(--text-muted);
+.card-joiner {
+    background: linear-gradient(180deg, #8E0E00 0%, #1F1C18 100%);
+    color: white;
+    border-bottom: 4px solid var(--red);
 }
-#prestige-next-goal {
-    margin-top: -5px;
+
+.card-icon {
+    font-size: 1.8em;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
-#prestige-button {
-    background-color: var(--prestige-star);
-    color: #111;
+
+.pvp-winner-text {
+    text-align: center;
+    font-size: 1.5em;
+    min-height: 1.2em;
     margin-top: 10px;
-}
-body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
-    box-shadow: 0 0 10px var(--prestige-star);
-}
-#prestige-button:disabled {
-    background-color: var(--text-muted);
-    color: var(--panel-color);
-    opacity: 0.5;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-weight: 800;
 }
 
-
-@media (max-width: 600px) {
-    .modal-body {
-        grid-template-columns: 1fr;
-    }
+.animate-winner-text {
+    opacity: 1;
+    animation: flash-accent 1s infinite;
 }
-/* --- NOWE STYLE: ZAKŁADY Z PODZIAŁEM NA DNI --- */
 
-/* Pasek z przyciskami dni */
+/* Winieta (Cienie po bokach) */
+.roulette-window.embedded::before, .roulette-window.embedded::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 60px;
+    z-index: 50;
+    pointer-events: none;
+}
+.roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,1), transparent); }
+.roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,1), transparent); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* --- BUKMACHERKA (PORT Z MAIN) --- */
 .betting-days-nav {
     display: flex;
     gap: 10px;
-    overflow-x: auto; /* Przewijanie na telefonie */
+    overflow-x: auto;
     padding-bottom: 10px;
     margin-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .day-tab-btn {
-    background-color: var(--bg-color);
-    border: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-muted);
     padding: 8px 15px;
-    border-radius: 20px; /* Zaokrąglone przyciski */
+    border-radius: 20px;
     cursor: pointer;
     white-space: nowrap;
     font-size: 0.9em;
@@ -1706,35 +522,35 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 }
 
 .day-tab-btn:hover {
-    border-color: var(--blue);
-    color: var(--text-color);
+    border-color: var(--accent-color);
+    color: white;
 }
 
 .day-tab-btn.active {
-    background-color: var(--blue);
-    color: white;
-    border-color: var(--blue);
-    box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    background-color: var(--accent-color);
+    color: #000; 
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
 }
 
 /* Tabela meczów */
 .betting-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.95em;
+    font-size: 0.9rem;
 }
 
 .betting-table th {
     text-align: left;
     color: var(--text-muted);
     font-size: 0.8em;
-    padding: 5px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .betting-table td {
-    padding: 10px 5px;
-    border-bottom: 1px dashed var(--border-color);
+    padding: 12px 5px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
     vertical-align: middle;
 }
 
@@ -1742,12 +558,10 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
     border-bottom: none;
 }
 
-/* Kolumny tabeli */
-.col-time { width: 15%; font-size: 0.85em; color: var(--text-muted); }
+.col-time { width: 15%; color: var(--text-muted); font-size: 0.8em; }
 .col-match { width: 40%; }
 .col-odds { width: 45%; }
 
-/* Przyciski kursów w tabeli */
 .odds-btn-group {
     display: flex;
     gap: 5px;
@@ -1756,41 +570,44 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 .table-bet-btn {
     flex: 1;
     background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
-    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 6px 2px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9em;
+    font-size: 0.85em;
     text-align: center;
     transition: background 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .table-bet-btn:hover:not(:disabled) {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: var(--blue);
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color);
 }
 
 .table-bet-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
     border-color: transparent;
 }
 
 .table-bet-btn small {
     display: block;
-    font-size: 0.75em;
-    color: var(--text-muted);
+    font-weight: bold;
+    color: var(--accent-color); 
+    margin-top: 2px;
 }
 
-/* Statusy */
 .match-live { color: var(--red); font-weight: bold; animation: pulse 1.5s infinite; }
 .match-finished { color: var(--text-muted); font-style: italic; }
 
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-/* =============================================== */
 /* === NOWA REALISTYCZNA RULETKA (CSS) === */
-/* =============================================== */
 
 .main-roulette {
   width: 374px;
@@ -1824,7 +641,6 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   box-shadow: inset 0px 0px 0px 2px #b38600, 0px 0px 0px 2px #ffdb4d;
 }
 
-/* USUWAMY SZARĄ NAKŁADKĘ */
 .plate:before {
   display: none;
 }
@@ -1883,22 +699,18 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   border-radius: 50%;
 }
 
-/* ZMIANA ŚRODKA NA MNIEJSZY I CIEMNY */
 .inner:after {
   z-index: 3;
-  /* Zwiększamy te wartości, żeby środek był mniejszy */
   top: 35%;
   right: 35%;
   bottom: 35%;
   left: 35%;
-  background-color: #111; /* Ciemny środek zamiast szarego */
-  border: 2px solid #ffd700; /* Złota obwódka dla stylu */
+  background-color: #111; 
+  border: 2px solid #ffd700; 
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
-/* PIŁECZKA W RUCHU */
 .inner:before {
-  /* 16% ustawia piłkę idealnie na środku kolorowych pól */
   top: 16%;
   bottom: 16%;
   left: 16%;
@@ -1910,16 +722,7 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   border-radius: 0;
 }
 
-/* POZYCJE PIŁECZKI (Data Spinto) - Skonwertowane z LESS */
-/* POPRAWIONA LOGIKA TRAFIANIA KULI (Dopasowana do kolejności HTML: 32, 15, 19...) */
-/* Kąt wycinka = 360 / 37 = ~9.73 stopnia */
-/* Kolejność w HTML decyduje o indeksie (0 = 32, 1 = 15 itd.) */
-
-/* ========================================================================== */
-/* === POPRAWIONA KALIBRACJA KULI (Dopasowana do układu liczb 0-32-15...) === */
-/* ========================================================================== */
-/* Baza obrotu: -2880deg (8 pełnych obrotów) + Kąt liczby na kole */
-
+/* Animacje kulki */
 .inner[data-spinto='32']:before { transform: rotateZ(-2870.27deg); transition: transform 6s ease-out; content: '\2022'; }
 .inner[data-spinto='15']:before { transform: rotateZ(-2860.54deg); transition: transform 6s ease-out; content: '\2022'; }
 .inner[data-spinto='19']:before { transform: rotateZ(-2850.81deg); transition: transform 6s ease-out; content: '\2022'; }
@@ -1958,17 +761,14 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
 .inner[data-spinto='26']:before { transform: rotateZ(-2529.73deg); transition: transform 6s ease-out; content: '\2022'; }
 .inner[data-spinto='0']:before  { transform: rotateZ(-2880.00deg); transition: transform 6s ease-out; content: '\2022'; }
 
-/* PIŁECZKA ZATRZYMANA */
 .inner.rest:before {
   transition: top .5s ease-in, right .5s ease-in, bottom .5s ease-in, left .5s ease-in;
-  /* Pozycja spoczynkowa też na 16% */
   top: 16%;
   right: 16%;
   bottom: 16%;
   left: 16%;
 }
 
-/* ROTACJA PÓL (0-36) - Skonwertowane z LESS Loop */
 .number:nth-child(1) { transform: rotateZ(9.7297deg); }
 .number:nth-child(2) { transform: rotateZ(19.4594deg); }
 .number:nth-child(3) { transform: rotateZ(29.1891deg); }
@@ -2012,11 +812,9 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   100% { transform: rotateZ(360deg); }
 }
 
-/* Środek - Wyniki */
 .data {
   display: block;
   position: absolute;
-  /* Zmieniamy na 35%, żeby pasowało do nowego mniejszego środka */
   top: 35%;
   right: 35%;
   bottom: 35%;
@@ -2077,7 +875,6 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   line-height: 1;
 }
 
-/* Lista poprzednich wyników */
 .previous-list {
   max-width: 350px;
   margin: 24px auto;
@@ -2110,297 +907,1425 @@ body[data-theme="dark"] #prestige-button:hover:not(:disabled) {
   0% { transform: rotateX(90deg); }
   100% { transform: rotateX(0deg); }
 }
+/* --- NOWY STYL NEWSÓW I PLOTEK --- */
 
-/* === CIEMNY MOTYW PANELU KASYNA === */
-.casino-controls {
-    background-color: var(--panel-color);
-    padding: 15px;
-    border-radius: 8px;
-    margin-top: 20px;
-    border: 1px solid var(--border-color);
-}
-
-#casino-status {
-    font-size: 1.2em;
-    margin-bottom: 15px;
-    color: var(--text-color);
-    min-height: 1.5em;
-}
-
-.bet-row {
+/* Kontener pojedynczego newsa/plotki */
+.feed-item {
     display: flex;
-    gap: 10px;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: transform 0.2s, background 0.2s;
+    animation: slideInLeft 0.4s ease;
+}
+
+.feed-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(5px);
+}
+
+/* Pasek koloru po lewej (szybka ocena: dobry/zły news) */
+.feed-item.positive {
+    border-left: 4px solid var(--green);
+    background: linear-gradient(90deg, rgba(0, 230, 118, 0.05) 0%, transparent 100%);
+}
+
+.feed-item.negative {
+    border-left: 4px solid var(--red);
+    background: linear-gradient(90deg, rgba(255, 23, 68, 0.05) 0%, transparent 100%);
+}
+
+/* Ikona po lewej */
+.feed-icon {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: rgba(0,0,0,0.3);
+}
+
+.positive .feed-icon { color: var(--green); box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); }
+.negative .feed-icon { color: var(--red); box-shadow: 0 0 10px rgba(255, 23, 68, 0.2); }
+
+/* Treść */
+.feed-content {
+    flex: 1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.feed-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.feed-text {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.feed-author {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-color);
+    font-style: italic;
+    text-align: right;
+}
+
+/* Animacja wjazdu */
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+/* ========================================= */
+/* === STYLE OKNA PROFILU (MODAL) === */
+/* ========================================= */
+
+/* Tło przyciemniające cały ekran */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Mocne przyciemnienie tła */
+    backdrop-filter: blur(5px);      /* Rozmycie tego co pod spodem */
+    z-index: 2000;                   /* Aby było nad wszystkim innym */
+    display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 15px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s;
 }
 
-/* Ciemny input */
-.dark-input {
-    background-color: #1a1a1a;
-    border: 1px solid #444;
-    color: #fff;
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 1.1em;
-    width: 120px;
-    text-align: center;
-}
-.dark-input:focus {
-    border-color: var(--green);
-    outline: none;
+/* Klasa usuwająca ukrycie (gdy usuwamy klasę .hidden) */
+.modal-overlay:not(.hidden) {
+    opacity: 1;
+    visibility: visible;
+    display: flex !important;
 }
 
-/* Siatka liczb */
-.bet-numbers-grid {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr); /* 12 kolumn dla liczb 1-36 */
-    gap: 5px;
-    margin-bottom: 20px;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
+/* Główne pudełko profilu */
+.modal-content {
+    width: 90%;
+    max-width: 500px;
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(15, 12, 41, 0.95));
+    border: 1px solid var(--accent-color);
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+    padding: 25px;
+    position: relative;
+    max-height: 90vh; /* Zabezpieczenie na małe ekrany */
+    overflow-y: auto; /* Przewijanie jeśli treść się nie mieści */
+    animation: zoomIn 0.3s ease;
 }
 
-/* Zero na całą szerokość góry */
-.num-0 {
-    grid-column: span 12;
-    background-color: var(--green);
-    border-color: var(--green);
-}
-
-.num-btn {
-    padding: 8px 0;
-    font-weight: bold;
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 3px;
+/* Przycisk zamknięcia (X) */
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.2s;
-}
-.num-btn:hover { transform: scale(1.1); z-index: 2; }
-.num-btn.selected {
-    box-shadow: 0 0 10px var(--accent-color);
-    border-color: var(--accent-color);
-    transform: scale(1.15);
-    z-index: 3;
+    transition: 0.3s;
 }
 
-.num-red { background-color: var(--red); }
-.num-black { background-color: #222; }
+.modal-close:hover {
+    color: var(--red);
+    transform: rotate(90deg);
+}
 
-.spin-btn {
-    background: linear-gradient(45deg, var(--green), #1e7e34);
-    font-size: 1.2em;
+/* Nagłówek i treść */
+.modal-content h2 {
+    margin-top: 0;
+    color: var(--accent-color);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* Siatka statystyk (4 kafelki) */
+.modal-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-box {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-box span {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.stat-box strong {
+    font-size: 1.1rem;
+    color: var(--text-main);
+}
+
+/* Sekcja prestiżu */
+.prestige-section {
+    background: rgba(255, 215, 0, 0.05); /* Lekko złote tło */
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.prestige-section p {
+    margin: 5px 0;
+}
+
+/* Lista aktywów w profilu */
+.assets-list.compact .asset-row {
+    padding: 5px 0;
+    font-size: 0.85rem;
+}
+
+/* Animacja pojawiania się okna */
+@keyframes zoomIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+/* ========================================= */
+/* === NAPRAWA KOMUNIKATU "HANDEL ZABLOKOWANY" (FINALNA) === */
+/* ========================================= */
+
+/* 1. Domyślnie UKRYWAMY komunikat o blokadzie (używamy !important dla pewności) */
+.crypto-gate-message {
+    display: none !important; 
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px 20px;
+    height: 100%;
+    color: var(--text-muted);
+}
+
+.crypto-gate-message i {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    color: var(--red); /* Kłódka na czerwono */
+}
+
+/* 2. POKAŻ komunikat TYLKO gdy panel ma klasę .crypto-locked */
+#order-panel.crypto-locked .crypto-gate-message {
+    display: flex !important;
+    animation: fadeIn 0.3s ease;
+}
+
+/* 3. UKRYJ formularze i przyciski gdy jest blokada */
+#order-panel.crypto-locked .order-tabs,
+#order-panel.crypto-locked .order-container {
+    display: none !important;
+}
+/* ========================================= */
+/* === POWIADOMIENIA (TOASTY) === */
+/* ========================================= */
+
+#notification-container {
+    position: fixed;
+    top: 80px; /* Nieco poniżej nagłówka */
+    right: 20px;
+    width: 320px;
+    z-index: 10000; /* Musi być nad wszystkim */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Żeby można było klikać pod pustą przestrzenią */
+}
+
+.notification-toast {
+    background: rgba(15, 12, 41, 0.95); /* Ciemne tło pasujące do motywu */
+    color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    pointer-events: auto; /* Sam toast można kliknąć/zamknąć */
+    
+    /* Domyślny pasek po lewej (niebieski) */
+    border-left: 4px solid var(--accent-color);
+    
+    /* Animacja wejścia */
+    animation: slideInToast 0.4s ease-out forwards;
+    transition: all 0.5s ease;
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.notification-toast strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.95rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-top: 10px;
 }
 
-/* Responsywność siatki na telefonach */
-@media (max-width: 500px) {
-    .bet-numbers-grid {
-        grid-template-columns: repeat(6, 1fr);
+.notification-toast p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Warianty kolorystyczne (zależne od logiki w JS) */
+.toast-positive {
+    border-left-color: var(--green);
+}
+.toast-positive strong {
+    color: var(--green);
+}
+
+.toast-negative {
+    border-left-color: var(--red);
+}
+.toast-negative strong {
+    color: var(--red);
+}
+
+.toast-chat {
+    border-left-color: #9966FF; /* Fioletowy dla czatu */
+}
+
+/* Klasa dodawana przez JS przed usunięciem elementu */
+.toast-fade-out {
+    opacity: 0;
+    transform: translateX(100px); /* Wylatuje w prawo */
+}
+
+/* Animacja wjazdu z prawej strony */
+@keyframes slideInToast {
+    0% {
+        opacity: 0;
+        transform: translateX(100%);
     }
-    .num-0 { grid-column: span 6; }
-}
-/* --- STYLE PVP --- */
-#pvp-panel {
-    grid-area: pvp;
-    border: 1px solid #9966FF; /* Fioletowy akcent wyróżniający */
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
-.pvp-controls {
+/* Responsywność na telefony */
+@media (max-width: 600px) {
+    #notification-container {
+        width: 90%;
+        right: 5%;
+        left: 5%;
+        top: 70px;
+    }
+}
+/* --- PŁYWAJĄCY CZAT (WIDGET) --- */
+
+/* Okrągły przycisk (FAB) */
+.chat-fab {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
+    z-index: 9990; /* Wysoki index, żeby był nad wszystkim */
+    transition: transform 0.3s ease;
     display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+    justify-content: center;
+    align-items: center;
 }
 
-#pvp-amount {
-    flex: 1;
-    padding: 10px;
+.chat-fab:hover {
+    transform: scale(1.1) rotate(5deg);
 }
 
-.pvp-item {
+/* Powiadomienie na przycisku (opcjonalnie) */
+#chat-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    background: var(--red);
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-dark);
+}
+
+/* Okno czatu */
+#floating-chat-window {
+    position: fixed;
+    bottom: 90px; /* Nad przyciskiem */
+    left: 20px;
+    width: 320px;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9991;
+    padding: 0; /* Reset paddingu glass-panel */
+    overflow: hidden;
+    transform-origin: bottom left;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Ukrywanie */
+#floating-chat-window.hidden {
+    display: none !important;
+}
+
+/* Nagłówek okna */
+.chat-header-floating {
+    background: rgba(0,0,0,0.4);
+    padding: 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(153, 102, 255, 0.1); /* Lekki fiolet */
-    border: 1px solid #9966FF;
-    border-radius: 6px;
-    padding: 10px 15px;
-    margin-bottom: 8px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.pvp-item:hover {
-    transform: translateX(5px);
-    box-shadow: 0 0 10px rgba(153, 102, 255, 0.3);
+.chat-header-floating h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent-color);
 }
 
-.pvp-info {
+#close-chat-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+#close-chat-btn:hover { color: var(--red); }
+
+/* Wnętrze czatu */
+.floating-feed {
+    flex: 1;
+    padding: 10px;
+    height: auto !important; /* Nadpisanie starego stylu */
+    background: rgba(0,0,0,0.2);
+}
+
+.floating-form {
+    padding: 10px;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    gap: 5px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.floating-form input {
+    padding: 8px;
+    font-size: 0.9rem;
+}
+
+.floating-form button {
+    background: var(--accent-color);
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    cursor: pointer;
+    color: black;
+}
+
+/* Animacja otwierania */
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Responsywność na telefony */
+@media (max-width: 480px) {
+    #floating-chat-window {
+        width: calc(100% - 40px);
+        height: 50vh;
+    }
+}
+
+/* --- CRASH GAME STYLES (NOWE) --- */
+.crash-wrapper {
     display: flex;
     flex-direction: column;
+    gap: 15px;
+    padding: 10px;
 }
 
-.pvp-info strong {
-    color: #9966FF;
-    font-size: 1.2em;
-}
-
-.pvp-info span {
-    color: var(--text-muted);
-    font-size: 0.9em;
-}
-
-.pvp-join-btn {
-    background-color: #9966FF;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.pvp-join-btn:disabled {
-    background-color: var(--text-muted);
-    cursor: default;
-    opacity: 0.5;
-}
-
-body[data-theme="dark"] .pvp-join-btn:hover:not(:disabled) {
-    box-shadow: 0 0 15px #9966FF;
-}
-/* --- OSADZONA RULETKA PVP (EMBEDDED) --- */
-
-#pvp-embedded-roulette {
-    margin-top: 20px;
-    padding-top: 10px;
-    animation: fadeIn 0.5s ease;
-}
-
-.pvp-title-embedded {
-    text-align: center;
-    color: var(--text-color);
-    margin: 10px 0;
-    font-size: 1.2em;
-    letter-spacing: 1px;
-}
-
-/* Okno ruletki dopasowane do panelu */
-.roulette-window.embedded {
-    width: 100%;
-    height: 100px; /* Nieco mniejsza wysokość niż w modalu */
-    background-color: #000;
+.crash-display {
     position: relative;
+    background: #1f1e25;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     overflow: hidden;
-    border: 2px solid var(--border-color);
-    border-radius: 6px;
-    margin: 0 auto;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-}
-
-.roulette-strip {
     display: flex;
-    height: 100%;
-    width: max-content;
-    transform: translateX(0); 
-    will-change: transform;
+    justify-content: center;
+    align-items: center;
 }
 
-.roulette-marker {
+#crash-canvas {
+    width: 100%;
+    height: auto;
+    background: radial-gradient(circle at bottom left, #2c2b33 0%, #1f1e25 70%);
+    display: block;
+}
+
+.crash-overlay-text {
     position: absolute;
-    top: 0; bottom: 0; left: 50%;
-    width: 4px;
-    background-color: #FFD700;
-    transform: translateX(-50%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--text-main);
+    text-shadow: 0 0 20px rgba(0,0,0,0.8);
+    pointer-events: none;
     z-index: 10;
-    box-shadow: 0 0 10px #FFD700;
 }
 
-.roulette-card {
-    width: 120px; /* Węższe karty żeby lepiej wyglądały w panelu */
+.crash-overlay-text.crashed {
+    color: var(--red);
+    animation: shake 0.5s;
+}
+
+.crash-overlay-text.cashed-out {
+    color: var(--green);
+}
+
+.crash-info {
+    position: absolute;
+    bottom: 10px;
+    left: 0; 
+    right: 0;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    z-index: 10;
+}
+
+.crash-history-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    overflow: hidden;
+}
+
+.crash-history-items {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.crash-history-item {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    font-weight: bold;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.crash-history-item.bad { color: var(--red); }
+.crash-history-item.good { color: var(--green); }
+.crash-history-item.excellent { color: #ffd700; box-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
+
+/* Guzik akcji zmienia kolory */
+#btn-crash-action.btn-cashout {
+    background: var(--green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+}
+
+@keyframes shake {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    25% { transform: translate(-52%, -48%) rotate(-2deg); }
+    50% { transform: translate(-48%, -52%) rotate(2deg); }
+    75% { transform: translate(-52%, -52%) rotate(-1deg); }
+    100% { transform: translate(-50%, -50%) rotate(0deg); }
+}
+/* --- PLINKO STYLES --- */
+.plinko-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.plinko-game-area {
+    position: relative;
+    width: 100%;
+    max-width: 600px; /* Ograniczenie szerokości dla estetyki */
+    background: radial-gradient(circle at top, #1a1a2e 0%, #0f0c29 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+#plinko-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Mnożniki na dole */
+.plinko-multipliers-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    margin-top: -5px; /* Lekkie nasunięcie na canvas */
+    padding: 0 5px 5px 5px;
+}
+
+.plinko-bucket {
+    flex: 1;
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 5px 0;
+    border-radius: 4px;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+    user-select: none;
+}
+
+/* Kolory bucketów (gradient od środka na zewnątrz) */
+.pb-low { background: #302b63; color: #aaa; }
+.pb-med { background: #5b247a; }
+.pb-high { background: #9966FF; box-shadow: 0 0 10px rgba(153, 102, 255, 0.4); }
+.pb-ultra { background: #ff00cc; box-shadow: 0 0 15px rgba(255, 0, 204, 0.6); }
+
+/* Animacja trafienia */
+.plinko-bucket.hit {
+    transform: scale(1.2) translateY(-5px);
+    filter: brightness(1.5);
+    z-index: 10;
+}
+
+.plinko-controls {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plinko-stats {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.plinko-stats input {
+    flex: 1;
+}
+
+.plinko-settings {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+/* --- VIDEO POKER STYLES --- */
+.poker-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+}
+
+.poker-screen {
+    background-color: #000099; /* Classic Video Poker Blue */
+    border: 4px solid #444;
+    border-radius: 15px;
+    padding: 15px;
+    width: 100%;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    font-family: 'Courier New', Courier, monospace; /* Monospace for retro feel */
+    position: relative;
+}
+
+/* Paytable */
+.poker-paytable {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 15px;
+    border: 2px solid #ffd700;
+    padding: 5px;
+    background: rgba(0,0,0,0.2);
+}
+
+.pay-row {
+    display: flex;
+    justify-content: space-between;
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 0.8rem;
+    padding: 2px 5px;
+}
+
+.pay-row.active-win {
+    background-color: #ff0000;
+    color: white;
+    animation: flash-win 0.5s infinite alternate;
+}
+
+@keyframes flash-win { from { opacity: 1; } to { opacity: 0.5; } }
+
+/* Status Bar */
+.poker-status-bar {
+    text-align: center;
+    color: #00e676;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    height: 1.5em;
+    text-shadow: 2px 2px #000;
+}
+
+/* Cards Container */
+.poker-cards-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 5px;
+    height: 100px;
+}
+
+.poker-card-wrapper {
+    flex: 1;
+    position: relative;
+    cursor: pointer;
+    perspective: 1000px;
+}
+
+/* HOLD Badge */
+.hold-badge {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff0000;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    font-weight: bold;
+    border: 1px solid white;
+    z-index: 10;
+}
+.hold-badge.hidden { display: none; }
+
+/* The Card Itself */
+.poker-card {
+    width: 100%;
     height: 100%;
+    background-color: white;
+    border-radius: 6px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    border-right: 1px solid #222;
-    box-sizing: border-box;
     font-weight: bold;
-    font-size: 0.8em; /* Mniejsza czcionka */
-    padding: 5px;
-    text-align: center;
     position: relative;
+    border: 2px solid #ccc;
+    transition: transform 0.3s;
+    user-select: none;
 }
 
-.card-creator {
-    background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+.poker-card.back {
+    background: repeating-linear-gradient(
+        45deg,
+        #606dbc,
+        #606dbc 10px,
+        #465298 10px,
+        #465298 20px
+    );
+    border: 2px solid white;
+}
+
+.poker-card.red { color: #ff0000; }
+.poker-card.black { color: #000000; }
+
+.card-rank { font-size: 1.5rem; line-height: 1; }
+.card-suit { font-size: 2rem; line-height: 1; }
+
+.poker-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+/* --- NAWIGACJA GIER (ZAKŁADKI) --- */
+.games-nav-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+.games-nav-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+.games-nav-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 2px;
+}
+
+.game-nav-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.game-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
     color: white;
-    border-bottom: 3px solid var(--blue);
 }
 
-.card-joiner {
-    background: linear-gradient(180deg, #8E0E00 0%, #1F1C18 100%);
+.game-nav-btn.active {
+    background: var(--accent-gradient);
     color: white;
-    border-bottom: 3px solid var(--red);
+    border-color: transparent;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
 }
 
-.card-icon {
-    font-size: 1.5em; /* Mniejsze ikony */
-    margin-bottom: 2px;
+/* --- KONTENERY GIER --- */
+.game-tab-content {
+    display: none; /* Domyślnie ukryte */
+    animation: fadeIn 0.4s ease;
 }
 
-.pvp-winner-text {
+.game-tab-content.active {
+    display: block; /* Pokazuje tylko aktywne */
+}
+
+/* Poprawka dla radia, żeby nie było za szerokie na PC */
+#tab-game-radio .glass-panel {
+    max-width: 600px;
+    margin: 0 auto;
+}
+/* --- MINES GAME STYLES --- */
+.mines-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.mines-controls-panel {
+    flex: 1;
+    min-width: 250px;
+    max-width: 300px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.input-group-game {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.input-group-game label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.mines-info-box {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.9rem;
+}
+
+/* Siatka gry */
+.mines-grid-container {
+    flex: 0 0 auto;
+    background: #0f1923; /* Ciemne tło siatki */
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #2c3e50;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.mines-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    width: 300px;
+    height: 300px;
+}
+
+.mine-tile {
+    background: #2f3640;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 0 #181d24;
+}
+
+.mine-tile:hover:not(:disabled) {
+    background: #3e4857;
+    transform: translateY(-2px);
+}
+
+.mine-tile:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+.mine-tile:disabled {
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+    opacity: 1; /* Keep visibility high */
+}
+
+/* Stany kafelków */
+.mine-tile.revealed-gem {
+    background: #0f3847; /* Ciemny turkus */
+    border: 2px solid var(--green);
+}
+
+.mine-tile.revealed-gem::after {
+    content: '💎';
+    font-size: 1.5rem;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mine-tile.revealed-bomb {
+    background: #441818;
+    border: 2px solid var(--red);
+}
+
+.mine-tile.revealed-bomb::after {
+    content: '💣';
+    font-size: 1.5rem;
+    animation: shake 0.5s;
+}
+
+.mine-tile.dimmed {
+    opacity: 0.3;
+}
+
+/* Przycisk Cashout */
+#btn-mines-action.cashout-mode {
+    background: var(--green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 700px) {
+    .mines-wrapper {
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .mines-grid-container {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+}
+/* --- BLACKJACK STYLES --- */
+.blackjack-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.bj-row {
+    width: 100%;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bj-label {
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.bj-cards-container {
+    display: flex;
+    justify-content: center;
+    gap: -30px; /* Karty nachodzą na siebie */
+}
+
+/* Nadpisujemy lekko style kart z pokera dla BJ, żeby nachodziły */
+.bj-card-wrap {
+    width: 70px;
+    height: 100px;
+    margin-left: -20px; /* Efekt wachlarza */
+    position: relative;
+    transition: transform 0.3s;
+}
+
+.bj-card-wrap:first-child {
+    margin-left: 0;
+}
+
+.bj-card-wrap:hover {
+    transform: translateY(-10px);
+    z-index: 10;
+}
+
+/* Wewnętrzna karta (reusing poker styles) */
+.bj-card-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    border: 2px solid #ccc;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.bj-card-inner.red { color: var(--red); }
+.bj-card-inner.black { color: black; }
+.bj-card-inner.back { 
+    background: repeating-linear-gradient(45deg, #606dbc, #606dbc 10px, #465298 10px, #465298 20px); 
+    border: 2px solid white;
+}
+/* ========================================= */
+/* === SLOTS (NEON SLOTS 3x3) - NOWY STYL === */
+/* ========================================= */
+
+.slots-machine-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    max-width: 600px; /* Szerszy kontener dla lepszej czytelności 3 bębnów */
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* --- TABELA WYPŁAT --- */
+.slots-paytable {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    width: 100%;
+}
+
+.pay-item {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid transparent;
+    transition: background 0.3s;
+}
+
+.pay-item strong { color: var(--accent-color); }
+.pay-item.p-777 strong { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
+
+/* --- GŁÓWNE OKNO MASZYNY --- */
+.slots-window {
+    display: flex;
+    justify-content: space-between; /* Równomierne rozłożenie bębnów */
+    align-items: stretch;
+    background: #0f0c29;
+    border: 4px solid var(--accent-color);
+    border-radius: 15px;
+    padding: 12px;
+    position: relative; /* Kluczowe dla pozycjonowania SVG */
+    box-shadow: 0 0 25px rgba(0, 210, 255, 0.25), inset 0 0 40px rgba(0,0,0,0.9);
+    width: 100%;
+    height: 280px; /* Zwiększona wysokość, aby pomieścić 3 rzędy */
+    overflow: hidden; /* Ukrywa to, co wychodzi poza bębny */
+}
+
+/* Animacja całego okna przy Jackpocie */
+.slots-window.win-animation {
+    animation: border-pulse 0.5s infinite alternate;
+}
+
+@keyframes border-pulse {
+    from { border-color: var(--accent-color); box-shadow: 0 0 20px var(--accent-color); }
+    to { border-color: #ffd700; box-shadow: 0 0 50px #ffd700; }
+}
+
+/* --- WARSTWA LINII WYGRYWAJĄCYCH (SVG) --- */
+.slots-svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20; /* Nad bębnami, ale pod interfejsem */
+    pointer-events: none; /* Kliknięcia przenikają przez warstwę */
+}
+
+/* Styl samej linii rysowanej przez JS */
+.winning-line {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 8px currentColor); /* Świecenie w kolorze linii */
+    animation: flashLine 0.8s infinite alternate;
+}
+
+@keyframes flashLine {
+    from { opacity: 0.5; stroke-width: 5; }
+    to { opacity: 1; stroke-width: 9; }
+}
+
+/* --- BĘBNY I KOMÓRKI --- */
+
+/* Kontener pojedynczego bębna (pionowy pas) */
+.reel-container {
+    flex: 1; /* Każdy bęben zajmuje 1/3 szerokości */
+    margin: 0 5px; /* Odstęp między bębnami */
+    background: linear-gradient(180deg, #050505 0%, #2a2a2a 50%, #050505 100%);
+    border: 2px solid #333;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 0 10px black;
+}
+
+/* Wewnętrzna kolumna trzymająca symbole */
+.slot-column {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around; /* Równe odstępy w pionie */
+}
+
+/* Efekt rozmycia podczas kręcenia */
+.reel-container.blur .slot-column {
+    filter: blur(5px); /* Mocniejszy blur dla dynamiki */
+    transform: scaleY(1.1); /* Lekkie rozciągnięcie w pionie */
+    opacity: 0.8;
+    transition: filter 0.1s;
+}
+
+/* Pojedyncza komórka z symbolem */
+.slot-cell {
+    flex: 1; /* Każda komórka zajmuje 1/3 wysokości bębna */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem; /* Duże, czytelne emotki */
+    line-height: 1;
+    user-select: none;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.6));
+    transition: transform 0.2s;
+    z-index: 10;
+}
+
+/* Animacja wygrywającego symbolu */
+.slot-cell.win-anim {
+    animation: popSymbol 0.6s infinite alternate;
+    z-index: 25; /* Wynosimy symbol nad linię SVG */
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+}
+
+@keyframes popSymbol {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.35) rotate(5deg); }
+}
+
+/* Separator między bębnami (opcjonalny, bo mamy marginy) */
+.reel-separator {
+    display: none; 
+}
+
+/* --- KONTROLKI I STATUS --- */
+.slots-controls {
+    width: 100%;
     text-align: center;
-    font-size: 1.5em;
-    min-height: 1.2em;
-    margin-top: 10px;
-    opacity: 0;
-    transition: opacity 0.3s;
+    margin-top: 5px;
+}
+
+.slots-message {
+    font-size: 1.3rem;
     font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 15px;
+    height: 1.5em; /* Rezerwacja miejsca żeby tekst nie skakał */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
 }
 
-.animate-winner-text {
-    opacity: 1;
-    animation: flash-accent 1s infinite;
+/* Duży przycisk SPIN */
+.spin-button-big {
+    font-size: 1.3rem;
+    padding: 16px;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #ff00cc, #333399);
+    box-shadow: 0 0 20px rgba(255, 0, 204, 0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    transition: all 0.2s ease;
+    margin-top: 10px;
 }
 
-/* Cienie po bokach dla głębi */
-.roulette-window.embedded::before, .roulette-window.embedded::after {
+.spin-button-big:hover {
+    box-shadow: 0 0 30px rgba(255, 0, 204, 0.6);
+    transform: translateY(-2px);
+}
+
+.spin-button-big:active {
+    transform: scale(0.96) translateY(0);
+}
+
+/* Responsywność dla telefonów */
+@media (max-width: 500px) {
+    .slots-window {
+        height: 220px; /* Nieco niższe na małych ekranach */
+    }
+    .slot-cell {
+        font-size: 2.2rem;
+    }
+}
+/* --- DICE --- */
+.dice-wrapper { max-width: 500px; margin: 0 auto; }
+.dice-result-display { 
+    font-size: 3rem; font-weight: 800; text-align: center; margin: 20px 0; 
+    color: white; text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+.dice-range { width: 100%; cursor: pointer; accent-color: var(--accent-color); }
+.dice-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px; }
+.dice-stats-row { display: flex; gap: 10px; margin-top: 15px; }
+.dice-stats-row .stat-box { flex: 1; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; font-size: 0.9rem; }
+
+/* --- KENO --- */
+.keno-wrapper { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.keno-board { 
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; 
+    background: #0f0c29; padding: 10px; border-radius: 10px; border: 1px solid #333;
+}
+.keno-btn { 
+    width: 35px; height: 35px; border: none; background: #222; color: #666; 
+    border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; 
+}
+.keno-btn:hover { background: #333; }
+.keno-btn.selected { background: var(--accent-color); color: #000; box-shadow: 0 0 5px var(--accent-color); }
+.keno-btn.hit { background: var(--green); color: #000; transform: scale(1.1); }
+.keno-btn.miss { opacity: 0.3; }
+
+.keno-sidebar { width: 200px; display: flex; flex-direction: column; }
+.keno-paytable { font-size: 0.8rem; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+.kp-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.kp-row.highlight { color: var(--green); font-weight: bold; }
+
+/* --- CASE OPENING --- */
+.case-window {
+    width: 100%; max-width: 600px; height: 120px; 
+    background: #111; border: 4px solid #333; border-radius: 8px;
+    position: relative; overflow: hidden; margin: 0 auto;
+    box-shadow: inset 0 0 30px black;
+}
+.case-marker {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; 
+    background: #ffd700; z-index: 10; transform: translateX(-50%);
+    box-shadow: 0 0 10px #ffd700;
+}
+.case-strip {
+    display: flex; height: 100%; align-items: center;
+    transform: translateX(0); /* Będzie animowane w JS */
+    will-change: transform;
+}
+.case-item {
+    min-width: 100px; height: 90px; margin: 0 2px;
+    background: #222; border-bottom: 4px solid #555;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-size: 0.8rem; font-weight: bold; color: #fff; text-align: center;
+}
+.case-item.rarity-1 { border-color: #555; } /* Common */
+.case-item.rarity-2 { border-color: #007bff; background: linear-gradient(180deg, #111, #001a33); } /* Rare */
+.case-item.rarity-3 { border-color: #9966FF; background: linear-gradient(180deg, #111, #1a0033); } /* Epic */
+.case-item.rarity-4 { border-color: #ffd700; background: linear-gradient(180deg, #111, #332b00); box-shadow: 0 0 10px rgba(255,215,0,0.2); } /* Legendary */
+.case-img { font-size: 1.5rem; margin-bottom: 5px; }
+
+@media (max-width: 600px) {
+    .keno-board { grid-template-columns: repeat(5, 1fr); }
+    .keno-btn { width: 40px; height: 40px; }
+}
+/* --- RACE GAME STYLES --- */
+.race-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.race-lobby-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.2s;
+}
+
+.race-lobby-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.race-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+}
+
+.race-tracks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #1a1a1a; /* Kolor ziemi/toru */
+    padding: 20px;
+    border-radius: 10px;
+    border: 4px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Linia mety */
+.race-tracks-container::after {
     content: '';
     position: absolute;
     top: 0; bottom: 0;
-    width: 40px;
-    z-index: 5;
-    pointer-events: none;
-}
-.roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,0.9), transparent); }
-.roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.9), transparent); }
-
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-/* --- STYL DLA KAFELKA TURNIEJU --- */
-#tournament-panel {
-    /* Jeśli masz zdefiniowany grid-area w głównym kontenerze, możesz tu dodać: grid-area: tournament; */
-    border: 2px solid #FFD700; /* Złota ramka */
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
-    background: linear-gradient(to bottom, var(--panel-color), rgba(255, 215, 0, 0.05));
+    right: 50px;
+    width: 10px;
+    background-image: linear-gradient(45deg, #fff 25%, #000 25%, #000 50%, #fff 50%, #fff 75%, #000 75%, #000 100%);
+    background-size: 20px 20px;
+    z-index: 0;
+    opacity: 0.5;
 }
 
-/* Definicja delikatnego pulsowania neonu */
-@keyframes text-glow {
-    0% { text-shadow: 0 0 5px var(--accent-color); opacity: 1; }
-    50% { text-shadow: 0 0 20px var(--accent-color), 0 0 10px var(--accent-color); opacity: 0.8; }
-    100% { text-shadow: 0 0 5px var(--accent-color); opacity: 1; }
+.race-lane {
+    position: relative;
+    height: 50px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
 }
 
-#tournament-panel h2 {
-    /* Używamy nowej animacji text-glow zamiast flash-accent */
-    animation: text-glow 3s infinite ease-in-out;
-    color: var(--accent-color); /* Fiolet/Róż */
-    border-bottom: none;
-    text-align: left; /* Lub center, zależnie jak wolisz */
+.race-snail {
+    font-size: 2rem;
+    position: absolute;
+    left: 0;
+    transition: left 0.5s linear; /* Płynny ruch */
+    z-index: 10;
+    filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.5));
+}
+
+.race-snail.winner {
+    transform: scale(1.5);
+    z-index: 20;
+    filter: drop-shadow(0 0 10px gold);
+}
+
+.snail-name {
+    position: absolute;
+    left: 0;
+    top: -15px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: #ccc;
+    background: rgba(0,0,0,0.5);
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.race-status {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-top: 20px;
+    text-transform: uppercase;
+    color: var(--accent-color);
 }
