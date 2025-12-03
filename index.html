@@ -260,6 +260,7 @@
 
             <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
+                <button class="game-nav-btn" data-game-tab="crossy"><i class="fa-solid fa-frog"></i> WIG Road</button>
                 <button class="game-nav-btn" data-game-tab="race"><i class="fa-solid fa-flag-checkered"></i> Gonitwa (Multi)</button>
                 <button class="game-nav-btn" data-game-tab="pvp"><i class="fa-solid fa-khanda"></i> PvP</button>
                 <button class="game-nav-btn" data-game-tab="casino"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
@@ -276,6 +277,46 @@
             </div>
 
             <div class="games-content-container">
+            
+            	<div id="tab-game-crossy" class="game-tab-content">
+    <section id="crossy-panel" class="glass-panel">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-frog"></i> WIG Road (Crossy) - Max 8</h2>
+        </div>
+
+        <div id="crossy-lobby-view">
+            <div class="crossy-controls center-content">
+                <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
+                    <input type="number" id="crossy-create-amount" class="dark-input" placeholder="Wpisowe (np. 1000)" min="100">
+                    <button id="btn-crossy-create" class="btn-accent">STWÓRZ POKÓJ</button>
+                </div>
+            </div>
+            <h3>Dostępne Pokoje</h3>
+            <div id="crossy-list" class="race-list-container">
+                <p style="text-align:center; color:var(--text-muted)">Brak aktywnych gier...</p>
+            </div>
+        </div>
+
+        <div id="crossy-game-view" class="hidden center-content">
+            <div class="race-header-info">
+                <div class="race-pot-info">Pula: <strong id="crossy-pot-display" style="color:var(--green)">0.00 zł</strong></div>
+                <div id="crossy-players-status" style="font-size: 0.8rem; color: #ccc;">Oczekiwanie...</div>
+            </div>
+
+            <div class="crossy-container">
+                <canvas id="crossy-canvas" width="600" height="400"></canvas>
+                <div id="crossy-overlay" class="crossy-overlay">
+                    <h2 id="crossy-msg">Oczekiwanie na hosta...</h2>
+                    <button id="btn-crossy-start" class="btn-green hidden">START GRY</button>
+                </div>
+                <div class="crossy-score-hud">WYNIK: <span id="crossy-score">0</span></div>
+            </div>
+            
+            <button id="btn-crossy-leave" class="btn-sell mt-10" style="max-width: 200px;">Wyjdź / Poddaj się</button>
+        </div>
+    </section>
+</div>
+            
 
                 <div id="tab-game-betting" class="game-tab-content active">
                     <section id="betting-panel" class="glass-panel">
