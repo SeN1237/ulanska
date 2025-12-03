@@ -5329,105 +5329,130 @@ function drawSkiGame() {
     const w = skiCanvas.width;
     const h = skiCanvas.height;
     
-    // Kamera śledzi skoczka (płynne podążanie)
+    // --- 1. ULEPSZONA LOGIKA KAMERY ---
+    // Kamera ustawia się tak, żeby skoczek był 200px od lewej krawędzi
     let targetCamX = skiState.x - 200;
     if (targetCamX < 0) targetCamX = 0;
-    // Ograniczenie kamery, żeby nie wyjechała za daleko w prawo
-    if (targetCamX > 600) targetCamX = 600; 
-    
+    // USUNIĘTO LIMIT 600px! Teraz kamera jedzie do końca.
+
+    // Opcjonalnie: Lekkie śledzenie w pionie, jeśli spadnie nisko
+    let targetCamY = 0;
+    if (skiState.y > 350) targetCamY = skiState.y - 350;
+
+    // Płynne podążanie (interpolacja)
     skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
+    // Jeśli nie zdefiniowałeś cameraY w skiState, użyjemy zmiennej lokalnej lub 0
+    // (Dla prostoty zakładamy 0, chyba że dodasz cameraY do obiektu skiState)
+    let currentCamY = targetCamY; 
 
     skiCtx.clearRect(0, 0, w, h);
     skiCtx.save();
-    skiCtx.translate(-skiState.cameraX, 0);
+    
+    // Przesuń świat
+    skiCtx.translate(-skiState.cameraX, -currentCamY);
 
-    // --- 1. Rysowanie Skoczni ---
+    // --- 2. RYSOWANIE SKOCZNI (DYNAMICZNE) ---
     skiCtx.beginPath();
-    skiCtx.strokeStyle = "#eee"; // Kolor śniegu obrys
+    skiCtx.strokeStyle = "#eee"; 
     skiCtx.lineWidth = 2;
-    skiCtx.fillStyle = "#fff"; // Kolor śniegu wypełnienie
+    skiCtx.fillStyle = "#fff"; 
     
     skiCtx.moveTo(0, SKI_HILL_START_Y);
     
-    // Rysujemy profil góry
-    for(let i=0; i<1200; i+=10) {
+    // Rysujemy profil góry AŻ DO KOŃCA EKRANU + zapas
+    // Dzięki temu skocznia nigdy się nie kończy wizualnie
+    const drawEnd = skiState.cameraX + w + 100; 
+    
+    for(let i=0; i < drawEnd; i+=20) {
         skiCtx.lineTo(i, getHillY(i));
     }
-    // Domykamy kształt do dołu ekranu, żeby wypełnić kolorem
-    skiCtx.lineTo(1200, h + 200);
-    skiCtx.lineTo(0, h + 200);
+    
+    // Domykamy kształt do dołu, żeby wypełnić śniegiem
+    // Musimy uwzględnić przesunięcie w dół, żeby nie ucięło dołu przy długich lotach
+    skiCtx.lineTo(drawEnd, h + 500 + currentCamY);
+    skiCtx.lineTo(0, h + 500 + currentCamY);
     skiCtx.fill();
     skiCtx.stroke();
 
-    // --- 2. Linie Dystansu (Lądowisko) ---
-    // Punkt K (Czerwona linia) - np. 120m (w grze to ok. SKI_K_POINT)
+    // --- 3. LINIE DYSTANSU (ZESKOK) ---
     const kX = SKI_TAKEOFF_X + SKI_K_POINT;
     const kY = getHillY(kX);
     
+    // Punkt K (Czerwona krecha)
     skiCtx.beginPath();
     skiCtx.strokeStyle = "red";
     skiCtx.lineWidth = 3;
     skiCtx.moveTo(kX, kY);
-    skiCtx.lineTo(kX + 20, kY + 10); // Skośna linia na śniegu
+    skiCtx.lineTo(kX + 20, kY + 10);
     skiCtx.stroke();
     
-    // Linie pomocnicze (co 10m w grze = 40px)
+    // Linie metrowe (co 10m gry = 40px)
     skiCtx.lineWidth = 1;
-    skiCtx.strokeStyle = "rgba(0,0,255,0.3)";
-    for(let d = 50; d < 200; d += 10) {
-        let distPx = d * 4; 
-        let lineX = SKI_TAKEOFF_X + distPx;
-        let lineY = getHillY(lineX);
-        
-        skiCtx.beginPath();
-        skiCtx.moveTo(lineX, lineY);
-        skiCtx.lineTo(lineX, lineY + 5);
-        skiCtx.stroke();
+    skiCtx.strokeStyle = "rgba(0,0,255,0.2)"; // Bardziej przezroczyste
+    
+    // Rysujemy linie tylko w zasięgu widzenia kamery (optymalizacja)
+    let startLine = Math.floor(skiState.cameraX / 40) * 40;
+    if (startLine < SKI_TAKEOFF_X) startLine = SKI_TAKEOFF_X;
+    
+    for(let lx = startLine; lx < drawEnd; lx += 40) {
+        // Rysuj tylko na zeskoku
+        if (lx > SKI_TAKEOFF_X + 50) {
+            let lineY = getHillY(lx);
+            skiCtx.beginPath();
+            skiCtx.moveTo(lx, lineY);
+            skiCtx.lineTo(lx, lineY + 10);
+            skiCtx.stroke();
+            
+            // Opcjonalnie: Numery metrów co 50m
+            const dist = (lx - SKI_TAKEOFF_X) / 4;
+            if (dist % 50 === 0) {
+                skiCtx.fillStyle = "rgba(0,0,100,0.5)";
+                skiCtx.font = "12px monospace";
+                skiCtx.fillText(dist + "m", lx - 10, lineY + 25);
+            }
+        }
     }
 
-    // --- 3. Belka Startowa ---
-    skiCtx.fillStyle = "#8B4513"; // Drewno
-    // Rysujemy belkę trochę w lewo od punktu startu (x=50)
+    // --- 4. BELKA I PRÓG ---
+    // Belka
+    skiCtx.fillStyle = "#8B4513"; 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y - 2, 20, 5); 
-    // Słupek belki
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y, 5, 20);
 
-    // --- 4. Próg ---
-    skiCtx.fillStyle = "#003366"; // Ciemny niebieski
+    // Próg
+    skiCtx.fillStyle = "#003366"; 
     skiCtx.fillRect(SKI_TAKEOFF_X - 5, getHillY(SKI_TAKEOFF_X), 5, 10);
 
-    // --- 5. Skoczek ---
+    // --- 5. SKOCZEK ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
         skiCtx.save();
         skiCtx.translate(skiState.x, skiState.y);
-        skiCtx.rotate(skiState.rotation); // Kąt nart
+        skiCtx.rotate(skiState.rotation); 
         
         // Narty
         skiCtx.fillStyle = "orange";
-        skiCtx.fillRect(-20, 0, 45, 3); // Dłuższe narty
+        skiCtx.fillRect(-20, 0, 45, 3);
         
         // Ludzik
-        // Kolor: Niebieski (ja), Czerwony (powtórka)
         skiCtx.fillStyle = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
         
-        // Pozycja zjazdowa (kucnięcie) vs lot
         if (skiState.phase === 'inrun') {
-            skiCtx.fillRect(-10, -8, 15, 8); // Kucnięty
+            // Pozycja dojazdowa
+            skiCtx.fillRect(-10, -8, 15, 8); 
             skiCtx.beginPath(); 
-            skiCtx.arc(0, -8, 4, 0, Math.PI*2); // Głowa niżej
+            skiCtx.arc(0, -8, 4, 0, Math.PI*2); 
             skiCtx.fill();
         } else {
-            // Wyprostowany w locie
+            // Pozycja w locie (V-style / DSJ style)
             skiCtx.beginPath();
-            // Ciało pochylone do przodu
             skiCtx.moveTo(-5, -2); 
-            skiCtx.lineTo(15, -15);
+            skiCtx.lineTo(20, -12); // Bardziej pochylony
             skiCtx.lineTo(10, -2);
             skiCtx.fill();
             
             // Głowa
             skiCtx.beginPath();
-            skiCtx.arc(16, -16, 4, 0, Math.PI*2);
+            skiCtx.arc(21, -13, 4, 0, Math.PI*2);
             skiCtx.fill();
         }
         
