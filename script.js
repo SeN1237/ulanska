@@ -4002,3 +4002,451 @@ function runClientSideRaceAnimation(players, winnerIndex) {
         }
     }, 50); // 50ms klatka
 }
+// ==========================================
+// === WIG ROAD (CROSSY) LOGIC ===
+// ==========================================
+
+let activeCrossyId = null;
+let crossySubscription = null;
+let crossyGameLoop = null;
+let crossyPlayer = { x: 0, y: 0, gridX: 6, gridY: 10, dead: false };
+let crossyMap = []; // Rows of obstacles
+let crossyScore = 0;
+let crossyGameState = 'lobby'; // lobby, playing, dead
+let crossyGridSize = 40;
+let crossyOffset = 0; // Camera scroll
+let crossyCanvas, crossyCtx;
+
+// --- INIT & LISTENERS ---
+document.addEventListener("DOMContentLoaded", () => {
+    const btnCreate = document.getElementById("btn-crossy-create");
+    const btnStart = document.getElementById("btn-crossy-start");
+    const btnLeave = document.getElementById("btn-crossy-leave");
+
+    if (btnCreate) btnCreate.addEventListener("click", createCrossyLobby);
+    if (btnStart) btnStart.addEventListener("click", startCrossyGameHost);
+    if (btnLeave) btnLeave.addEventListener("click", leaveCrossyGame);
+
+    // Klawisze
+    window.addEventListener('keydown', (e) => {
+        if (crossyGameState === 'playing' && activeCrossyId) {
+            if (e.key === 'ArrowUp' || e.key === 'w') moveCrossy(0, -1);
+            else if (e.key === 'ArrowDown' || e.key === 's') moveCrossy(0, 1);
+            else if (e.key === 'ArrowLeft' || e.key === 'a') moveCrossy(-1, 0);
+            else if (e.key === 'ArrowRight' || e.key === 'd') moveCrossy(1, 0);
+        }
+    });
+
+    // Uruchom nasłuchiwanie
+    setTimeout(listenToCrossyLobbies, 2000);
+});
+
+// --- LOBBY SYSTEM ---
+function listenToCrossyLobbies() {
+    const q = query(collection(db, "crossy_lobbies"), where("status", "in", ["open", "playing"]));
+    
+    onSnapshot(q, (snap) => {
+        const listEl = document.getElementById("crossy-list");
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        
+        if (snap.empty) {
+            listEl.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Brak aktywnych gier.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const isFull = r.players.length >= 8;
+            const isIngame = r.players.some(p => p.id === currentUserId);
+            
+            if (isIngame && activeCrossyId !== docSnap.id) {
+                enterCrossyGame(docSnap.id);
+            }
+
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${formatujWalute(r.entryFee)}</strong>
+                    <span style="color:${r.status==='playing'?'var(--red)':'var(--green)'}">${r.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Host: ${r.hostName}</div>
+                <div style="font-size:0.9em;">Graczy: ${r.players.length} / 8</div>
+                <button class="btn-accent" style="margin-top:5px;" 
+                    onclick="joinCrossyLobby('${docSnap.id}', ${r.entryFee})" 
+                    ${(isFull || r.status !== 'open') ? 'disabled' : ''}>
+                    ${r.status === 'playing' ? 'W TOKU' : 'DOŁĄCZ'}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+async function createCrossyLobby() {
+    const amount = parseFloat(document.getElementById("crossy-create-amount").value);
+    if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków!");
+            
+            t.update(uRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+            
+            const ref = doc(collection(db, "crossy_lobbies"));
+            t.set(ref, {
+                hostId: currentUserId,
+                hostName: portfolio.name,
+                entryFee: amount,
+                status: "open",
+                createdAt: serverTimestamp(),
+                players: [{ id: currentUserId, name: portfolio.name, score: 0, dead: false }]
+            });
+        });
+        showMessage("Pokój utworzony!", "success");
+    } catch (e) { showMessage(e.message, "error"); }
+}
+
+window.joinCrossyLobby = async function(id, fee) {
+    if (portfolio.cash < fee) return showMessage("Nie stać Cię!", "error");
+    
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "crossy_lobbies", id);
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            
+            const docSnap = await t.get(ref);
+            const uDoc = await t.get(uRef);
+            
+            if (!docSnap.exists()) throw new Error("Pokój nie istnieje.");
+            const data = docSnap.data();
+            
+            if (data.status !== 'open') throw new Error("Gra już trwa!");
+            if (data.players.length >= 8) throw new Error("Pełny pokój!");
+            if (uDoc.data().cash < fee) throw new Error("Brak środków!");
+            
+            const newPlayers = [...data.players, { id: currentUserId, name: portfolio.name, score: 0, dead: false }];
+            
+            t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
+            t.update(ref, { players: newPlayers });
+        });
+    } catch (e) { showMessage(e.message, "error"); }
+};
+
+function enterCrossyGame(id) {
+    activeCrossyId = id;
+    document.getElementById("crossy-lobby-view").classList.add("hidden");
+    document.getElementById("crossy-game-view").classList.remove("hidden");
+    
+    crossyCanvas = document.getElementById("crossy-canvas");
+    crossyCtx = crossyCanvas.getContext('2d');
+    
+    if (crossySubscription) crossySubscription();
+    
+    crossySubscription = onSnapshot(doc(db, "crossy_lobbies", id), (snap) => {
+        if (!snap.exists()) { leaveCrossyGame(); return; }
+        const data = snap.data();
+        
+        // Update UI
+        document.getElementById("crossy-pot-display").textContent = formatujWalute(data.entryFee * data.players.length);
+        
+        const aliveCount = data.players.filter(p => !p.dead).length;
+        document.getElementById("crossy-players-status").textContent = `Graczy: ${data.players.length} | Żywych: ${aliveCount}`;
+
+        // Host Control
+        const btnStart = document.getElementById("btn-crossy-start");
+        const msg = document.getElementById("crossy-msg");
+        const overlay = document.getElementById("crossy-overlay");
+
+        if (data.status === 'open') {
+            overlay.classList.remove("hidden");
+            if (data.hostId === currentUserId) {
+                btnStart.classList.remove("hidden");
+                msg.textContent = "Jesteś Hostem. Startuj!";
+            } else {
+                btnStart.classList.add("hidden");
+                msg.textContent = "Oczekiwanie na Hosta...";
+            }
+        } else if (data.status === 'playing') {
+            // Start Local Game if not started
+            if (crossyGameState === 'lobby') {
+                initCrossyEngine();
+            }
+            btnStart.classList.add("hidden");
+        } else if (data.status === 'finished') {
+             // Show Winner
+             crossyGameState = 'finished';
+             overlay.classList.remove("hidden");
+             
+             // Znajdź zwycięzcę (sortowanie po score)
+             const sorted = [...data.players].sort((a,b) => b.score - a.score);
+             const winner = sorted[0];
+             
+             msg.innerHTML = `<span style="color:gold">KONIEC!</span><br>Wygrał: ${winner.name} (Wynik: ${winner.score})`;
+        }
+    });
+}
+
+async function startCrossyGameHost() {
+    if (!activeCrossyId) return;
+    await updateDoc(doc(db, "crossy_lobbies", activeCrossyId), { status: "playing" });
+}
+
+function leaveCrossyGame() {
+    activeCrossyId = null;
+    crossyGameState = 'lobby';
+    if (crossySubscription) crossySubscription();
+    if (crossyGameLoop) cancelAnimationFrame(crossyGameLoop);
+    
+    document.getElementById("crossy-lobby-view").classList.remove("hidden");
+    document.getElementById("crossy-game-view").classList.add("hidden");
+}
+
+// --- GAME ENGINE (CANVAS) ---
+function initCrossyEngine() {
+    crossyGameState = 'playing';
+    document.getElementById("crossy-overlay").classList.add("hidden");
+    
+    // Reset Vars
+    crossyScore = 0;
+    crossyOffset = 0;
+    crossyPlayer = { x: 7, y: 0, dead: false }; // Start na dole (Grid Y=0 to current row)
+    
+    // Generate Initial Map
+    crossyMap = [];
+    for(let i=0; i<20; i++) generateCrossyRow(i); // Generuj 20 rzędów w górę
+    
+    document.getElementById("crossy-score").textContent = "0";
+    
+    // Start Loop
+    loopCrossy();
+}
+
+function generateCrossyRow(index) {
+    // 0-2: Safe Grass
+    // >2: Random (Road, Water, Grass)
+    let type = 'grass';
+    if (index > 3) {
+        const r = Math.random();
+        if (r < 0.4) type = 'road';
+        else if (r < 0.6) type = 'water';
+    }
+    
+    const row = {
+        y: index, // Logic Y index (0 = start, 10 = higher)
+        type: type,
+        objects: [] // Cars or Logs
+    };
+
+    if (type === 'road') {
+        row.speed = (Math.random() * 2 + 1) * (Math.random() > 0.5 ? 1 : -1);
+        // Add cars
+        const numCars = Math.floor(Math.random() * 2) + 1;
+        for(let i=0; i<numCars; i++) {
+            row.objects.push({ x: Math.random() * 15, width: 1.5 });
+        }
+    } else if (type === 'water') {
+        row.speed = (Math.random() * 1.5 + 0.5) * (Math.random() > 0.5 ? 1 : -1);
+        // Add Logs
+        const numLogs = Math.floor(Math.random() * 2) + 2;
+        for(let i=0; i<numLogs; i++) {
+            row.objects.push({ x: Math.random() * 15, width: 2 + Math.random() });
+        }
+    }
+    
+    crossyMap.push(row);
+}
+
+function moveCrossy(dx, dy) {
+    if (crossyPlayer.dead) return;
+    
+    // Move logic
+    // dx: -1 (left), 1 (right)
+    // dy: -1 (UP visual, Logic Y+1), 1 (DOWN visual, Logic Y-1)
+    
+    // W naszej logice: Y rośnie w górę.
+    // Strzałka w górę (dy = -1 w evencie) -> Y gracza +1
+    
+    const targetX = crossyPlayer.x + dx;
+    const targetY = crossyPlayer.y - dy; // Invert dy logic
+    
+    if (targetX < 0 || targetX > 14) return; // Bounds X
+    if (targetY < crossyOffset) return; // Cannot go back too far
+    
+    crossyPlayer.x = targetX;
+    crossyPlayer.y = targetY;
+    
+    // Score & Map Gen
+    if (crossyPlayer.y > crossyScore) {
+        crossyScore = crossyPlayer.y;
+        document.getElementById("crossy-score").textContent = crossyScore;
+        // Generate more map if needed
+        while (crossyMap.length <= crossyPlayer.y + 15) {
+            generateCrossyRow(crossyMap.length);
+        }
+    }
+}
+
+function loopCrossy() {
+    if (crossyGameState !== 'playing') return;
+    
+    updateCrossy();
+    drawCrossy();
+    
+    crossyGameLoop = requestAnimationFrame(loopCrossy);
+}
+
+function updateCrossy() {
+    // Camera follow (smooth)
+    const targetOffset = crossyPlayer.y - 4; // Player stays at bottom 1/3
+    if (targetOffset > crossyOffset) {
+        crossyOffset += (targetOffset - crossyOffset) * 0.1;
+    }
+    
+    // Update Objects
+    crossyMap.forEach(row => {
+        if (row.type === 'road' || row.type === 'water') {
+            row.objects.forEach(obj => {
+                obj.x += row.speed * 0.05; // Speed factor
+                // Wrap around
+                if (row.speed > 0 && obj.x > 15) obj.x = -obj.width;
+                if (row.speed < 0 && obj.x < -obj.width) obj.x = 15;
+            });
+        }
+    });
+    
+    // Collision Detection
+    // Find row player is on
+    // Logic Y of player must match Row Y
+    // But rows are integers. Player Y is integer.
+    
+    const currentRowIndex = Math.round(crossyPlayer.y);
+    const row = crossyMap[currentRowIndex];
+    
+    if (row) {
+        // Check bounds (Water kills unless on log)
+        if (row.type === 'water') {
+            let onLog = false;
+            // Check collision with logs
+            // Player is roughly width 0.8 at crossyPlayer.x
+            row.objects.forEach(log => {
+                if (crossyPlayer.x + 0.2 < log.x + log.width && crossyPlayer.x + 0.8 > log.x) {
+                    onLog = true;
+                    // Move player with log
+                    crossyPlayer.x += row.speed * 0.05;
+                }
+            });
+            
+            if (!onLog) dieCrossy();
+        } 
+        else if (row.type === 'road') {
+            row.objects.forEach(car => {
+                if (crossyPlayer.x + 0.2 < car.x + car.width && crossyPlayer.x + 0.8 > car.x) {
+                    dieCrossy();
+                }
+            });
+        }
+    }
+    
+    // Out of bounds X (e.g. carried by log)
+    if (crossyPlayer.x < -1 || crossyPlayer.x > 15) dieCrossy();
+}
+
+function drawCrossy() {
+    const w = crossyCanvas.width;
+    const h = crossyCanvas.height;
+    const tileW = w / 15; // 15 columns
+    const tileH = tileW;
+    
+    crossyCtx.clearRect(0, 0, w, h);
+    
+    // Draw Map (Only visible rows)
+    const startRow = Math.floor(crossyOffset);
+    const endRow = startRow + 12; // Draw 12 rows height
+    
+    for (let i = startRow; i <= endRow; i++) {
+        if (!crossyMap[i]) continue;
+        const row = crossyMap[i];
+        
+        // Screen Y (Inverted: Higher Logic Y is Lower Screen Y)
+        // Let's say Logic Y=0 is at Bottom.
+        // ScreenY = h - (LogicY - offset) * tileH
+        const sy = h - ((i - crossyOffset + 1) * tileH);
+        
+        // Background
+        if (row.type === 'grass') crossyCtx.fillStyle = '#90EE90';
+        if (row.type === 'road') crossyCtx.fillStyle = '#555';
+        if (row.type === 'water') crossyCtx.fillStyle = '#4682B4';
+        
+        crossyCtx.fillRect(0, sy, w, tileH);
+        
+        // Objects
+        if (row.objects) {
+            row.objects.forEach(obj => {
+                const ox = obj.x * tileW;
+                const ow = obj.width * tileW;
+                
+                if (row.type === 'road') {
+                    crossyCtx.fillStyle = row.speed > 0 ? 'red' : 'orange'; // Cars
+                    // Simple car shape
+                    crossyCtx.fillRect(ox, sy + 5, ow, tileH - 10);
+                    // Windows
+                    crossyCtx.fillStyle = '#aaf';
+                    crossyCtx.fillRect(ox + 5, sy + 8, ow/3, tileH - 16);
+                } else if (row.type === 'water') {
+                    crossyCtx.fillStyle = '#8B4513'; // Logs
+                    crossyCtx.fillRect(ox, sy + 2, ow, tileH - 4);
+                }
+            });
+        }
+    }
+    
+    // Draw Player
+    const py = h - ((crossyPlayer.y - crossyOffset + 1) * tileH);
+    const px = crossyPlayer.x * tileW;
+    
+    crossyCtx.fillStyle = 'white'; // Chicken body
+    crossyCtx.fillRect(px + 5, py + 5, tileW - 10, tileH - 10);
+    crossyCtx.fillStyle = 'red'; // Comb
+    crossyCtx.fillRect(px + 15, py + 2, 10, 5);
+    crossyCtx.fillStyle = 'orange'; // Beak
+    crossyCtx.fillRect(px + 25, py + 10, 5, 5);
+}
+
+async function dieCrossy() {
+    if (crossyPlayer.dead) return;
+    crossyPlayer.dead = true;
+    crossyGameState = 'dead';
+    
+    // Play sound
+    if (dom.audioError) dom.audioError.play().catch(()=>{});
+    
+    const overlay = document.getElementById("crossy-overlay");
+    const msg = document.getElementById("crossy-msg");
+    overlay.classList.remove("hidden");
+    msg.innerHTML = `PRZEGRAŁEŚ!<br>Twój wynik: ${crossyScore}<br><span style="font-size:0.5em">Czekaj na innych...</span>`;
+    document.getElementById("btn-crossy-start").classList.add("hidden"); // Hide start btn if host died
+
+    // Send Score to DB
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "crossy_lobbies", activeCrossyId);
+            const docSnap = await t.get(ref);
+            if (!docSnap.exists()) return;
+            
+            const data = docSnap.data();
+            const newPlayers = data.players.map(p => {
+                if (p.id === currentUserId) {
+                    return { ...p, score: crossyScore, dead: true };
+                }
+                return p;
+            });
+            
+            t.update(ref, { players: newPlayers });
+        });
+    } catch(e) { console.error("Error sending score:", e); }
+}
