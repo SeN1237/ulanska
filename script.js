@@ -4027,6 +4027,27 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnStart) btnStart.addEventListener("click", startCrossyGameHost);
     if (btnLeave) btnLeave.addEventListener("click", leaveCrossyGame);
 
+	// --- STEROWANIE MOBILNE (DODANE) ---
+    const btnUp = document.getElementById("btn-c-up");
+    const btnDown = document.getElementById("btn-c-down");
+    const btnLeft = document.getElementById("btn-c-left");
+    const btnRight = document.getElementById("btn-c-right");
+
+    // Używamy 'pointerdown' dla szybszej reakcji niż 'click' na mobile
+    // Funkcja helpera, żeby nie powtarzać kodu
+    const handleMobileMove = (dx, dy) => {
+        if (crossyGameState === 'playing' && activeCrossyId) {
+            moveCrossy(dx, dy);
+            // Opcjonalnie: wibracja przy ruchu
+            if (navigator.vibrate) navigator.vibrate(20); 
+        }
+    };
+
+    if(btnUp) btnUp.addEventListener("pointerdown", (e) => { e.preventDefault(); handleMobileMove(0, -1); });
+    if(btnDown) btnDown.addEventListener("pointerdown", (e) => { e.preventDefault(); handleMobileMove(0, 1); });
+    if(btnLeft) btnLeft.addEventListener("pointerdown", (e) => { e.preventDefault(); handleMobileMove(-1, 0); });
+    if(btnRight) btnRight.addEventListener("pointerdown", (e) => { e.preventDefault(); handleMobileMove(1, 0); });
+
     // Klawisze
     window.addEventListener('keydown', (e) => {
         if (crossyGameState === 'playing' && activeCrossyId) {
