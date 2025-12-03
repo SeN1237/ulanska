@@ -1493,7 +1493,7 @@ async function onCreatePvP(e) {
     e.preventDefault();
     const amount = parseFloat(dom.pvpAmount.value);
     
-    if (isNaN(amount) || amount < 1000) return showMessage("Minimum 1000 zł!", "error");
+    if (isNaN(amount) || amount < 100) return showMessage("Minimum 100 zł!", "error");
     if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
 
     try {
