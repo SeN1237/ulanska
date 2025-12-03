@@ -261,6 +261,7 @@
             <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
                 <button class="game-nav-btn" data-game-tab="exam"><i class="fa-solid fa-graduation-cap"></i> Sesja (Exam)</button>
+                <button class="game-nav-btn" data-game-tab="skijump"><i class="fa-solid fa-snowflake"></i> Skoki (DSJ)</button>
                 <button class="game-nav-btn" data-game-tab="crossy"><i class="fa-solid fa-frog"></i> WIG Road</button>
                 <button class="game-nav-btn" data-game-tab="race"><i class="fa-solid fa-flag-checkered"></i> Gonitwa (Multi)</button>
                 <button class="game-nav-btn" data-game-tab="pvp"><i class="fa-solid fa-khanda"></i> PvP</button>
@@ -278,6 +279,69 @@
             </div>
 
             <div class="games-content-container">
+
+                <div id="tab-game-skijump" class="game-tab-content">
+    <section class="glass-panel">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-person-skiing"></i> Skoki Narciarskie (Multi)</h2>
+        </div>
+
+        <div id="skijump-lobby-view">
+            <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
+                <input type="number" id="skijump-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
+                <button id="btn-skijump-create" class="btn-accent">UTWÓRZ KONKURS</button>
+            </div>
+            <h3>Aktywne Konkursy</h3>
+            <div id="skijump-list" class="race-list-container">
+                <p style="text-align:center; color:var(--text-muted)">Brak zawodów...</p>
+            </div>
+        </div>
+
+        <div id="skijump-game-view" class="hidden">
+            <div class="race-header-info">
+                <button id="btn-skijump-leave" class="btn-sell"><i class="fa-solid fa-arrow-left"></i> Wyjdź</button>
+                <div class="race-pot-info">
+                    Runda: <strong id="skijump-round">1/2</strong> | Pula: <strong id="skijump-pot" style="color:var(--green)">0 zł</strong>
+                </div>
+            </div>
+
+            <div class="skijump-container">
+                <canvas id="skijump-canvas" width="800" height="450"></canvas>
+                
+                <div id="skijump-overlay" class="crossy-overlay">
+                    <h2 id="skijump-status-msg">Oczekiwanie...</h2>
+                    <p id="skijump-instruction" style="font-size: 0.9em; margin-top: 10px; color: #ccc;"></p>
+                    <button id="btn-skijump-jump" class="btn-accent hidden" style="font-size: 1.2rem; padding: 15px 40px; margin-top: 20px;">
+                        IDŹ NA BELKĘ
+                    </button>
+                </div>
+
+                <div class="skijump-hud">
+                    <div id="sj-current-jumper">Skacze: ---</div>
+                    <div id="sj-wind-display">Wiatr: 0.0 m/s</div>
+                    <div id="sj-distance-display">0.0 m</div>
+                </div>
+            </div>
+
+            <div class="glass-panel mt-10" style="background: rgba(0,0,0,0.3);">
+                <h3>Wyniki Konkursu</h3>
+                <table class="betting-table" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Msc</th>
+                            <th>Gracz</th>
+                            <th>Skok 1</th>
+                            <th>Skok 2</th>
+                            <th>Nota</th>
+                        </tr>
+                    </thead>
+                    <tbody id="skijump-scoreboard">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
 
                 <div id="tab-game-exam" class="game-tab-content">
     <section class="glass-panel center-content">
