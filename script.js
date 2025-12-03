@@ -4730,3 +4730,635 @@ function resetExamUI() {
         b.disabled = false;
     });
 }
+// ==========================================
+// === SKI JUMP (DSJ STYLE) LOGIC ===
+// ==========================================
+
+let activeSkiId = null;
+let skiSubscription = null;
+let skiGameLoop = null;
+let skiCanvas, skiCtx;
+
+// Fizyka i Stan Lokalny
+let skiState = {
+    phase: 'idle', // idle, gate, inrun, flight, landed, replay
+    x: 0, y: 0,
+    vx: 0, vy: 0,
+    rotation: 0, // Kąt nart
+    distance: 0,
+    cameraX: 0,
+    trajectory: [] // Do powtórek
+};
+
+// Stałe fizyki
+const SKI_GRAVITY = 0.15;
+const SKI_AIR_RESISTANCE = 0.99;
+const SKI_LIFT_FACTOR = 0.008; // Siła nośna
+const SKI_HILL_START_X = 50;
+const SKI_HILL_START_Y = 100;
+const SKI_TAKEOFF_X = 350; // Próg
+const SKI_K_POINT = 600; // Punkt K (wizualny)
+
+// --- INIT ---
+document.addEventListener("DOMContentLoaded", () => {
+    const btnCreate = document.getElementById("btn-skijump-create");
+    const btnLeave = document.getElementById("btn-skijump-leave");
+    const btnJump = document.getElementById("btn-skijump-jump");
+
+    if (btnCreate) btnCreate.addEventListener("click", createSkiLobby);
+    if (btnLeave) btnLeave.addEventListener("click", leaveSkiGame);
+    if (btnJump) btnJump.addEventListener("click", playerReadyOnGate);
+
+    // Sterowanie Myszką (DSJ Style)
+    const canvas = document.getElementById("skijump-canvas");
+    if(canvas) {
+        // Kliknięcie = Start / Wybicie / Lądowanie
+        canvas.addEventListener("mousedown", handleSkiClick);
+        // Ruch myszką = Balans ciałem w locie
+        canvas.addEventListener("mousemove", handleSkiMove);
+        // Mobile touch
+        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleSkiClick(); });
+    }
+
+    // Odpalamy nasłuch lobby
+    setTimeout(listenToSkiLobbies, 2500);
+});
+
+// --- LOBBY SYSTEM (Podobny do Wyścigów) ---
+function listenToSkiLobbies() {
+    const q = query(collection(db, "skijump_lobbies"), where("status", "in", ["open", "active"]));
+    
+    onSnapshot(q, (snap) => {
+        const listEl = document.getElementById("skijump-list");
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        
+        if (snap.empty) {
+            listEl.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Brak zawodów.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const isFull = r.players.length >= 8;
+            const isIngame = r.players.some(p => p.id === currentUserId);
+            
+            // Auto-join jeśli już jesteś w grze
+            if (isIngame && activeSkiId !== docSnap.id) {
+                enterSkiGame(docSnap.id);
+            }
+
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${formatujWalute(r.entryFee)}</strong>
+                    <span style="color:${r.status==='active'?'var(--red)':'var(--green)'}">${r.status==='active'?'W TRAKCIE':'OTWARTY'}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Host: ${r.hostName}</div>
+                <div style="font-size:0.9em;">Skoczków: ${r.players.length} / 8</div>
+                <button class="btn-accent" style="margin-top:5px;" 
+                    onclick="joinSkiLobby('${docSnap.id}', ${r.entryFee})" 
+                    ${(isFull || r.status !== 'open') ? 'disabled' : ''}>
+                    ${r.status === 'active' ? 'WRÓĆ' : 'DOŁĄCZ'}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+async function createSkiLobby() {
+    const amount = parseFloat(document.getElementById("skijump-create-amount").value);
+    if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków!");
+            t.update(uRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+            
+            const ref = doc(collection(db, "skijump_lobbies"));
+            t.set(ref, {
+                hostId: currentUserId,
+                hostName: portfolio.name,
+                entryFee: amount,
+                status: "open",
+                round: 1,
+                currentPlayerIndex: 0,
+                createdAt: serverTimestamp(),
+                // Struktura gracza: id, name, jump1 (dist), jump2 (dist), score (total)
+                players: [{ id: currentUserId, name: portfolio.name, jump1: 0, jump2: 0, score: 0 }],
+                lastJumpData: null // Tu będą trafiać powtórki: { playerId, trajectory: [...] }
+            });
+        });
+        showMessage("Konkurs utworzony!", "success");
+    } catch (e) { showMessage(e.message, "error"); }
+}
+
+window.joinSkiLobby = async function(id, fee) {
+    if (portfolio.cash < fee) return showMessage("Nie stać Cię!", "error");
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "skijump_lobbies", id);
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            
+            const docSnap = await t.get(ref);
+            const uDoc = await t.get(uRef);
+            
+            if (!docSnap.exists()) throw new Error("Błąd.");
+            const data = docSnap.data();
+            
+            if (data.status !== 'open') throw new Error("Konkurs ruszył!");
+            if (data.players.length >= 8) throw new Error("Pełna lista!");
+            if (uDoc.data().cash < fee) throw new Error("Brak środków!");
+            
+            const newPlayers = [...data.players, { id: currentUserId, name: portfolio.name, jump1: 0, jump2: 0, score: 0 }];
+            
+            t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
+            t.update(ref, { players: newPlayers });
+        });
+    } catch (e) { showMessage(e.message, "error"); }
+};
+
+// --- LOGIKA GRY (KLIENT) ---
+
+function enterSkiGame(id) {
+    activeSkiId = id;
+    document.getElementById("skijump-lobby-view").classList.add("hidden");
+    document.getElementById("skijump-game-view").classList.remove("hidden");
+    
+    skiCanvas = document.getElementById("skijump-canvas");
+    skiCtx = skiCanvas.getContext('2d');
+
+    if (skiSubscription) skiSubscription();
+
+    // Główny Listener Gry
+    skiSubscription = onSnapshot(doc(db, "skijump_lobbies", id), (snap) => {
+        if (!snap.exists()) { leaveSkiGame(); return; }
+        const data = snap.data();
+        
+        updateSkiScoreboard(data);
+        handleSkiGameState(data);
+    });
+
+    // Start pętli renderowania (zawsze działa, rysuje tło i powtórki)
+    if (!skiGameLoop) skiGameLoop = requestAnimationFrame(renderSkiLoop);
+}
+
+function leaveSkiGame() {
+    activeSkiId = null;
+    if (skiSubscription) skiSubscription();
+    if (skiGameLoop) cancelAnimationFrame(skiGameLoop);
+    skiGameLoop = null;
+    
+    document.getElementById("skijump-lobby-view").classList.remove("hidden");
+    document.getElementById("skijump-game-view").classList.add("hidden");
+}
+
+function updateSkiScoreboard(data) {
+    document.getElementById("skijump-round").textContent = `${data.round}/2`;
+    document.getElementById("skijump-pot").textContent = formatujWalute(data.entryFee * data.players.length);
+    
+    const tbody = document.getElementById("skijump-scoreboard");
+    tbody.innerHTML = "";
+    
+    // Sortuj po wyniku malejąco
+    const sorted = [...data.players].sort((a,b) => b.score - a.score);
+    
+    sorted.forEach((p, idx) => {
+        const isCurrent = (p.id === data.players[data.currentPlayerIndex]?.id);
+        const tr = document.createElement("tr");
+        if(isCurrent && data.status === 'active') tr.classList.add("sj-current-row");
+        
+        tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${p.name} ${isCurrent ? '⛷️' : ''}</td>
+            <td>${p.jump1 ? p.jump1.toFixed(1) + 'm' : '-'}</td>
+            <td>${p.jump2 ? p.jump2.toFixed(1) + 'm' : '-'}</td>
+            <td><strong>${p.score.toFixed(1)}</strong></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// --- MASZYNA STANÓW GRY ---
+
+let lastReplayId = null; // Żeby nie odtwarzać dwa razy tego samego
+
+function handleSkiGameState(data) {
+    const overlay = document.getElementById("skijump-overlay");
+    const statusMsg = document.getElementById("skijump-status-msg");
+    const instruction = document.getElementById("skijump-instruction");
+    const btnJump = document.getElementById("btn-skijump-jump");
+    const currentJumper = data.players[data.currentPlayerIndex];
+    
+    document.getElementById("sj-current-jumper").textContent = `Na belce: ${currentJumper ? currentJumper.name : 'Koniec'}`;
+
+    // 1. Oczekiwanie na start (Host ma przycisk START)
+    if (data.status === 'open') {
+        overlay.classList.remove("hidden");
+        btnJump.classList.add("hidden");
+        if (data.hostId === currentUserId) {
+            statusMsg.textContent = "Jesteś Hostem";
+            instruction.innerHTML = `<button class="btn-green" onclick="startSkiCompetition()">ROZPOCZNIJ KONKURS</button>`;
+        } else {
+            statusMsg.textContent = "Oczekiwanie na Hosta...";
+            instruction.textContent = "";
+        }
+    }
+    // 2. Gra w toku
+    else if (data.status === 'active') {
+        const isMyTurn = (currentJumper && currentJumper.id === currentUserId);
+        
+        // A. Wykryto nową powtórkę (ktoś skoczył) -> Odtwórz ją
+        if (data.lastJumpData && data.lastJumpData.jumpId !== lastReplayId) {
+            lastReplayId = data.lastJumpData.jumpId;
+            playReplay(data.lastJumpData);
+            return; // Przerwij, żeby nie pokazywać overlayu podczas oglądania
+        }
+        
+        // Jeśli aktualnie odtwarzamy powtórkę, nie rób nic z UI
+        if (skiState.phase === 'replay') {
+             overlay.classList.add("hidden");
+             return;
+        }
+
+        // B. Moja tura
+        if (isMyTurn) {
+            overlay.classList.remove("hidden");
+            statusMsg.textContent = "TWOJA KOLEJ!";
+            instruction.textContent = "Kliknij, aby wejść na belkę.";
+            btnJump.classList.remove("hidden");
+        } 
+        // C. Tura kogoś innego
+        else {
+            overlay.classList.remove("hidden");
+            statusMsg.textContent = `Skacze: ${currentJumper ? currentJumper.name : '...'}`;
+            instruction.textContent = "Oczekiwanie na skok...";
+            btnJump.classList.add("hidden");
+        }
+    }
+    // 3. Koniec gry
+    else if (data.status === 'finished') {
+        overlay.classList.remove("hidden");
+        btnJump.classList.add("hidden");
+        
+        const winner = [...data.players].sort((a,b) => b.score - a.score)[0];
+        statusMsg.innerHTML = `<span style="color:gold">ZWYCIĘZCA: ${winner.name}</span>`;
+        instruction.textContent = "Gratulacje!";
+    }
+}
+
+window.startSkiCompetition = async function() {
+    if(!activeSkiId) return;
+    await updateDoc(doc(db, "skijump_lobbies", activeSkiId), { status: "active" });
+};
+
+// --- LOGIKA SKACZĄCEGO (Lokalna fizyka) ---
+
+function playerReadyOnGate() {
+    // Ukryj overlay, ustaw kamerę
+    document.getElementById("skijump-overlay").classList.add("hidden");
+    
+    skiState = {
+        phase: 'gate',
+        x: SKI_HILL_START_X,
+        y: SKI_HILL_START_Y,
+        vx: 0, vy: 0,
+        rotation: -0.5, // Lekko w dół
+        distance: 0,
+        cameraX: 0,
+        trajectory: [] // Reset trackera
+    };
+    
+    // Zapisz pozycję początkową
+    recordFrame();
+}
+
+function handleSkiClick() {
+    if (!activeSkiId) return;
+
+    if (skiState.phase === 'gate') {
+        // 1. Ruszamy z belki
+        skiState.phase = 'inrun';
+        skiState.vx = 2.0; // Pęd początkowy
+        skiState.vy = 1.0;
+    } 
+    else if (skiState.phase === 'inrun') {
+        // 2. Wybicie (Musi być blisko progu)
+        if (skiState.x > SKI_TAKEOFF_X - 50 && skiState.x < SKI_TAKEOFF_X + 20) {
+            skiState.phase = 'flight';
+            // Siła wybicia (im bliżej krawędzi tym lepiej)
+            const quality = 1 - Math.abs(skiState.x - SKI_TAKEOFF_X) / 50;
+            skiState.vy -= (4.0 + (quality * 1.5)); // Skok w górę
+            skiState.vx += 0.5;
+            if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); } // Sound effect
+        }
+    }
+    else if (skiState.phase === 'flight') {
+        // 3. Lądowanie (Telemark?) - tylko jeśli blisko ziemi
+        const groundY = getHillY(skiState.x);
+        if (skiState.y > groundY - 50) {
+            landSki(true); // Wymuszone lądowanie
+        }
+    }
+}
+
+function handleSkiMove(e) {
+    if (skiState.phase === 'flight') {
+        const rect = skiCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Sterowanie: Myszka góra/dół zmienia kąt nart
+        // Idealny kąt to lekko do góry, ale nie za bardzo (opór)
+        const centerH = skiCanvas.height / 2;
+        const delta = (mouseY - centerH) / 100; // -1 do 1
+        
+        skiState.rotation = delta; 
+    }
+}
+
+function recordFrame() {
+    // Dodajemy klatkę do powtórki (tylko co 2-3 klatki dla oszczędności, ale tutaj każda dla płynności)
+    skiState.trajectory.push({
+        x: Math.round(skiState.x),
+        y: Math.round(skiState.y),
+        r: parseFloat(skiState.rotation.toFixed(2))
+    });
+}
+
+function physicsStep() {
+    if (skiState.phase === 'inrun') {
+        skiState.x += skiState.vx;
+        skiState.y = getHillY(skiState.x); // Przyklejony do toru
+        skiState.vx += 0.05; // Przyspieszenie
+        
+        // Auto-wybicie na końcu (słabe)
+        if (skiState.x > SKI_TAKEOFF_X) {
+            skiState.phase = 'flight';
+            skiState.vy -= 2.0; // Słabe wybicie
+        }
+        recordFrame();
+    }
+    else if (skiState.phase === 'flight') {
+        skiState.x += skiState.vx;
+        skiState.y += skiState.vy;
+        
+        // Grawitacja
+        skiState.vy += SKI_GRAVITY;
+        
+        // Aerodynamika (prosta)
+        // Optymalny kąt to ok -0.2 (lekko dzioby w górę)
+        // Im bliżej optimum, tym mniejszy opór i większa nośna
+        const angleDiff = Math.abs(skiState.rotation - (-0.3)); 
+        const lift = (1 - angleDiff) * SKI_LIFT_FACTOR * (skiState.vx * skiState.vx);
+        
+        skiState.vy -= lift;
+        skiState.vx *= SKI_AIR_RESISTANCE; // Opór powietrza
+
+        // Kolizja z ziemią
+        const groundY = getHillY(skiState.x);
+        if (skiState.y >= groundY) {
+            landSki(false);
+        }
+        
+        // Aktualizacja HUD dystansu
+        const dist = (skiState.x - SKI_TAKEOFF_X) / 4; // Skalowanie na metry
+        document.getElementById("sj-distance-display").textContent = dist.toFixed(1) + " m";
+        
+        recordFrame();
+    }
+    else if (skiState.phase === 'landed') {
+        // Wyhamowanie
+        skiState.x += skiState.vx;
+        skiState.y = getHillY(skiState.x);
+        skiState.vx *= 0.95;
+        if (skiState.vx < 0.1) skiState.vx = 0;
+        recordFrame();
+    }
+}
+
+// Funkcja kształtu skoczni
+function getHillY(x) {
+    // Rozbieg
+    if (x < SKI_TAKEOFF_X) {
+        // Krzywa
+        const t = x / SKI_TAKEOFF_X; 
+        return SKI_HILL_START_Y + (t*t) * 100; 
+    }
+    // Zeskok
+    else {
+        // Parabola + wyprostowanie
+        const dx = x - SKI_TAKEOFF_X;
+        // Profil zeskoku (krzywa logistyczna uproszczona)
+        let drop = 0;
+        if (dx < 400) drop = (dx * dx) * 0.002; // Stroma część
+        else drop = 320 + (dx - 400) * 0.5; // Wypłaszczenie
+        
+        return (SKI_HILL_START_Y + 100) + drop;
+    }
+}
+
+async function landSki(manual) {
+    if(skiState.phase === 'landed') return;
+    
+    skiState.phase = 'landed';
+    const finalDist = (skiState.x - SKI_TAKEOFF_X) / 4;
+    
+    // Oblicz notę
+    let stylePoints = 20.0;
+    // Karne za lądowanie
+    if (!manual) stylePoints -= 5.0; // Upadek/późno
+    // Karne za niestabilny lot
+    if (Math.abs(skiState.rotation) > 0.5) stylePoints -= 3.0;
+    
+    const totalScore = finalDist + stylePoints; // Uproszczone punkty (1m = 1pkt)
+    
+    // Wyślij wynik i powtórkę do bazy
+    await uploadJumpData(finalDist, totalScore, skiState.trajectory);
+}
+
+async function uploadJumpData(dist, pts, traj) {
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "skijump_lobbies", activeSkiId);
+            const data = (await t.get(ref)).data();
+            
+            const players = [...data.players];
+            const pIndex = data.currentPlayerIndex;
+            const p = players[pIndex];
+            
+            // Zapisz wynik skoku
+            if (data.round === 1) p.jump1 = dist;
+            else p.jump2 = dist;
+            
+            p.score += pts;
+            
+            // Logika następnego gracza
+            let nextIndex = pIndex + 1;
+            let nextRound = data.round;
+            let status = data.status;
+            let nextJumperId = null;
+
+            if (nextIndex >= players.length) {
+                if (data.round === 1) {
+                    // Koniec rundy 1
+                    nextIndex = 0;
+                    nextRound = 2;
+                } else {
+                    // Koniec gry
+                    status = 'finished';
+                    // Wypłata dla zwycięzcy
+                    const winner = [...players].sort((a,b) => b.score - a.score)[0];
+                    const pot = data.entryFee * players.length;
+                    
+                    const wRef = doc(db, "uzytkownicy", winner.id);
+                    const wData = (await t.get(wRef)).data();
+                    t.update(wRef, { 
+                        cash: wData.cash + pot, 
+                        zysk: (wData.zysk||0) + (pot - data.entryFee),
+                        totalValue: calculateTotalValue(wData.cash + pot, wData.shares)
+                    });
+                }
+            }
+
+            // Upload
+            t.update(ref, {
+                players: players,
+                currentPlayerIndex: nextIndex,
+                round: nextRound,
+                status: status,
+                lastJumpData: {
+                    jumpId: Date.now(), // Unique ID dla wykrycia zmiany
+                    playerName: p.name,
+                    dist: dist,
+                    trajectory: traj
+                }
+            });
+        });
+    } catch(e) { console.error(e); }
+}
+
+// --- SYSTEM POWTÓREK (Dla obserwatorów) ---
+
+let replayData = null;
+let replayFrame = 0;
+
+function playReplay(data) {
+    replayData = data;
+    replayFrame = 0;
+    skiState.phase = 'replay';
+    
+    document.getElementById("skijump-overlay").classList.remove("hidden");
+    document.getElementById("skijump-status-msg").textContent = `SKOK: ${data.playerName}`;
+    document.getElementById("skijump-instruction").textContent = "Odtwarzanie...";
+    document.getElementById("btn-skijump-jump").classList.add("hidden");
+}
+
+// --- GŁÓWNA PĘTLA RENDEROWANIA ---
+
+function renderSkiLoop() {
+    if (!activeSkiId) return;
+
+    // 1. Logika fizyki (tylko jeśli ja gram)
+    if (['inrun', 'flight', 'landed'].includes(skiState.phase)) {
+        physicsStep();
+    }
+    // 2. Logika powtórki
+    else if (skiState.phase === 'replay' && replayData) {
+        if (replayFrame < replayData.trajectory.length) {
+            const frame = replayData.trajectory[replayFrame];
+            skiState.x = frame.x;
+            skiState.y = frame.y;
+            skiState.rotation = frame.r;
+            replayFrame++;
+            
+            // Update HUD
+            const dist = (skiState.x - SKI_TAKEOFF_X) / 4;
+            document.getElementById("sj-distance-display").textContent = dist.toFixed(1) + " m";
+        } else {
+            // Koniec powtórki
+            document.getElementById("skijump-status-msg").textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
+            
+            // Po 3 sekundach wróć do trybu oczekiwania (dane z Firebase same zaktualizują UI)
+            if(replayFrame === replayData.trajectory.length) {
+                setTimeout(() => {
+                    if(skiState.phase === 'replay') skiState.phase = 'idle';
+                }, 3000);
+                replayFrame++; // Żeby timeout odpalił się raz
+            }
+        }
+    }
+
+    // 3. Rysowanie
+    drawSkiGame();
+
+    skiGameLoop = requestAnimationFrame(renderSkiLoop);
+}
+
+function drawSkiGame() {
+    const w = skiCanvas.width;
+    const h = skiCanvas.height;
+    
+    // Kamera śledzi skoczka
+    let targetCamX = skiState.x - 200;
+    if (targetCamX < 0) targetCamX = 0;
+    skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
+
+    skiCtx.clearRect(0, 0, w, h);
+    skiCtx.save();
+    skiCtx.translate(-skiState.cameraX, 0);
+
+    // Rysuj Skocznię
+    skiCtx.beginPath();
+    skiCtx.strokeStyle = "#fff";
+    skiCtx.lineWidth = 5;
+    skiCtx.moveTo(0, SKI_HILL_START_Y);
+    
+    // Rysujemy linię profilu co 10px
+    for(let i=0; i<1000; i+=10) {
+        skiCtx.lineTo(i, getHillY(i));
+    }
+    skiCtx.stroke();
+    
+    // Wypełnienie śniegiem pod spodem
+    skiCtx.lineTo(1000, h+500);
+    skiCtx.lineTo(0, h+500);
+    skiCtx.fillStyle = "#eee";
+    skiCtx.fill();
+
+    // Punkt K
+    skiCtx.fillStyle = "red";
+    skiCtx.fillRect(SKI_K_POINT + SKI_TAKEOFF_X, getHillY(SKI_K_POINT + SKI_TAKEOFF_X), 5, 50);
+
+    // Próg
+    skiCtx.fillStyle = "blue";
+    skiCtx.fillRect(SKI_TAKEOFF_X - 5, getHillY(SKI_TAKEOFF_X), 5, 10);
+
+    // Skoczek
+    if (skiState.phase !== 'idle' || skiState.x > 0) {
+        skiCtx.save();
+        skiCtx.translate(skiState.x, skiState.y);
+        skiCtx.rotate(skiState.rotation); // Kąt nart
+        
+        // Narty
+        skiCtx.fillStyle = "orange";
+        skiCtx.fillRect(-20, 0, 40, 3);
+        
+        // Ludzik (kropka + kreska)
+        skiCtx.fillStyle = (skiState.phase === 'replay') ? 'red' : 'blue'; // Ja = Niebieski, Replay = Czerwony
+        skiCtx.beginPath();
+        skiCtx.arc(0, -10, 5, 0, Math.PI*2); // Głowa
+        skiCtx.fill();
+        
+        skiCtx.fillRect(-5, -10, 10, 10); // Tułów
+        
+        skiCtx.restore();
+    }
+
+    skiCtx.restore();
+}
