@@ -4168,15 +4168,45 @@ function enterCrossyGame(id) {
     
     if (crossySubscription) crossySubscription();
     
+    // --- NASŁUCHIWANIE STANU GRY ---
     crossySubscription = onSnapshot(doc(db, "crossy_lobbies", id), (snap) => {
         if (!snap.exists()) { leaveCrossyGame(); return; }
         const data = snap.data();
         
-        // Update UI
+        // 1. ZNAJDŹ SIEBIE NA LIŚCIE GRACZY
+        const myData = data.players.find(p => p.id === currentUserId);
+
+        // 2. AKTUALIZACJA UI
         document.getElementById("crossy-pot-display").textContent = formatujWalute(data.entryFee * data.players.length);
-        
         const aliveCount = data.players.filter(p => !p.dead).length;
         document.getElementById("crossy-players-status").textContent = `Graczy: ${data.players.length} | Żywych: ${aliveCount}`;
+
+        // 3. SPRAWDZENIE ŚMIERCI (ANTY-CHEAT / REFRESH FIX)
+        // Jeśli w bazie jesteś martwy, wymuś stan "dead" lokalnie
+        if (myData && myData.dead) {
+            crossyGameState = 'dead';
+            crossyPlayer.dead = true;
+            
+            // Pokaż ekran przegranej
+            const overlay = document.getElementById("crossy-overlay");
+            const msg = document.getElementById("crossy-msg");
+            overlay.classList.remove("hidden");
+            msg.innerHTML = `PRZEGRAŁEŚ!<br>Twój wynik: ${myData.score}<br><span style="font-size:0.5em">Czekaj na innych... (Nie odświeżaj)</span>`;
+            document.getElementById("btn-crossy-start").classList.add("hidden");
+            
+            // Zatrzymaj pętlę gry, jeśli działa
+            if (crossyGameLoop) cancelAnimationFrame(crossyGameLoop);
+            
+            // Jeśli gra się skończyła (finished), pokaż zwycięzcę
+            if (data.status === 'finished') {
+                 const sorted = [...data.players].sort((a,b) => b.score - a.score);
+                 const winner = sorted[0];
+                 msg.innerHTML = `<span style="color:gold">KONIEC!</span><br>Wygrał: ${winner.name} (Wynik: ${winner.score})`;
+            }
+            
+            // WAŻNE: Przerywamy funkcję tutaj, żeby nie odpalić initCrossyEngine poniżej
+            return; 
+        }
 
         // Host Control
         const btnStart = document.getElementById("btn-crossy-start");
@@ -4193,8 +4223,8 @@ function enterCrossyGame(id) {
                 msg.textContent = "Oczekiwanie na Hosta...";
             }
         } else if (data.status === 'playing') {
-            // Start Local Game if not started
-            if (crossyGameState === 'lobby') {
+            // Start Local Game if not started AND player is alive
+            if (crossyGameState === 'lobby' && (!myData || !myData.dead)) {
                 initCrossyEngine();
             }
             btnStart.classList.add("hidden");
@@ -4203,7 +4233,6 @@ function enterCrossyGame(id) {
              crossyGameState = 'finished';
              overlay.classList.remove("hidden");
              
-             // Znajdź zwycięzcę (sortowanie po score)
              const sorted = [...data.players].sort((a,b) => b.score - a.score);
              const winner = sorted[0];
              
