@@ -2496,3 +2496,50 @@ input:focus, select:focus { border-color: var(--accent-color); }
     background: var(--red) !important;
     opacity: 0.5;
 }
+/* --- SKI JUMP STYLES --- */
+.skijump-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    height: 450px;
+    margin: 0 auto;
+    border: 4px solid #333;
+    border-radius: 8px;
+    background: #87CEEB; /* Niebo */
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+#skijump-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.skijump-hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    color: #000; /* Ciemny tekst na jasnym niebie */
+    font-family: monospace;
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+
+#sj-current-jumper { color: #003366; }
+#sj-distance-display { color: #b30000; font-size: 1.5rem; }
+
+/* Tabela wyników w grze */
+#skijump-scoreboard td {
+    text-align: center;
+    padding: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sj-current-row {
+    background: rgba(255, 215, 0, 0.1); /* Podświetlenie aktualnego skoczka */
+    border-left: 3px solid gold;
+}
