@@ -4735,6 +4735,7 @@ function resetExamUI() {
 // ==========================================
 
 let activeSkiId = null;
+let cachedSkiData = null; // <--- DODAJ TO
 let skiSubscription = null;
 let skiGameLoop = null;
 let skiCanvas, skiCtx;
@@ -4900,11 +4901,12 @@ function enterSkiGame(id) {
         if (!snap.exists()) { leaveSkiGame(); return; }
         const data = snap.data();
         
+        cachedSkiData = data; // <--- ZAPISUJEMY DANE DO PAMIĘCI
+        
         updateSkiScoreboard(data);
         handleSkiGameState(data);
     });
 
-    // Start pętli renderowania (zawsze działa, rysuje tło i powtórki)
     if (!skiGameLoop) skiGameLoop = requestAnimationFrame(renderSkiLoop);
 }
 
@@ -4949,15 +4951,30 @@ function updateSkiScoreboard(data) {
 let lastReplayId = null; // Żeby nie odtwarzać dwa razy tego samego
 
 function handleSkiGameState(data) {
+    if(!data) return;
+
+    // A. Wykryto nową powtórkę -> Odtwórz ją
+    if (data.lastJumpData && data.lastJumpData.jumpId !== lastReplayId) {
+        lastReplayId = data.lastJumpData.jumpId;
+        // Nie odtwarzaj własnych powtórek (widziałeś je na żywo)
+        if (data.lastJumpData.playerName !== portfolio.name) {
+            playReplay(data.lastJumpData);
+            return; 
+        }
+    }
+    
+    // JEŚLI OGLĄDAMY POWTÓRKĘ - NIE ZMIENIAJ UI (żeby nie przerywać oglądania)
+    if (skiState.phase === 'replay') return; 
+
+    // --- TUTAJ ZACZYNA SIĘ ODŚWIEŻANIE UI ---
     const overlay = document.getElementById("skijump-overlay");
     const statusMsg = document.getElementById("skijump-status-msg");
     const instruction = document.getElementById("skijump-instruction");
     const btnJump = document.getElementById("btn-skijump-jump");
-    const currentJumper = data.players[data.currentPlayerIndex];
     
+    const currentJumper = data.players[data.currentPlayerIndex];
     document.getElementById("sj-current-jumper").textContent = `Na belce: ${currentJumper ? currentJumper.name : 'Koniec'}`;
 
-    // 1. Oczekiwanie na start (Host ma przycisk START)
     if (data.status === 'open') {
         overlay.classList.remove("hidden");
         btnJump.classList.add("hidden");
@@ -4966,46 +4983,31 @@ function handleSkiGameState(data) {
             instruction.innerHTML = `<button class="btn-green" onclick="startSkiCompetition()">ROZPOCZNIJ KONKURS</button>`;
         } else {
             statusMsg.textContent = "Oczekiwanie na Hosta...";
-            instruction.textContent = "";
+            instruction.textContent = "Rozgrzewka...";
         }
     }
-    // 2. Gra w toku
     else if (data.status === 'active') {
         const isMyTurn = (currentJumper && currentJumper.id === currentUserId);
         
-        // A. Wykryto nową powtórkę (ktoś skoczył) -> Odtwórz ją
-        if (data.lastJumpData && data.lastJumpData.jumpId !== lastReplayId) {
-            lastReplayId = data.lastJumpData.jumpId;
-            playReplay(data.lastJumpData);
-            return; // Przerwij, żeby nie pokazywać overlayu podczas oglądania
-        }
-        
-        // Jeśli aktualnie odtwarzamy powtórkę, nie rób nic z UI
-        if (skiState.phase === 'replay') {
-             overlay.classList.add("hidden");
-             return;
-        }
-
-        // B. Moja tura
         if (isMyTurn) {
+            // MOJA KOLEJ
             overlay.classList.remove("hidden");
             statusMsg.textContent = "TWOJA KOLEJ!";
-            instruction.textContent = "Kliknij, aby wejść na belkę.";
+            statusMsg.style.color = "var(--green)";
+            instruction.textContent = "Kliknij przycisk, aby wejść na belkę.";
             btnJump.classList.remove("hidden");
-        } 
-        // C. Tura kogoś innego
-        else {
+        } else {
+            // KOLEJ INNEGO
             overlay.classList.remove("hidden");
             statusMsg.textContent = `Skacze: ${currentJumper ? currentJumper.name : '...'}`;
+            statusMsg.style.color = "#fff";
             instruction.textContent = "Oczekiwanie na skok...";
             btnJump.classList.add("hidden");
         }
     }
-    // 3. Koniec gry
     else if (data.status === 'finished') {
         overlay.classList.remove("hidden");
         btnJump.classList.add("hidden");
-        
         const winner = [...data.players].sort((a,b) => b.score - a.score)[0];
         statusMsg.innerHTML = `<span style="color:gold">ZWYCIĘZCA: ${winner.name}</span>`;
         instruction.textContent = "Gratulacje!";
@@ -5264,11 +5266,11 @@ function playReplay(data) {
 function renderSkiLoop() {
     if (!activeSkiId) return;
 
-    // 1. Logika fizyki (tylko jeśli ja gram)
+    // 1. Fizyka
     if (['inrun', 'flight', 'landed'].includes(skiState.phase)) {
         physicsStep();
     }
-    // 2. Logika powtórki
+    // 2. Powtórka
     else if (skiState.phase === 'replay' && replayData) {
         if (replayData.trajectory && replayFrame < replayData.trajectory.length) {
             const frame = replayData.trajectory[replayFrame];
@@ -5277,47 +5279,49 @@ function renderSkiLoop() {
             skiState.rotation = frame.r;
             replayFrame++;
             
-            // Kamera podąża też na powtórce
-            // Update HUD
+            // Kamera
+            let targetCamX = skiState.x - 200;
+            if (targetCamX < 0) targetCamX = 0;
+            if (targetCamX > 600) targetCamX = 600;
+            skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
+
             const dist = (skiState.x - SKI_TAKEOFF_X) / 4;
             let displayDist = dist > 0 ? dist : 0;
             document.getElementById("sj-distance-display").textContent = displayDist.toFixed(1) + " m";
         } else {
-            // --- KONIEC POWTÓRKI ---
-            // Wyświetl wynik końcowy na chwilę
+            // KONIEC POWTÓRKI - POKAŻ WYNIK
             const msg = document.getElementById("skijump-status-msg");
-            if(msg) msg.textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
+            if(msg) {
+                msg.textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
+                msg.style.color = "gold";
+            }
             
-            // Wymuś koniec powtórki po 2 sekundach
+            // Czekaj 2 sekundy i WRÓĆ DO GRY
             if (skiState.phase === 'replay') {
                 setTimeout(() => {
-                    // Tylko jeśli nadal jesteśmy w trybie replay (żeby nie przerwać nowej gry)
+                    // Sprawdzamy czy nadal jesteśmy w replay (zabezpieczenie)
                     if (skiState.phase === 'replay') {
                         skiState.phase = 'idle';
-                        // Ważne: Wymuś odświeżenie UI
-                        const overlay = document.getElementById("skijump-overlay");
-                        if(overlay) overlay.classList.remove("hidden");
-                        
-                        // Zresetuj pozycję skoczka na start (żeby nie znikał)
                         skiState.x = SKI_HILL_START_X;
                         skiState.y = SKI_HILL_START_Y;
                         skiState.cameraX = 0;
+                        skiState.rotation = 0;
                         
-                        // Wymuś ponowne sprawdzenie stanu gry
-                        // (Firebase snapshot i tak przyjdzie, ale to czyści widok)
-                        document.getElementById("skijump-instruction").textContent = "Czekaj na kolejnego skoczka...";
+                        // === KLUCZOWE: ODŚWIEŻ UI NA PODSTAWIE AKTUALNEGO STANU ===
+                        // To sprawi, że jeśli jest Twoja kolej, pojawi się przycisk "Idź na belkę"
+                        // A jeśli nie, pojawi się "Oczekiwanie..."
+                        if (cachedSkiData) {
+                            handleSkiGameState(cachedSkiData);
+                        }
                     }
                 }, 2000);
                 
-                // Ustawiamy frame na max, żeby nie wchodzić tu co klatkę
-                replayFrame = Number.MAX_SAFE_INTEGER; 
+                replayFrame = Number.MAX_SAFE_INTEGER; // Stop pętli
             }
         }
     }
 
-    // 3. Rysowanie
     drawSkiGame();
-
     skiGameLoop = requestAnimationFrame(renderSkiLoop);
 }
 
