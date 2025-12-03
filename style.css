@@ -2329,3 +2329,60 @@ input:focus, select:focus { border-color: var(--accent-color); }
     text-transform: uppercase;
     color: var(--accent-color);
 }
+/* --- WIG ROAD (CROSSY) STYLES --- */
+.crossy-container {
+    position: relative;
+    width: 600px;
+    height: 400px;
+    margin: 0 auto;
+    border: 4px solid #333;
+    border-radius: 8px;
+    background: #222;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+#crossy-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #87CEEB; /* Sky blue as base */
+}
+
+.crossy-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    backdrop-filter: blur(3px);
+}
+
+.crossy-overlay h2 {
+    font-size: 2rem;
+    color: white;
+    text-shadow: 0 0 10px var(--accent-color);
+    margin-bottom: 20px;
+}
+
+.crossy-score-hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 0 #000;
+    z-index: 10;
+    pointer-events: none;
+}
+
+@media (max-width: 650px) {
+    .crossy-container {
+        width: 100%;
+        height: 300px;
+    }
+}
