@@ -4500,3 +4500,233 @@ async function dieCrossy() {
         });
     } catch(e) { console.error("Error sending score:", e); }
 }
+// ==========================================
+// === EXAM GAME LOGIC (CZYSTY GAMBLING) ===
+// ==========================================
+
+// Lista 20 pytań (Placeholdery)
+const EXAM_QUESTIONS = [
+    // Matematyka / Topologia
+    "Jaka jest ranga n-tej grupy kohomologii de Rhama dla sfery S^n?",
+    "Ile niezależnych składowych posiada tensor krzywizny Riemanna w 4-wymiarowej czasoprzestrzeni?",
+    "Wskaż wartość stałej Apéry'ego (zeta(3)) z dokładnością do 10 miejsc po przecinku.",
+    
+    // Fizyka Kwantowa / Cząstek
+    "Jaki jest ładunek koloru gluonu w stanie singletowym w chromodynamice kwantowej?",
+    "Oblicz amplitudę prawdopodobieństwa w diagramie Feynmana rzędu jednej pętli dla rozpraszania Bhabha.",
+    "Jaka jest wartość oczekiwana operatora pędu w stanie podstawowym oscylatora harmonicznego?",
+    "Który element macierzy CKM opisuje łamanie symetrii CP w rozpadach mezonów B?",
+
+    // Biochemia / Genetyka
+    "Który enzym katalizuje etap ograniczający szybkość w szlaku biosyntezy cholesterolu?",
+    "Jaka jest rola białka ubikwityny w proteasomalnej degradacji białekcytozowych?",
+    "Wskaż sekwencję konsensusową Kozak inicjującą translację u eukariontów.",
+    "Jaki jest mechanizm działania topoizomerazy II w relaksacji superskrętów DNA?",
+
+    // Chemia Organiczna / Fizyczna
+    "Jaka jest symetria grupy punktowej cząsteczki buckminsterfullerenu C60?",
+    "Wskaż produkt reakcji retro-Diels-Alder dla adduktu antracenu i bezwodnika maleinowego.",
+    "Jaka jest hybrydyzacja atomu centralnego w kompleksie heksacyjanocofelazianu(II)?",
+    "Oblicz energię orbitalu HOMO dla cząsteczki butadienu metodą Hückla.",
+
+    // Astrofizyka / Kosmologia
+    "Jaka jest wartość parametru gęstości dla ciemnej energii w modelu Lambda-CDM?",
+    "Przekroczenie jakiej masy (granica Chandrasekhara) powoduje kolaps białego karła?",
+    "Czym charakteryzuje się horyzont zdarzeń w metryce Kerra dla rotującej czarnej dziury?",
+
+    // Inżynieria / Termodynamika
+    "Jaka jest postać różniczkowa relacji Maxwella dla potencjału termodynamicznego Gibbsa?",
+    "Rozwiązanie równań Naviera-Stokesa dla przepływu turbulentnego wymaga liczby Reynoldsa rzędu:"
+];
+
+let examState = {
+    active: false,
+    currentQuestionIndex: 0,
+    score: 0,
+    bet: 0
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnStart = document.getElementById("btn-exam-start");
+    const btnReset = document.getElementById("btn-exam-reset");
+    
+    if(btnStart) btnStart.addEventListener("click", startExam);
+    if(btnReset) btnReset.addEventListener("click", resetExamUI);
+});
+
+async function startExam() {
+    if(examState.active) return;
+    
+    const amountInput = document.getElementById("exam-amount");
+    const amount = parseInt(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        // Pobranie kasy
+        await runTransaction(db, async (t) => {
+             const userRef = doc(db, "uzytkownicy", currentUserId);
+             const userDoc = await t.get(userRef);
+             if(userDoc.data().cash < amount) throw new Error("Brak środków");
+             
+             const newCash = userDoc.data().cash - amount;
+             t.update(userRef, { 
+                 cash: newCash, 
+                 totalValue: calculateTotalValue(newCash, userDoc.data().shares) 
+             });
+        });
+
+        // UI Update
+        portfolio.cash -= amount;
+        updatePortfolioUI();
+
+        // Setup gry
+        examState.active = true;
+        examState.bet = amount;
+        examState.score = 0;
+        examState.currentQuestionIndex = 0;
+
+        document.getElementById("exam-start-screen").classList.add("hidden");
+        document.getElementById("exam-result-screen").classList.add("hidden");
+        document.getElementById("exam-game-screen").classList.remove("hidden");
+
+        renderExamQuestion();
+
+    } catch(e) {
+        showMessage(e.message, "error");
+    }
+}
+
+function renderExamQuestion() {
+    const qIndex = examState.currentQuestionIndex;
+    document.getElementById("exam-progress").textContent = `Pytanie ${qIndex + 1}/20`;
+    document.getElementById("exam-current-score").textContent = `Punkty: ${examState.score}`;
+    
+    // Ustawienie tekstu pytania
+    const qText = EXAM_QUESTIONS[qIndex] || `Pytanie ${qIndex + 1}`;
+    document.getElementById("exam-question-text").textContent = qText;
+
+    // Reset przycisków
+    const btns = document.querySelectorAll(".exam-btn");
+    btns.forEach(b => {
+        b.disabled = false;
+        b.classList.remove("correct", "wrong");
+    });
+}
+
+// Funkcja dostępna globalnie (window) dla onclick w HTML
+window.handleExamAnswer = function(selectedOption) {
+    if(!examState.active) return;
+
+    // --- KLUCZOWY MECHANIZM: CZYSTY GAMBLING ---
+    // Nie ma zdefiniowanej poprawnej odpowiedzi.
+    // Losujemy ją W MOMENCIE KLIKNIĘCIA.
+    // Szansa 1/4 (25%).
+    const options = ['A', 'B', 'C', 'D'];
+    const randomCorrect = options[Math.floor(Math.random() * options.length)];
+    
+    const isCorrect = (selectedOption === randomCorrect);
+    
+    // Efekty wizualne
+    const btns = document.querySelectorAll(".exam-btn");
+    btns.forEach(b => {
+        b.disabled = true; // Blokada
+        if(b.textContent === randomCorrect) b.classList.add("correct");
+        else if(b.textContent === selectedOption && !isCorrect) b.classList.add("wrong");
+    });
+
+    if(isCorrect) {
+        examState.score++;
+        if(dom.audioKaching) {
+             // Cichszy dźwięk dla pojedynczego pytania
+             const clone = dom.audioKaching.cloneNode();
+             clone.volume = 0.2;
+             clone.play().catch(()=>{});
+        }
+    } else {
+        if(dom.audioError) {
+             const clone = dom.audioError.cloneNode();
+             clone.volume = 0.2;
+             clone.play().catch(()=>{});
+        }
+    }
+
+    // Następne pytanie lub koniec (szybkie przejście)
+    setTimeout(() => {
+        examState.currentQuestionIndex++;
+        if(examState.currentQuestionIndex >= 20) {
+            finishExam();
+        } else {
+            renderExamQuestion();
+        }
+    }, 400); // 400ms opóźnienia, żeby zobaczyć kolor
+};
+
+async function finishExam() {
+    examState.active = false;
+    const score = examState.score;
+    const percentage = (score / 20) * 100;
+    const bet = examState.bet;
+    
+    let multiplier = 0;
+    
+    // Logika wypłat
+    if (percentage >= 95) multiplier = 3.0;
+    else if (percentage >= 75) multiplier = 2.5;
+    else if (percentage >= 50) multiplier = 2.0;
+    else multiplier = 0;
+
+    const winAmount = bet * multiplier;
+    const profit = winAmount - bet;
+
+    // Update UI
+    document.getElementById("exam-game-screen").classList.add("hidden");
+    document.getElementById("exam-result-screen").classList.remove("hidden");
+    
+    const titleEl = document.getElementById("exam-result-title");
+    const scoreEl = document.getElementById("exam-result-score");
+    const msgEl = document.getElementById("exam-result-msg");
+
+    scoreEl.textContent = `${percentage.toFixed(0)}% (${score}/20)`;
+    
+    if(winAmount > 0) {
+        titleEl.textContent = "ZDAŁEŚ!";
+        titleEl.style.color = "var(--green)";
+        scoreEl.style.color = "var(--green)";
+        msgEl.innerHTML = `Gratulacje! Wygrywasz <strong style="color:gold">${formatujWalute(winAmount)}</strong>`;
+        if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+        
+        // Zapis wygranej
+        try {
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const d = (await t.get(userRef)).data();
+                t.update(userRef, { 
+                    cash: d.cash + winAmount, 
+                    zysk: (d.zysk || 0) + profit,
+                    totalValue: calculateTotalValue(d.cash + winAmount, d.shares)
+                });
+            });
+            showNotification(`Sesja Zdana! +${formatujWalute(winAmount)}`, 'news', 'positive');
+        } catch(e) { console.error(e); }
+
+    } else {
+        titleEl.textContent = "WARUNEK...";
+        titleEl.style.color = "var(--red)";
+        scoreEl.style.color = "var(--red)";
+        msgEl.textContent = "Niestety, musisz powtarzać semestr (straciłeś stawkę).";
+        if(dom.audioError) dom.audioError.play().catch(()=>{});
+    }
+}
+
+function resetExamUI() {
+    document.getElementById("exam-result-screen").classList.add("hidden");
+    document.getElementById("exam-start-screen").classList.remove("hidden");
+    const btns = document.querySelectorAll(".exam-btn");
+    btns.forEach(b => {
+        b.classList.remove("correct", "wrong");
+        b.disabled = false;
+    });
+}
