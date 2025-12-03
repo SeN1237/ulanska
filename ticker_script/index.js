@@ -368,6 +368,7 @@ try {
 
     // --- WYWOŁANIE FUNKCJI OBLIGACJI ---
     await processBonds(newPrices);
+    await manageCrossyLobbies(db); // <--- DODAJ TO TUTAJ
     
     // --- REALIZACJA ZLECEŃ LIMIT ---
     for (const companyId of allAssets) {
@@ -406,6 +407,60 @@ try {
       if (i < updatesPerRun) await sleep(intervalSeconds * 1000);
     }
   };
+
+	// --- ZARZĄDZANIE GRAMI CROSSY ROAD (WIG ROAD) ---
+async function manageCrossyLobbies(db) {
+    const lobbiesRef = db.collection("crossy_lobbies");
+    const playingSnapshot = await lobbiesRef.where("status", "==", "playing").get();
+    
+    if (playingSnapshot.empty) return;
+
+    const batch = db.batch();
+    let updates = 0;
+
+    for (const docSnap of playingSnapshot.docs) {
+        const lobby = docSnap.data();
+        const players = lobby.players || [];
+        
+        // Sprawdź czy wszyscy są 'dead'
+        const allDead = players.every(p => p.dead === true);
+        
+        // Opcjonalnie: Timeout (np. gra trwa dłużej niż 5 minut - force end)
+        const now = admin.firestore.Timestamp.now();
+        // (można dodać createdAt do logiki timeoutu)
+
+        if (allDead && players.length > 0) {
+            console.log(`🏁 Crossy Lobby ${docSnap.id} zakończone. Rozliczam...`);
+            
+            // Znajdź zwycięzcę
+            // Sortuj malejąco po wyniku
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            const winner = sortedPlayers[0]; // Najlepszy
+            const totalPot = lobby.entryFee * players.length;
+
+            console.log(`🏆 Wygrał: ${winner.name} (Wynik: ${winner.score}), Pula: ${totalPot}`);
+
+            // Wypłata dla zwycięzcy
+            const winnerRef = db.collection("uzytkownicy").doc(winner.id);
+            const profit = totalPot - lobby.entryFee;
+            
+            batch.update(winnerRef, {
+                cash: admin.firestore.FieldValue.increment(totalPot),
+                totalValue: admin.firestore.FieldValue.increment(totalPot),
+                zysk: admin.firestore.FieldValue.increment(profit)
+            });
+
+            // Oznaczamy lobby jako finished
+            batch.update(docSnap.ref, { status: "finished", winnerId: winner.id });
+            updates++;
+        }
+    }
+
+    if (updates > 0) {
+        await batch.commit();
+        console.log(`✅ Rozliczono ${updates} gier Crossy.`);
+    }
+}
 
   mainLoop();
 
