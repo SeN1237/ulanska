@@ -5270,26 +5270,47 @@ function renderSkiLoop() {
     }
     // 2. Logika powtórki
     else if (skiState.phase === 'replay' && replayData) {
-        if (replayFrame < replayData.trajectory.length) {
+        if (replayData.trajectory && replayFrame < replayData.trajectory.length) {
             const frame = replayData.trajectory[replayFrame];
             skiState.x = frame.x;
             skiState.y = frame.y;
             skiState.rotation = frame.r;
             replayFrame++;
             
+            // Kamera podąża też na powtórce
             // Update HUD
             const dist = (skiState.x - SKI_TAKEOFF_X) / 4;
-            document.getElementById("sj-distance-display").textContent = dist.toFixed(1) + " m";
+            let displayDist = dist > 0 ? dist : 0;
+            document.getElementById("sj-distance-display").textContent = displayDist.toFixed(1) + " m";
         } else {
-            // Koniec powtórki
-            document.getElementById("skijump-status-msg").textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
+            // --- KONIEC POWTÓRKI ---
+            // Wyświetl wynik końcowy na chwilę
+            const msg = document.getElementById("skijump-status-msg");
+            if(msg) msg.textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
             
-            // Po 3 sekundach wróć do trybu oczekiwania (dane z Firebase same zaktualizują UI)
-            if(replayFrame === replayData.trajectory.length) {
+            // Wymuś koniec powtórki po 2 sekundach
+            if (skiState.phase === 'replay') {
                 setTimeout(() => {
-                    if(skiState.phase === 'replay') skiState.phase = 'idle';
-                }, 3000);
-                replayFrame++; // Żeby timeout odpalił się raz
+                    // Tylko jeśli nadal jesteśmy w trybie replay (żeby nie przerwać nowej gry)
+                    if (skiState.phase === 'replay') {
+                        skiState.phase = 'idle';
+                        // Ważne: Wymuś odświeżenie UI
+                        const overlay = document.getElementById("skijump-overlay");
+                        if(overlay) overlay.classList.remove("hidden");
+                        
+                        // Zresetuj pozycję skoczka na start (żeby nie znikał)
+                        skiState.x = SKI_HILL_START_X;
+                        skiState.y = SKI_HILL_START_Y;
+                        skiState.cameraX = 0;
+                        
+                        // Wymuś ponowne sprawdzenie stanu gry
+                        // (Firebase snapshot i tak przyjdzie, ale to czyści widok)
+                        document.getElementById("skijump-instruction").textContent = "Czekaj na kolejnego skoczka...";
+                    }
+                }, 2000);
+                
+                // Ustawiamy frame na max, żeby nie wchodzić tu co klatkę
+                replayFrame = Number.MAX_SAFE_INTEGER; 
             }
         }
     }
@@ -5304,42 +5325,74 @@ function drawSkiGame() {
     const w = skiCanvas.width;
     const h = skiCanvas.height;
     
-    // Kamera śledzi skoczka
+    // Kamera śledzi skoczka (płynne podążanie)
     let targetCamX = skiState.x - 200;
     if (targetCamX < 0) targetCamX = 0;
+    // Ograniczenie kamery, żeby nie wyjechała za daleko w prawo
+    if (targetCamX > 600) targetCamX = 600; 
+    
     skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
 
     skiCtx.clearRect(0, 0, w, h);
     skiCtx.save();
     skiCtx.translate(-skiState.cameraX, 0);
 
-    // Rysuj Skocznię
+    // --- 1. Rysowanie Skoczni ---
     skiCtx.beginPath();
-    skiCtx.strokeStyle = "#fff";
-    skiCtx.lineWidth = 5;
+    skiCtx.strokeStyle = "#eee"; // Kolor śniegu obrys
+    skiCtx.lineWidth = 2;
+    skiCtx.fillStyle = "#fff"; // Kolor śniegu wypełnienie
+    
     skiCtx.moveTo(0, SKI_HILL_START_Y);
     
-    // Rysujemy linię profilu co 10px
-    for(let i=0; i<1000; i+=10) {
+    // Rysujemy profil góry
+    for(let i=0; i<1200; i+=10) {
         skiCtx.lineTo(i, getHillY(i));
     }
+    // Domykamy kształt do dołu ekranu, żeby wypełnić kolorem
+    skiCtx.lineTo(1200, h + 200);
+    skiCtx.lineTo(0, h + 200);
+    skiCtx.fill();
+    skiCtx.stroke();
+
+    // --- 2. Linie Dystansu (Lądowisko) ---
+    // Punkt K (Czerwona linia) - np. 120m (w grze to ok. SKI_K_POINT)
+    const kX = SKI_TAKEOFF_X + SKI_K_POINT;
+    const kY = getHillY(kX);
+    
+    skiCtx.beginPath();
+    skiCtx.strokeStyle = "red";
+    skiCtx.lineWidth = 3;
+    skiCtx.moveTo(kX, kY);
+    skiCtx.lineTo(kX + 20, kY + 10); // Skośna linia na śniegu
     skiCtx.stroke();
     
-    // Wypełnienie śniegiem pod spodem
-    skiCtx.lineTo(1000, h+500);
-    skiCtx.lineTo(0, h+500);
-    skiCtx.fillStyle = "#eee";
-    skiCtx.fill();
+    // Linie pomocnicze (co 10m w grze = 40px)
+    skiCtx.lineWidth = 1;
+    skiCtx.strokeStyle = "rgba(0,0,255,0.3)";
+    for(let d = 50; d < 200; d += 10) {
+        let distPx = d * 4; 
+        let lineX = SKI_TAKEOFF_X + distPx;
+        let lineY = getHillY(lineX);
+        
+        skiCtx.beginPath();
+        skiCtx.moveTo(lineX, lineY);
+        skiCtx.lineTo(lineX, lineY + 5);
+        skiCtx.stroke();
+    }
 
-    // Punkt K
-    skiCtx.fillStyle = "red";
-    skiCtx.fillRect(SKI_K_POINT + SKI_TAKEOFF_X, getHillY(SKI_K_POINT + SKI_TAKEOFF_X), 5, 50);
+    // --- 3. Belka Startowa ---
+    skiCtx.fillStyle = "#8B4513"; // Drewno
+    // Rysujemy belkę trochę w lewo od punktu startu (x=50)
+    skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y - 2, 20, 5); 
+    // Słupek belki
+    skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y, 5, 20);
 
-    // Próg
-    skiCtx.fillStyle = "blue";
+    // --- 4. Próg ---
+    skiCtx.fillStyle = "#003366"; // Ciemny niebieski
     skiCtx.fillRect(SKI_TAKEOFF_X - 5, getHillY(SKI_TAKEOFF_X), 5, 10);
 
-    // Skoczek
+    // --- 5. Skoczek ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
         skiCtx.save();
         skiCtx.translate(skiState.x, skiState.y);
@@ -5347,15 +5400,32 @@ function drawSkiGame() {
         
         // Narty
         skiCtx.fillStyle = "orange";
-        skiCtx.fillRect(-20, 0, 40, 3);
+        skiCtx.fillRect(-20, 0, 45, 3); // Dłuższe narty
         
-        // Ludzik (kropka + kreska)
-        skiCtx.fillStyle = (skiState.phase === 'replay') ? 'red' : 'blue'; // Ja = Niebieski, Replay = Czerwony
-        skiCtx.beginPath();
-        skiCtx.arc(0, -10, 5, 0, Math.PI*2); // Głowa
-        skiCtx.fill();
+        // Ludzik
+        // Kolor: Niebieski (ja), Czerwony (powtórka)
+        skiCtx.fillStyle = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
         
-        skiCtx.fillRect(-5, -10, 10, 10); // Tułów
+        // Pozycja zjazdowa (kucnięcie) vs lot
+        if (skiState.phase === 'inrun') {
+            skiCtx.fillRect(-10, -8, 15, 8); // Kucnięty
+            skiCtx.beginPath(); 
+            skiCtx.arc(0, -8, 4, 0, Math.PI*2); // Głowa niżej
+            skiCtx.fill();
+        } else {
+            // Wyprostowany w locie
+            skiCtx.beginPath();
+            // Ciało pochylone do przodu
+            skiCtx.moveTo(-5, -2); 
+            skiCtx.lineTo(15, -15);
+            skiCtx.lineTo(10, -2);
+            skiCtx.fill();
+            
+            // Głowa
+            skiCtx.beginPath();
+            skiCtx.arc(16, -16, 4, 0, Math.PI*2);
+            skiCtx.fill();
+        }
         
         skiCtx.restore();
     }
