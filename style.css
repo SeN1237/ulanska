@@ -2386,3 +2386,47 @@ input:focus, select:focus { border-color: var(--accent-color); }
         height: 300px;
     }
 }
+/* --- STEROWANIE MOBILNE WIG ROAD --- */
+.mobile-dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+.dpad-row {
+    display: flex;
+    gap: 15px;
+}
+
+.dpad-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    touch-action: manipulation; /* Zapobiega zoomowaniu przy szybkim klikaniu */
+    transition: background 0.1s, transform 0.1s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.dpad-btn:active {
+    background: var(--accent-color);
+    color: #000;
+    transform: scale(0.95);
+    border-color: var(--accent-color);
+}
+
+/* Ukryj sterowanie na dużych ekranach (opcjonalnie, jeśli chcesz tylko na mobile) */
+@media (min-width: 1024px) {
+    .mobile-dpad {
+        display: none;
+    }
+}
