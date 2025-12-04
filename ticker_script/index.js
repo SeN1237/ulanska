@@ -468,3 +468,58 @@ async function manageCrossyLobbies(db) {
   console.error("Init Error:", e);
   process.exit(1); 
 }
+// W ticker_script/index.js
+
+async function manageSkiLobbies(db) {
+    // Szukamy konkursów, które są 'active' lub 'open' ale trwają za długo (np. > 15 min)
+    // UWAGA: Wymaga to, abyś w createSkiLobby zapisywał createdAt jako ServerTimestamp (już to robisz)
+    
+    // Dla uproszczenia: Szukamy starych gier. 
+    // W Firestore query: .where("createdAt", "<", timeThreshold)
+    
+    const lobbiesRef = db.collection("skijump_lobbies");
+    const now = Date.now();
+    const cutoff = now - (20 * 60 * 1000); // 20 minut temu
+    
+    // Ponieważ createdAt to Timestamp, musimy przekonwertować datę JS na Timestamp
+    const cutoffTimestamp = admin.firestore.Timestamp.fromMillis(cutoff);
+
+    const stuckSnapshot = await lobbiesRef
+        .where("status", "in", ["active", "open"])
+        .where("createdAt", "<", cutoffTimestamp)
+        .get();
+
+    if (stuckSnapshot.empty) return;
+
+    const batch = db.batch();
+    let count = 0;
+
+    for (const doc of stuckSnapshot.docs) {
+        const data = doc.data();
+        
+        // ZWRACAMY KASĘ WSZYSTKIM (Safety refund)
+        // W idealnym świecie wyliczyłbyś kto skoczył, ale przy awarii lepiej oddać kasę.
+        const fee = data.entryFee || 0;
+        
+        if (fee > 0 && data.players) {
+            for (const p of data.players) {
+                const uRef = db.collection("uzytkownicy").doc(p.id);
+                batch.update(uRef, {
+                    cash: admin.firestore.FieldValue.increment(fee),
+                    totalValue: admin.firestore.FieldValue.increment(fee)
+                });
+            }
+        }
+
+        // Oznaczamy jako anulowane
+        batch.update(doc.ref, { status: "cancelled" });
+        count++;
+    }
+
+    if (count > 0) {
+        await batch.commit();
+        console.log(`🧹 Wyczyszczono ${count} zawieszonych konkursów skoków.`);
+    }
+}
+
+// Pamiętaj, aby dodać await manageSkiLobbies(db); wewnątrz funkcji runTicker()!
