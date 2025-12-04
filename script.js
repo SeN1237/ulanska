@@ -5452,76 +5452,88 @@ function drawSkiGame() {
     const w = skiCanvas.width;
     const h = skiCanvas.height;
     
-    // Dynamiczne parametry skoczni
     const takeoffX = currentHillParams.takeoff;
     const kPointX = takeoffX + currentHillParams.k;
 
-    // --- 1. LOGIKA KAMERY ---
-    let targetCamX = skiState.x - 200; // Kamera śledzi skoczka, trzymając go z lewej strony
-    if (targetCamX < 0) targetCamX = 0;
+    // --- 1. LOGIKA KAMERY (X i Y) ---
     
-    // Płynne podążanie (lerp)
-    skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
+    // Obliczamy cel kamery X (poziomo) - trzymamy skoczka z lewej strony (offset 200px)
+    let targetCamX = skiState.x - 200;
+    if (targetCamX < 0) targetCamX = 0;
 
-    // --- 2. CZYSZCZENIE EKRANU (Naprawia ślady/ghosting) ---
+    // Obliczamy cel kamery Y (pionowo) - trzymamy skoczka mniej więcej na środku (offset h/2)
+    // Jeśli skoczek jest wysoko, kamera idzie w górę. Jeśli nisko - w dół.
+    let targetCamY = skiState.y - (h / 2);
+    
+    // Ograniczenie, żeby kamera nie wychodziła za wysoko w niebo na starcie
+    // (opcjonalne, zależnie od gustu - można usunąć ifa, jeśli chcesz pełną swobodę)
+    if (targetCamY < -50) targetCamY = -50;
+
+    // Inicjalizacja zmiennej cameraY, jeśli jeszcze nie istnieje
+    if (typeof skiState.cameraY === 'undefined') skiState.cameraY = 0;
+
+    // Płynne podążanie (lerp) dla obu osi
+    skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
+    skiState.cameraY += (targetCamY - skiState.cameraY) * 0.1;
+
+    // --- 2. CZYSZCZENIE I PRZESUNIĘCIE ---
     skiCtx.clearRect(0, 0, w, h);
 
-    // --- 3. PRZESUNIĘCIE ŚWIATA (Naprawia kamerę) ---
     skiCtx.save();
-    skiCtx.translate(-skiState.cameraX, 0);
+    // Przesuwamy świat o X oraz o Y
+    skiCtx.translate(-skiState.cameraX, -skiState.cameraY);
 
-    // --- 4. RYSOWANIE SKOCZNI (Naprawia brak góry) ---
-    skiCtx.fillStyle = "#fff"; // Kolor śniegu
+    // --- 3. RYSOWANIE GÓRY ---
+    skiCtx.fillStyle = "#fff"; 
     skiCtx.beginPath();
     
-    // Rysujemy tylko ten fragment góry, który widzi kamera (optymalizacja)
+    // Optymalizacja: Rysujemy tylko widoczny fragment w poziomie
     const startDrawX = Math.floor(skiState.cameraX);
-    const endDrawX = startDrawX + w + 50;
+    const endDrawX = startDrawX + w + 100; // lekki zapas
     
-    // Start od lewego dolnego rogu widoku
-    skiCtx.moveTo(startDrawX, h);
+    // Zaczynamy od dołu ekranu (ale uwzględniamy przesunięcie kamery Y!)
+    // Musimy rysować "głęboko" w dół, żeby przy kamerowaniu w górę nie było dziury pod śniegiem
+    const bottomY = skiState.cameraY + h + 200; 
+
+    skiCtx.moveTo(startDrawX, bottomY);
     
-    // Rysowanie profilu góry co 10 pikseli
     for (let x = startDrawX; x <= endDrawX; x += 10) {
         skiCtx.lineTo(x, getHillY(x));
     }
     
-    // Zamknięcie kształtu w prawym dolnym rogu
-    skiCtx.lineTo(endDrawX, h);
+    skiCtx.lineTo(endDrawX, bottomY);
     skiCtx.closePath();
     skiCtx.fill();
     
-    // Opcjonalnie: Kontur góry
     skiCtx.strokeStyle = "#ddd";
     skiCtx.lineWidth = 1;
     skiCtx.stroke();
 
-    // --- 5. ELEMENTY SKOCZNI (Punkt K, Belka) ---
+    // --- 4. ELEMENTY SKOCZNI ---
     
-    // Linia Punktu K (Czerwona krecha)
+    // Punkt K
     const kY = getHillY(kPointX);
     skiCtx.beginPath();
     skiCtx.strokeStyle = "red";
     skiCtx.lineWidth = 3;
     skiCtx.moveTo(kPointX, kY);
-    skiCtx.lineTo(kPointX, kY + 50); // Pionowa linia w dół
+    skiCtx.lineTo(kPointX, kY + 50);
     skiCtx.stroke();
     
-    // Tekst "K-Point"
     skiCtx.fillStyle = "red";
     skiCtx.font = "12px Arial";
     skiCtx.fillText("K", kPointX - 5, kY + 60);
 
-    // Belka startowa
+    // Belka
     skiCtx.fillStyle = "#8B4513"; 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y - 2, 20, 5); 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y, 5, 20);
 
-    // Próg (oznaczenie końca rozbiegu)
+    // Próg
     skiCtx.fillStyle = "#003366"; 
     skiCtx.fillRect(takeoffX - 5, getHillY(takeoffX), 5, 10);
 
-    // --- 6. RYSOWANIE SKOCZKA ---
+    // --- 5. RYSOWANIE SKOCZKA ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
         skiCtx.save();
         skiCtx.translate(skiState.x, skiState.y);
@@ -5531,25 +5543,22 @@ function drawSkiGame() {
         skiCtx.fillStyle = "orange";
         skiCtx.fillRect(-20, 0, 45, 3);
         
-        // Ludzik (Czerwony dla powtórki, Niebieski dla gracza)
+        // Ludzik
         skiCtx.fillStyle = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
         
         if (skiState.phase === 'inrun') {
-            // Pozycja dojazdowa (zjazd)
             skiCtx.fillRect(-10, -8, 15, 8); 
             skiCtx.beginPath(); 
             skiCtx.arc(0, -8, 4, 0, Math.PI*2); 
             skiCtx.fill();
         } else {
-            // Pozycja w locie (V-style / DSJ style)
-            // Ciało pochylone do przodu
+            // Styl V
             skiCtx.beginPath();
             skiCtx.moveTo(-5, -2); 
-            skiCtx.lineTo(25, -10); // Głowa mocno do przodu
+            skiCtx.lineTo(25, -10);
             skiCtx.lineTo(10, -2);
             skiCtx.fill();
             
-            // Głowa
             skiCtx.beginPath();
             skiCtx.arc(26, -11, 4, 0, Math.PI*2);
             skiCtx.fill();
@@ -5558,8 +5567,5 @@ function drawSkiGame() {
         skiCtx.restore();
     }
 
-    // --- 7. PRZYWRÓCENIE KONTEKSTU ---
-    // Bardzo ważne: przywraca układ współrzędnych do stanu sprzed translate()
-    // dzięki temu kolejne klatki nie przesuwają się w nieskończoność
     skiCtx.restore();
 }
