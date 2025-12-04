@@ -590,8 +590,29 @@ initMinesGrid(); // Funkcja rysująca pustą siatkę na start
             chatWindow.classList.add("hidden");
         }
     });
+    // --- TUTAJ WKLEJ TEN KOD ---
+    // Sterowanie Myszką (DSJ Style)
+    const skiCanvasEl = document.getElementById("skijump-canvas"); 
+    if(skiCanvasEl) {
+        // Kliknięcie myszką (Start / Wybicie / Lądowanie)
+        skiCanvasEl.addEventListener("mousedown", (e) => {
+            e.preventDefault(); 
+            handleSkiClick();
+        });
+        
+        // Ruch myszką (Balans w locie)
+        skiCanvasEl.addEventListener("mousemove", handleSkiMove);
+        
+        // Dotyk (Telefon)
+        skiCanvasEl.addEventListener("touchstart", (e) => { 
+            e.preventDefault(); 
+            handleSkiClick(); 
+        }, { passive: false });
+    }
+    // ---------------------------
+
     startAuthListener();
-});
+}); // <--- To jest klamra zamykająca DOMContentLoaded
 
 // --- OBSŁUGA DANYCH PORTFELA ---
 function listenToPortfolioData(userId) {
@@ -4734,39 +4755,38 @@ function resetExamUI() {
 // === SKI JUMP (DSJ STYLE) LOGIC ===
 // ==========================================
 
+
 let activeSkiId = null;
-let cachedSkiData = null; // <--- DODAJ TO
+let cachedSkiData = null;
 let skiSubscription = null;
 let skiGameLoop = null;
 let skiCanvas, skiCtx;
 
-// Fizyka i Stan Lokalny
-let skiState = {
-    phase: 'idle', // idle, gate, inrun, flight, landed, replay
-    x: 0, y: 0,
-    vx: 0, vy: 0,
-    rotation: 0, // Kąt nart
-    distance: 0,
-    cameraX: 0,
-    trajectory: [] // Do powtórek
-};
-
-// ==========================================
-// === SKI JUMP CONFIG & DATA ===
-// ==========================================
-
 // Definicje 4 skoczni (Parametry fizyczne i wizualne)
+// WAŻNE: To musi być tutaj, żeby fizyka to widziała!
 const HILLS_CONFIG = [
-    { name: "Oberstdorf", k: 600, takeoff: 350, scale: 1.0, color: "#87CEEB" }, // Normalna
-    { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff" }, // Trochę większa
-    { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de" }, // Mniejsza, techniczna (Bergisel)
-    { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5" } // Gigant (zachód słońca)
+    { name: "Oberstdorf", k: 600, takeoff: 350, scale: 1.0, color: "#87CEEB" }, 
+    { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff" }, 
+    { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de" }, 
+    { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5" }
 ];
 
 // Zmienna trzymająca parametry AKTUALNEJ skoczni (domyślnie pierwsza)
+// Jeśli tego brakuje, gra nie wie jak rysować górę!
 let currentHillParams = HILLS_CONFIG[0]; 
 
-// Stałe fizyki (Grawitacja itp. bez zmian)
+// Fizyka i Stan Lokalny
+let skiState = {
+    phase: 'idle',
+    x: 0, y: 0,
+    vx: 0, vy: 0,
+    rotation: 0,
+    distance: 0,
+    cameraX: 0,
+    trajectory: [] 
+};
+
+// Stałe fizyki
 const SKI_GRAVITY = 0.15;
 const SKI_AIR_RESISTANCE = 0.99;
 const SKI_LIFT_FACTOR = 0.008;
@@ -5215,8 +5235,11 @@ function physicsStep() {
 }
 
 function getHillY(x) {
-    const takeoffX = currentHillParams.takeoff;
-    const scale = currentHillParams.scale;
+    // Zabezpieczenie: Jeśli params nie istnieją, użyj domyślnych
+    const params = currentHillParams || { takeoff: 350, scale: 1.0 };
+    
+    const takeoffX = params.takeoff;
+    const scale = params.scale;
 
     // 1. Rozbieg
     if (x < takeoffX) {
