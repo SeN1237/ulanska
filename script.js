@@ -5630,3 +5630,360 @@ function drawSkiGame() {
     }
 	skiCtx.restore(); // <--- TEGO BRAKOWAŁO: Przywraca kamerę (save z początku funkcji)
 } // <--- TEGO BRAKOWAŁO: Zamyka funkcję drawSkiGame()
+// ==========================================
+// === F1 GRAND PRIX (MMO RACING) ===
+// ==========================================
+
+// --- KONFIGURACJA BOLIDÓW ---
+const F1_CARS = {
+    'red':    { name: "Scuderia", color: '#ff0000', maxSpeed: 7.0, acc: 0.15, turn: 0.04 }, // Szybki, średni skręt
+    'silver': { name: "Silver Arrow", color: '#c0c0c0', maxSpeed: 7.2, acc: 0.12, turn: 0.035 }, // V-max, słabe przyspieszenie
+    'blue':   { name: "Red Bull", color: '#1e3c72', maxSpeed: 6.8, acc: 0.18, turn: 0.045 }, // Dobre przyspieszenie
+    'green':  { name: "Aston", color: '#006400', maxSpeed: 6.5, acc: 0.16, turn: 0.055 }, // Najlepszy skręt
+    'orange': { name: "McLaren", color: '#ff8c00', maxSpeed: 6.9, acc: 0.14, turn: 0.042 }  // Zbalansowany
+};
+
+let f1Canvas, f1Ctx;
+let f1MyCar = { 
+    id: null, x: 100, y: 400, angle: 0, speed: 0, 
+    type: 'red', lap: 1, lastCheckpoint: 0, lapStartTime: 0 
+};
+let f1Opponents = {}; 
+let f1GameActive = false;
+let f1Keys = {};
+let f1Unsub = null;
+let f1LastSent = 0;
+let f1TrackPath = null; // Ścieżka toru do wykrywania kolizji
+
+document.addEventListener("DOMContentLoaded", () => {
+    initF1Lobby();
+    document.getElementById("btn-f1-join")?.addEventListener("click", joinF1Game);
+    document.getElementById("btn-f1-leave")?.addEventListener("click", leaveF1Game);
+    
+    // Obsługa klawiszy
+    window.addEventListener("keydown", (e) => { 
+        if(f1GameActive) {
+            f1Keys[e.key] = true; 
+            if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault();
+        }
+    });
+    window.addEventListener("keyup", (e) => { if(f1GameActive) f1Keys[e.key] = false; });
+});
+
+function initF1Lobby() {
+    const grid = document.querySelector(".f1-garage-grid");
+    if(!grid) return;
+    grid.innerHTML = "";
+
+    Object.keys(F1_CARS).forEach(key => {
+        const car = F1_CARS[key];
+        const div = document.createElement("div");
+        div.className = "f1-car-card";
+        div.innerHTML = `
+            <i class="fa-solid fa-car-side f1-icon" style="color:${car.color}"></i>
+            <strong>${car.name}</strong>
+        `;
+        div.onclick = () => selectF1Car(key, div);
+        grid.appendChild(div);
+    });
+}
+
+function selectF1Car(key, element) {
+    document.querySelectorAll(".f1-car-card").forEach(c => c.classList.remove("selected"));
+    element.classList.add("selected");
+    
+    const car = F1_CARS[key];
+    f1MyCar.type = key;
+    
+    document.getElementById("f1-selected-stats").innerHTML = 
+        `V-Max: ${(car.maxSpeed*40).toFixed(0)} km/h | Acc: ${(car.acc*100).toFixed(0)} | Skręt: ${(car.turn*100).toFixed(0)}`;
+    
+    document.getElementById("btn-f1-join").disabled = false;
+}
+
+// --- DOŁĄCZANIE DO GRY ---
+async function joinF1Game() {
+    if(!currentUserId) return showMessage("Zaloguj się!", "error");
+
+    // Przełącz widok
+    document.getElementById("f1-lobby").classList.add("hidden");
+    document.getElementById("f1-game").classList.remove("hidden");
+    
+    f1Canvas = document.getElementById("f1-canvas");
+    f1Ctx = f1Canvas.getContext('2d');
+    
+    // Inicjalizacja Toru
+    createTrackPath();
+
+    // Reset stanu gracza
+    f1MyCar.x = 120; // Startowa pozycja
+    f1MyCar.y = 420;
+    f1MyCar.angle = -Math.PI / 2; // Skierowany w górę
+    f1MyCar.speed = 0;
+    f1MyCar.lap = 1;
+    f1MyCar.lastCheckpoint = 0;
+    f1MyCar.lapStartTime = Date.now();
+    f1MyCar.id = currentUserId;
+
+    f1GameActive = true;
+
+    // Zapisz gracza w bazie
+    const myRef = doc(db, "f1_players", currentUserId);
+    await setDoc(myRef, {
+        name: portfolio.name,
+        type: f1MyCar.type,
+        x: f1MyCar.x,
+        y: f1MyCar.y,
+        angle: f1MyCar.angle,
+        lastActive: serverTimestamp()
+    });
+
+    // Nasłuchiwanie innych
+    startF1Listener();
+
+    // Start pętli
+    requestAnimationFrame(f1GameLoop);
+}
+
+function leaveF1Game() {
+    f1GameActive = false;
+    if(f1Unsub) f1Unsub();
+    
+    document.getElementById("f1-lobby").classList.remove("hidden");
+    document.getElementById("f1-game").classList.add("hidden");
+    
+    deleteDoc(doc(db, "f1_players", currentUserId));
+}
+
+// --- SYNC Z BAZĄ ---
+function startF1Listener() {
+    f1Unsub = onSnapshot(collection(db, "f1_players"), (snap) => {
+        snap.docChanges().forEach(change => {
+            const d = change.doc.data();
+            const id = change.doc.id;
+            if(id === currentUserId) return;
+
+            if(change.type === "added" || change.type === "modified") {
+                if(!f1Opponents[id]) {
+                    f1Opponents[id] = { ...d, currX: d.x, currY: d.y, currAngle: d.angle };
+                } else {
+                    // Update celu (do interpolacji)
+                    f1Opponents[id].x = d.x;
+                    f1Opponents[id].y = d.y;
+                    f1Opponents[id].angle = d.angle;
+                    f1Opponents[id].type = d.type;
+                }
+            }
+            if(change.type === "removed") delete f1Opponents[id];
+        });
+    });
+}
+
+// --- FIZYKA I RENDEROWANIE ---
+function createTrackPath() {
+    // Definiujemy kształt toru (prosta pętla)
+    f1TrackPath = new Path2D();
+    
+    // Rysujemy linię środkową toru
+    f1TrackPath.moveTo(120, 450); // Start/Meta
+    f1TrackPath.lineTo(120, 150); // Prosta w górę
+    f1TrackPath.bezierCurveTo(120, 50, 300, 50, 300, 150); // Zakręt 1
+    f1TrackPath.lineTo(300, 300); // Prosta
+    f1TrackPath.bezierCurveTo(300, 450, 500, 450, 500, 300); // Zakręt S
+    f1TrackPath.lineTo(500, 150);
+    f1TrackPath.bezierCurveTo(500, 50, 700, 50, 700, 150); // Zakręt końcowy
+    f1TrackPath.lineTo(700, 450); // Prosta powrotna długa
+    f1TrackPath.bezierCurveTo(700, 550, 120, 550, 120, 450); // Nawrót do startu
+    f1TrackPath.closePath();
+}
+
+function f1GameLoop() {
+    if(!f1GameActive) return;
+
+    updateF1Physics();
+    drawF1Game();
+    
+    requestAnimationFrame(f1GameLoop);
+}
+
+function updateF1Physics() {
+    const stats = F1_CARS[f1MyCar.type];
+    
+    // 1. Sterowanie
+    if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
+    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; // Hamulec
+    
+    // Skręcanie (tylko jak jedzie)
+    if(Math.abs(f1MyCar.speed) > 0.1) {
+        const dir = f1MyCar.speed > 0 ? 1 : -1;
+        if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
+        if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
+    }
+
+    // 2. Wykrywanie terenu (Czy jesteśmy na torze?)
+    // ctx.isPointInStroke sprawdza czy punkt jest na "obrysie" ścieżki
+    // Ustawiamy szerokość pędzla na szerokość toru (np. 60px)
+    // UWAGA: To jest trick - musimy to sprawdzić na wirtualnym kontekście lub bieżącym
+    f1Ctx.lineWidth = 70; // Szerokość asfaltu
+    const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
+    
+    // 3. Tarcie i limity
+    let friction = 0.96; // Asfalt
+    let maxS = stats.maxSpeed;
+
+    if (!onTrack) {
+        friction = 0.90; // Trawa (mocne hamowanie)
+        maxS = 2.0; // V-max na trawie
+    }
+
+    f1MyCar.speed *= friction;
+    if(f1MyCar.speed > maxS) f1MyCar.speed = maxS;
+    if(f1MyCar.speed < -2) f1MyCar.speed = -2; // Wsteczny
+
+    // 4. Ruch
+    f1MyCar.x += Math.cos(f1MyCar.angle) * f1MyCar.speed;
+    f1MyCar.y += Math.sin(f1MyCar.angle) * f1MyCar.speed;
+
+    // 5. Linia Mety (Prosty check pozycji X,Y)
+    // Meta jest w okolicach x=120, y=450. Jedziemy w górę (y maleje).
+    // Checkpointy zapobiegają oszukiwaniu.
+    
+    // CP1 (Góra)
+    if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
+    // CP2 (Prawa strona)
+    if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
+    
+    // Meta (Dół lewa, po CP2)
+    if(f1MyCar.x < 200 && f1MyCar.y > 400 && f1MyCar.lastCheckpoint === 2) {
+        f1MyCar.lap++;
+        f1MyCar.lastCheckpoint = 0;
+        // Efekt dźwiękowy okrążenia?
+        if(dom.audioKaching) { 
+             const c = dom.audioKaching.cloneNode(); c.volume=0.3; c.play().catch(()=>{});
+        }
+    }
+
+    // 6. UI Update
+    document.getElementById("f1-speed").textContent = (Math.abs(f1MyCar.speed) * 40).toFixed(0);
+    document.getElementById("f1-lap").textContent = f1MyCar.lap;
+    const time = ((Date.now() - f1MyCar.lapStartTime) / 1000).toFixed(2);
+    document.getElementById("f1-time").textContent = time;
+
+    // 7. Sync z bazą (co 100ms)
+    const now = Date.now();
+    if(now - f1LastSent > 100) {
+        f1LastSent = now;
+        updateDoc(doc(db, "f1_players", currentUserId), {
+            x: f1MyCar.x,
+            y: f1MyCar.y,
+            angle: f1MyCar.angle
+        }).catch(()=>{});
+    }
+}
+
+function drawF1Game() {
+    // Tło (Trawa)
+    f1Ctx.fillStyle = '#2d5a27'; // Ciemna zieleń
+    f1Ctx.fillRect(0, 0, f1Canvas.width, f1Canvas.height);
+
+    // Tor (Asfalt)
+    f1Ctx.lineCap = 'round';
+    f1Ctx.lineJoin = 'round';
+    
+    // Obramowanie toru (Krawężniki)
+    f1Ctx.strokeStyle = '#fff';
+    f1Ctx.lineWidth = 76;
+    f1Ctx.stroke(f1TrackPath);
+    
+    f1Ctx.strokeStyle = '#c00'; // Tarky (czerwone paski - uproszczone)
+    f1Ctx.lineWidth = 74;
+    f1Ctx.setLineDash([10, 10]);
+    f1Ctx.stroke(f1TrackPath);
+    f1Ctx.setLineDash([]);
+
+    // Właściwy asfalt
+    f1Ctx.strokeStyle = '#333';
+    f1Ctx.lineWidth = 70;
+    f1Ctx.stroke(f1TrackPath);
+    
+    // Linia startu/mety
+    f1Ctx.save();
+    f1Ctx.translate(120, 450);
+    f1Ctx.fillStyle = '#fff';
+    f1Ctx.fillRect(-35, -5, 70, 10); // Biała krecha
+    f1Ctx.fillStyle = '#000'; // Szachownica (uproszczona)
+    f1Ctx.fillRect(-35, 0, 10, 5);
+    f1Ctx.fillRect(-15, 0, 10, 5);
+    f1Ctx.fillRect(5, 0, 10, 5);
+    f1Ctx.fillRect(25, 0, 10, 5);
+    f1Ctx.restore();
+
+    // Rysowanie Przeciwników (Z interpolacją)
+    Object.values(f1Opponents).forEach(opp => {
+        // Interpolacja pozycji (smoothing)
+        opp.currX += (opp.x - opp.currX) * 0.15;
+        opp.currY += (opp.y - opp.currY) * 0.15;
+        
+        // Kąt jest trudniejszy do interpolacji (problem 359 -> 1 st), więc bierzemy bezpośrednio
+        // lub prostą interpolację
+        
+        drawF1Car(opp.currX, opp.currY, opp.angle, F1_CARS[opp.type].color, false);
+    });
+
+    // Rysowanie Mojego Auta
+    drawF1Car(f1MyCar.x, f1MyCar.y, f1MyCar.angle, F1_CARS[f1MyCar.type].color, true);
+}
+
+function drawF1Car(x, y, angle, color, isMe) {
+    f1Ctx.save();
+    f1Ctx.translate(x, y);
+    f1Ctx.rotate(angle);
+    
+    // Cień
+    f1Ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    f1Ctx.fillRect(-8, -8, 24, 16);
+
+    // Koła
+    f1Ctx.fillStyle = '#000';
+    f1Ctx.fillRect(-8, -10, 8, 4);  // Tył L
+    f1Ctx.fillRect(-8, 6, 8, 4);    // Tył P
+    f1Ctx.fillRect(10, -10, 6, 4);  // Przód L
+    f1Ctx.fillRect(10, 6, 6, 4);    // Przód P
+
+    // Korpus (Bolid)
+    f1Ctx.fillStyle = color;
+    // Główna bryła
+    f1Ctx.beginPath();
+    f1Ctx.moveTo(-10, -5);
+    f1Ctx.lineTo(15, -3); // Nos
+    f1Ctx.lineTo(15, 3);
+    f1Ctx.lineTo(-10, 5);
+    f1Ctx.fill();
+    
+    // Spoiler tył
+    f1Ctx.fillStyle = isMe ? '#fff' : '#ccc'; // Własny spoiler jaśniejszy
+    f1Ctx.fillRect(-12, -8, 4, 16);
+    
+    // Spoiler przód
+    f1Ctx.fillStyle = color;
+    f1Ctx.fillRect(14, -8, 2, 16);
+
+    // Kask kierowcy
+    f1Ctx.fillStyle = '#ffff00';
+    f1Ctx.beginPath();
+    f1Ctx.arc(0, 0, 3, 0, Math.PI*2);
+    f1Ctx.fill();
+
+    // Oznaczenie gracza (trójkąt nad autem)
+    if(!isMe) {
+        f1Ctx.restore(); // Reset rotacji żeby nick był prosto? Nie, nick nad autem
+        f1Ctx.save();
+        f1Ctx.translate(x, y);
+        f1Ctx.fillStyle = '#fff';
+        f1Ctx.font = "10px Arial";
+        f1Ctx.textAlign = "center";
+        f1Ctx.fillText("Rival", 0, -20);
+    }
+
+    f1Ctx.restore();
+}
