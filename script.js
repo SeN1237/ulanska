@@ -5628,3 +5628,5 @@ function drawSkiGame() {
         
         skiCtx.restore();
     }
+	skiCtx.restore(); // <--- TEGO BRAKOWAŁO: Przywraca kamerę (save z początku funkcji)
+} // <--- TEGO BRAKOWAŁO: Zamyka funkcję drawSkiGame()
