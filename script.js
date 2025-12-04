@@ -5822,6 +5822,14 @@ function startF1Listener() {
 
 // --- FIZYKA (POPRAWIONA - ZAMYKAJĄCA KLAMRA DODANA) ---
 function updateF1Physics() {
+    // --- SAMONAPRAWA: Jeśli tor nie istnieje, stwórz go teraz ---
+    if (!f1TrackPath) {
+        console.warn("Wykryto brak toru, naprawianie...");
+        createTrackPath(); 
+        if (!f1TrackPath) return; // Jeśli nadal brak, przerwij klatkę (bezpiecznik)
+    }
+    // -----------------------------------------------------------
+
     const stats = F1_CARS[f1MyCar.type];
     
     // 1. Sterowanie
@@ -5835,7 +5843,7 @@ function updateF1Physics() {
         if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
     }
 
-    // 2. Wykrywanie terenu
+    // 2. Wykrywanie terenu (Teraz bezpieczne dzięki if powyżej)
     f1Ctx.lineWidth = 70; 
     const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
     
@@ -5885,7 +5893,7 @@ function updateF1Physics() {
             lastActive: serverTimestamp()
         }).catch(err => {});
     }
-} // <--- TEJ KLAMRY BRAKOWAŁO!
+}
 
 // TEJ FUNKCJI BRAKOWAŁO (Dlatego błąd "ReferenceError: f1GameLoop is not defined")
 function f1GameLoop() {
