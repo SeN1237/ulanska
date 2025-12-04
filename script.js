@@ -5452,41 +5452,76 @@ function drawSkiGame() {
     const w = skiCanvas.width;
     const h = skiCanvas.height;
     
-    // Dynamiczne parametry
+    // Dynamiczne parametry skoczni
     const takeoffX = currentHillParams.takeoff;
     const kPointX = takeoffX + currentHillParams.k;
 
-    // Kamera
-    let targetCamX = skiState.x - 200;
+    // --- 1. LOGIKA KAMERY ---
+    let targetCamX = skiState.x - 200; // Kamera śledzi skoczka, trzymając go z lewej strony
     if (targetCamX < 0) targetCamX = 0;
+    
+    // Płynne podążanie (lerp)
     skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
 
-    // ... (kod czyszczenia canvas i save context bez zmian) ...
-    // ... (kod rysowania śniegu - użyj takeoffX w pętli jeśli trzeba, ale getHillY już to robi) ...
+    // --- 2. CZYSZCZENIE EKRANU (Naprawia ślady/ghosting) ---
+    skiCtx.clearRect(0, 0, w, h);
 
-    // Rysowanie Linii Punktu K
-    const kY = getHillY(kPointX);
+    // --- 3. PRZESUNIĘCIE ŚWIATA (Naprawia kamerę) ---
+    skiCtx.save();
+    skiCtx.translate(-skiState.cameraX, 0);
+
+    // --- 4. RYSOWANIE SKOCZNI (Naprawia brak góry) ---
+    skiCtx.fillStyle = "#fff"; // Kolor śniegu
+    skiCtx.beginPath();
     
+    // Rysujemy tylko ten fragment góry, który widzi kamera (optymalizacja)
+    const startDrawX = Math.floor(skiState.cameraX);
+    const endDrawX = startDrawX + w + 50;
+    
+    // Start od lewego dolnego rogu widoku
+    skiCtx.moveTo(startDrawX, h);
+    
+    // Rysowanie profilu góry co 10 pikseli
+    for (let x = startDrawX; x <= endDrawX; x += 10) {
+        skiCtx.lineTo(x, getHillY(x));
+    }
+    
+    // Zamknięcie kształtu w prawym dolnym rogu
+    skiCtx.lineTo(endDrawX, h);
+    skiCtx.closePath();
+    skiCtx.fill();
+    
+    // Opcjonalnie: Kontur góry
+    skiCtx.strokeStyle = "#ddd";
+    skiCtx.lineWidth = 1;
+    skiCtx.stroke();
+
+    // --- 5. ELEMENTY SKOCZNI (Punkt K, Belka) ---
+    
+    // Linia Punktu K (Czerwona krecha)
+    const kY = getHillY(kPointX);
     skiCtx.beginPath();
     skiCtx.strokeStyle = "red";
     skiCtx.lineWidth = 3;
     skiCtx.moveTo(kPointX, kY);
-    skiCtx.lineTo(kPointX + 20, kY + 10);
+    skiCtx.lineTo(kPointX, kY + 50); // Pionowa linia w dół
     skiCtx.stroke();
+    
+    // Tekst "K-Point"
+    skiCtx.fillStyle = "red";
+    skiCtx.font = "12px Arial";
+    skiCtx.fillText("K", kPointX - 5, kY + 60);
 
-    // ... (kod linii metrowych: używaj takeoffX zamiast stałej) ...
-    // np: let lineX = takeoffX + distPx;
-
-    // Belka
+    // Belka startowa
     skiCtx.fillStyle = "#8B4513"; 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y - 2, 20, 5); 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y, 5, 20);
 
-    // Próg (dynamiczny X)
+    // Próg (oznaczenie końca rozbiegu)
     skiCtx.fillStyle = "#003366"; 
     skiCtx.fillRect(takeoffX - 5, getHillY(takeoffX), 5, 10);
 
-    // --- 5. SKOCZEK ---
+    // --- 6. RYSOWANIE SKOCZKA ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
         skiCtx.save();
         skiCtx.translate(skiState.x, skiState.y);
@@ -5496,31 +5531,35 @@ function drawSkiGame() {
         skiCtx.fillStyle = "orange";
         skiCtx.fillRect(-20, 0, 45, 3);
         
-        // Ludzik
+        // Ludzik (Czerwony dla powtórki, Niebieski dla gracza)
         skiCtx.fillStyle = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
         
         if (skiState.phase === 'inrun') {
-            // Pozycja dojazdowa
+            // Pozycja dojazdowa (zjazd)
             skiCtx.fillRect(-10, -8, 15, 8); 
             skiCtx.beginPath(); 
             skiCtx.arc(0, -8, 4, 0, Math.PI*2); 
             skiCtx.fill();
         } else {
             // Pozycja w locie (V-style / DSJ style)
+            // Ciało pochylone do przodu
             skiCtx.beginPath();
             skiCtx.moveTo(-5, -2); 
-            skiCtx.lineTo(20, -12); // Bardziej pochylony
+            skiCtx.lineTo(25, -10); // Głowa mocno do przodu
             skiCtx.lineTo(10, -2);
             skiCtx.fill();
             
             // Głowa
             skiCtx.beginPath();
-            skiCtx.arc(21, -13, 4, 0, Math.PI*2);
+            skiCtx.arc(26, -11, 4, 0, Math.PI*2);
             skiCtx.fill();
         }
         
         skiCtx.restore();
     }
 
+    // --- 7. PRZYWRÓCENIE KONTEKSTU ---
+    // Bardzo ważne: przywraca układ współrzędnych do stanu sprzed translate()
+    // dzięki temu kolejne klatki nie przesuwają się w nieskończoność
     skiCtx.restore();
 }
