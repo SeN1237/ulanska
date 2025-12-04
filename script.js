@@ -5702,6 +5702,41 @@ function selectF1Car(key, element) {
     document.getElementById("btn-f1-join").disabled = false;
 }
 
+// --- FUNKCJA RYSUJĄCA TOR (WKLEJ TO, TEGO BRAKUJE) ---
+function createTrackPath() {
+    // Definiujemy kształt toru (prosta pętla)
+    f1TrackPath = new Path2D();
+    
+    // Start/Meta (Podniesione wyżej, żeby nie ucinało na dole)
+    f1TrackPath.moveTo(120, 420); 
+    
+    // Prosta w górę
+    f1TrackPath.lineTo(120, 100); 
+    
+    // Zakręt 1 (Góra)
+    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
+    
+    // Prosta
+    f1TrackPath.lineTo(300, 280); 
+    
+    // Zakręt S (Środek)
+    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
+    
+    // Prosta do góry
+    f1TrackPath.lineTo(500, 100); 
+    
+    // Zakręt końcowy (Góra Prawa)
+    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
+    
+    // Prosta powrotna długa
+    f1TrackPath.lineTo(700, 420); 
+    
+    // Nawrót do startu (Dół - zmniejszony Y, żeby mieścił się w oknie)
+    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
+    
+    f1TrackPath.closePath();
+}
+
 // --- DOŁĄCZANIE DO GRY ---
 async function joinF1Game() {
     if(!currentUserId) return showMessage("Zaloguj się!", "error");
