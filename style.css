@@ -2571,9 +2571,10 @@ input:focus, select:focus { border-color: var(--accent-color); }
     position: relative;
     margin: 0 auto;
     width: 100%;
-    max-width: 800px; 
-    aspect-ratio: 800/500; /* Utrzymuje proporcje */
-    background: #2d5a27; /* Trawa jako tło kontenera */
+    max-width: 800px;
+    /* To sprawi, że tor będzie się skalował proporcjonalnie na każdym ekranie */
+    aspect-ratio: 800/500; 
+    background: #2d5a27;
     border: 4px solid #fff;
     border-radius: 10px;
     overflow: hidden;
