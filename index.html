@@ -287,12 +287,26 @@
         </div>
 
         <div id="f1-lobby">
-            <h3>Wybierz swój bolid:</h3>
-            <div class="f1-garage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 20px 0;">
-                </div>
-            <div id="f1-selected-stats" style="margin-bottom: 20px; color: var(--accent-color); font-weight: bold; min-height: 1.2em;"></div>
-            <button id="btn-f1-join" class="btn-accent btn-full-width" disabled>WYBIERZ BOLID</button>
+    <div id="f1-menu-view">
+        <div class="input-row" style="max-width:400px; margin: 0 auto 20px auto;">
+            <input type="number" id="f1-create-fee" class="dark-input" placeholder="Wpisowe (np. 500)" value="500">
+            <button id="btn-f1-create-lobby" class="btn-accent">STWÓRZ GP</button>
         </div>
+        
+        <h3>Dostępne Grand Prix</h3>
+        <div id="f1-races-list" class="race-list-container">
+            <p style="text-align:center; color:#888;">Ładowanie wyścigów...</p>
+        </div>
+    </div>
+
+    <div id="f1-car-select-view" class="hidden">
+        <h3><i class="fa-solid fa-arrow-left" style="cursor:pointer" onclick="backToF1Menu()"></i> Wybierz Bolid</h3>
+        <div class="f1-garage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 20px 0;">
+            </div>
+        <div id="f1-selected-stats" style="margin-bottom: 20px; color: var(--accent-color); font-weight: bold; min-height: 1.2em;"></div>
+        <button id="btn-f1-join-race" class="btn-accent btn-full-width" disabled>START SILNIKA</button>
+    </div>
+</div>
 
         <div id="f1-game" class="hidden">
             <div class="race-header-info">
