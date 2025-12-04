@@ -5631,37 +5631,41 @@ function drawSkiGame() {
 	skiCtx.restore(); // <--- TEGO BRAKOWAŁO: Przywraca kamerę (save z początku funkcji)
 } // <--- TEGO BRAKOWAŁO: Zamyka funkcję drawSkiGame()
 // ==========================================
-// === F1 GRAND PRIX (MMO RACING) ===
+// === F1 GRAND PRIX - SYSTEM LOBBY & RACE ===
 // ==========================================
 
-// --- KONFIGURACJA BOLIDÓW ---
-const F1_TOTAL_LAPS = 12; // Ustawiamy wyścig na 12 okrążeń
+const F1_TOTAL_LAPS = 12;
+let activeF1RaceId = null;
+let f1LobbyUnsub = null;
+let f1RaceStateUnsub = null;
+let f1PlayersUnsub = null;
+
+// Konfiguracja bolidów
 const F1_CARS = {
-    'red':    { name: "Scuderia", color: '#ff0000', maxSpeed: 7.0, acc: 0.15, turn: 0.04 }, // Szybki, średni skręt
-    'silver': { name: "Silver Arrow", color: '#c0c0c0', maxSpeed: 7.2, acc: 0.12, turn: 0.035 }, // V-max, słabe przyspieszenie
-    'blue':   { name: "Red Bull", color: '#1e3c72', maxSpeed: 6.8, acc: 0.18, turn: 0.045 }, // Dobre przyspieszenie
-    'green':  { name: "Aston", color: '#006400', maxSpeed: 6.5, acc: 0.16, turn: 0.055 }, // Najlepszy skręt
-    'orange': { name: "McLaren", color: '#ff8c00', maxSpeed: 6.9, acc: 0.14, turn: 0.042 }  // Zbalansowany
+    'red':    { name: "Scuderia", color: '#ff0000', maxSpeed: 7.0, acc: 0.15, turn: 0.04 },
+    'silver': { name: "Silver Arrow", color: '#c0c0c0', maxSpeed: 7.2, acc: 0.12, turn: 0.035 },
+    'blue':   { name: "Red Bull", color: '#1e3c72', maxSpeed: 6.8, acc: 0.18, turn: 0.045 },
+    'green':  { name: "Aston", color: '#006400', maxSpeed: 6.5, acc: 0.16, turn: 0.055 },
+    'orange': { name: "McLaren", color: '#ff8c00', maxSpeed: 6.9, acc: 0.14, turn: 0.042 }
 };
 
 let f1Canvas, f1Ctx;
-let f1MyCar = { 
-    id: null, x: 100, y: 400, angle: 0, speed: 0, 
-    type: 'red', lap: 1, lastCheckpoint: 0, lapStartTime: 0 
-};
+let f1MyCar = { id: null, x: 120, y: 420, angle: -Math.PI/2, speed: 0, type: 'red', lap: 1, lastCheckpoint: 0, finished: false };
 let f1Opponents = {}; 
 let f1GameActive = false;
 let f1Keys = {};
-let f1Unsub = null;
+let f1TrackPath = null;
 let f1LastSent = 0;
-let f1TrackPath = null; // Ścieżka toru do wykrywania kolizji
+let f1RaceStartTime = 0; // Czas startu z serwera
 
+// --- INIT LISTENERS ---
 document.addEventListener("DOMContentLoaded", () => {
-    initF1Lobby();
-    document.getElementById("btn-f1-join")?.addEventListener("click", joinF1Game);
+    // Przyciski w HTML
+    document.getElementById("btn-f1-create-lobby")?.addEventListener("click", createF1Lobby);
+    document.getElementById("btn-f1-join-race")?.addEventListener("click", enterF1Race); // Finalne wejście na tor
     document.getElementById("btn-f1-leave")?.addEventListener("click", leaveF1Game);
     
-    // Obsługa klawiszy
+    // Klawisze
     window.addEventListener("keydown", (e) => { 
         if(f1GameActive) {
             f1Keys[e.key] = true; 
@@ -5669,212 +5673,299 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
     window.addEventListener("keyup", (e) => { if(f1GameActive) f1Keys[e.key] = false; });
+
+    // Uruchom nasłuchiwanie lobby
+    listenToF1Lobbies();
+    renderCarSelectionGrid();
 });
 
-function initF1Lobby() {
+// --- 1. LOBBY SYSTEM ---
+
+function listenToF1Lobbies() {
+    const listEl = document.getElementById("f1-races-list");
+    if(!listEl) return;
+
+    if(f1LobbyUnsub) f1LobbyUnsub();
+
+    const q = query(collection(db, "f1_lobbies"), where("status", "in", ["open", "racing"]));
+    
+    f1LobbyUnsub = onSnapshot(q, (snap) => {
+        listEl.innerHTML = "";
+        if(snap.empty) {
+            listEl.innerHTML = "<p style='text-align:center; color:#888;'>Brak aktywnych wyścigów.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const isFull = r.playerCount >= 8;
+            const btnText = r.status === 'racing' ? 'W TOKU' : (isFull ? 'PEŁNY' : 'DOŁĄCZ');
+            
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>GP ${r.hostName}</strong>
+                    <span style="color:${r.status==='racing'?'var(--red)':'var(--green)'}">${r.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Wpisowe: ${formatujWalute(r.entryFee)}</div>
+                <div style="font-size:0.9em;">Graczy: ${r.playerCount || 0} / 8</div>
+                <button class="btn-accent" style="margin-top:5px;" 
+                    onclick="selectF1Lobby('${docSnap.id}', ${r.entryFee})" 
+                    ${(isFull || r.status !== 'open') ? 'disabled' : ''}>
+                    ${btnText}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+async function createF1Lobby() {
+    const fee = parseFloat(document.getElementById("f1-create-fee").value);
+    if(isNaN(fee) || fee < 100) return showMessage("Min. 100 zł!", "error");
+    if(portfolio.cash < fee) return showMessage("Brak środków!", "error");
+
+    try {
+        // Tworzymy pokój
+        const lobbyRef = await addDoc(collection(db, "f1_lobbies"), {
+            hostId: currentUserId,
+            hostName: portfolio.name,
+            entryFee: fee,
+            status: "open",
+            playerCount: 0,
+            startTime: null,
+            createdAt: serverTimestamp()
+        });
+        
+        // Auto-join do własnego pokoju
+        selectF1Lobby(lobbyRef.id, fee);
+
+    } catch(e) { showMessage(e.message, "error"); }
+}
+
+// Przejście z listy do wyboru bolidu
+window.selectF1Lobby = function(raceId, fee) {
+    activeF1RaceId = raceId; // Zapisz ID wyścigu
+    // UI Switch
+    document.getElementById("f1-menu-view").classList.add("hidden");
+    document.getElementById("f1-car-select-view").classList.remove("hidden");
+    // Zapisz wpisowe tymczasowo w przycisku (brzydkie ale działa)
+    document.getElementById("btn-f1-join-race").dataset.fee = fee;
+}
+
+window.backToF1Menu = function() {
+    activeF1RaceId = null;
+    document.getElementById("f1-menu-view").classList.remove("hidden");
+    document.getElementById("f1-car-select-view").classList.add("hidden");
+}
+
+function renderCarSelectionGrid() {
     const grid = document.querySelector(".f1-garage-grid");
     if(!grid) return;
     grid.innerHTML = "";
-
+    
     Object.keys(F1_CARS).forEach(key => {
         const car = F1_CARS[key];
         const div = document.createElement("div");
         div.className = "f1-car-card";
-        div.innerHTML = `
-            <i class="fa-solid fa-car-side f1-icon" style="color:${car.color}"></i>
-            <strong>${car.name}</strong>
-        `;
-        div.onclick = () => selectF1Car(key, div);
+        div.innerHTML = `<i class="fa-solid fa-car-side f1-icon" style="color:${car.color}"></i><strong>${car.name}</strong>`;
+        div.onclick = () => {
+            document.querySelectorAll(".f1-car-card").forEach(c => c.classList.remove("selected"));
+            div.classList.add("selected");
+            f1MyCar.type = key;
+            document.getElementById("f1-selected-stats").innerHTML = `V-Max: ${(car.maxSpeed*40).toFixed(0)} | Acc: ${car.acc*100} | Skręt: ${car.turn*100}`;
+            document.getElementById("btn-f1-join-race").disabled = false;
+        };
         grid.appendChild(div);
     });
 }
 
-function selectF1Car(key, element) {
-    document.querySelectorAll(".f1-car-card").forEach(c => c.classList.remove("selected"));
-    element.classList.add("selected");
-    
-    const car = F1_CARS[key];
-    f1MyCar.type = key;
-    
-    document.getElementById("f1-selected-stats").innerHTML = 
-        `V-Max: ${(car.maxSpeed*40).toFixed(0)} km/h | Acc: ${(car.acc*100).toFixed(0)} | Skręt: ${(car.turn*100).toFixed(0)}`;
-    
-    document.getElementById("btn-f1-join").disabled = false;
-}
+// --- 2. WEJŚCIE NA TOR (JOIN GAME) ---
 
-// --- FUNKCJA RYSUJĄCA TOR (WKLEJ TO, TEGO BRAKUJE) ---
-function createTrackPath() {
-    // Definiujemy kształt toru (prosta pętla)
-    f1TrackPath = new Path2D();
-    
-    // Start/Meta (Podniesione wyżej, żeby nie ucinało na dole)
-    f1TrackPath.moveTo(120, 420); 
-    
-    // Prosta w górę
-    f1TrackPath.lineTo(120, 100); 
-    
-    // Zakręt 1 (Góra)
-    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
-    
-    // Prosta
-    f1TrackPath.lineTo(300, 280); 
-    
-    // Zakręt S (Środek)
-    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
-    
-    // Prosta do góry
-    f1TrackPath.lineTo(500, 100); 
-    
-    // Zakręt końcowy (Góra Prawa)
-    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
-    
-    // Prosta powrotna długa
-    f1TrackPath.lineTo(700, 420); 
-    
-    // Nawrót do startu (Dół - zmniejszony Y, żeby mieścił się w oknie)
-    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
-    
-    f1TrackPath.closePath();
-}
+async function enterF1Race() {
+    const fee = parseFloat(document.getElementById("btn-f1-join-race").dataset.fee);
+    if(portfolio.cash < fee) return showMessage("Brak środków!", "error");
 
-// --- DOŁĄCZANIE DO GRY ---
-async function joinF1Game() {
-    if(!currentUserId) return showMessage("Zaloguj się!", "error");
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const lobbyRef = doc(db, "f1_lobbies", activeF1RaceId);
+            
+            const uDoc = await t.get(uRef);
+            const lDoc = await t.get(lobbyRef);
+            
+            if(!lDoc.exists()) throw new Error("Wyścig nie istnieje!");
+            if(lDoc.data().status !== 'open') throw new Error("Wyścig już ruszył!");
+            if(uDoc.data().cash < fee) throw new Error("Brak siana!");
 
-    document.getElementById("f1-lobby").classList.add("hidden");
-    document.getElementById("f1-game").classList.remove("hidden");
-    
-    f1Canvas = document.getElementById("f1-canvas");
-    f1Ctx = f1Canvas.getContext('2d');
-    
-    // Upewnij się, że tor istnieje
-    createTrackPath();
+            // Pobierz kasę
+            const newCash = uDoc.data().cash - fee;
+            t.update(uRef, { cash: newCash, totalValue: calculateTotalValue(newCash, uDoc.data().shares) });
+            
+            // Zwiększ licznik graczy
+            t.update(lobbyRef, { playerCount: increment(1) });
+            
+            // Dodaj gracza do podkolekcji 'players' w lobby (dla porządku)
+            // LUB po prostu zapisz go w 'f1_players' globalnie ale z raceId (prościej)
+            const playerRef = doc(db, "f1_players", currentUserId);
+            t.set(playerRef, {
+                raceId: activeF1RaceId, // KLUCZOWE: Przypisanie do konkretnego wyścigu
+                name: portfolio.name,
+                type: f1MyCar.type,
+                x: 120, y: 420, angle: -Math.PI/2,
+                lastActive: serverTimestamp()
+            });
+        });
 
-    // --- RESET STANU GRACZA (ZMIANA TUTAJ) ---
-    f1MyCar.x = 120; 
-    f1MyCar.y = 420;
-    f1MyCar.angle = -Math.PI / 2; 
-    f1MyCar.speed = 0;
-    f1MyCar.lap = 1;
-    f1MyCar.lastCheckpoint = 0;
-    f1MyCar.lapStartTime = Date.now();
-    f1MyCar.raceStartTime = Date.now(); // Czas startu całego wyścigu
-    f1MyCar.finished = false; // Flaga czy ukończył
-    f1MyCar.id = currentUserId;
-    // -----------------------------------------
+        // UI Setup
+        document.getElementById("f1-lobby").classList.add("hidden");
+        document.getElementById("f1-game").classList.remove("hidden");
+        
+        // Canvas Setup
+        f1Canvas = document.getElementById("f1-canvas");
+        f1Ctx = f1Canvas.getContext('2d');
+        createTrackPath();
 
-    f1GameActive = true;
+        // Reset Gracza
+        f1MyCar.x = 120; f1MyCar.y = 420; f1MyCar.angle = -Math.PI/2; f1MyCar.speed = 0;
+        f1MyCar.lap = 1; f1MyCar.finished = false; f1MyCar.id = currentUserId;
+        
+        f1GameActive = true;
+        
+        // Start nasłuchiwania stanu wyścigu i przeciwników
+        startF1RaceSync();
+        requestAnimationFrame(f1GameLoop);
 
-    // Aktualizacja UI od razu
-    document.getElementById("f1-lap").textContent = `1 / ${F1_TOTAL_LAPS}`;
-
-    const myRef = doc(db, "f1_players", currentUserId);
-    await setDoc(myRef, {
-        name: portfolio.name,
-        type: f1MyCar.type,
-        x: f1MyCar.x,
-        y: f1MyCar.y,
-        angle: f1MyCar.angle,
-        lastActive: serverTimestamp()
-    });
-
-    startF1Listener();
-    requestAnimationFrame(f1GameLoop);
+    } catch(e) { showMessage(e.message, "error"); }
 }
 
 function leaveF1Game() {
     f1GameActive = false;
-    if(f1Unsub) f1Unsub();
+    if(f1RaceStateUnsub) f1RaceStateUnsub();
+    if(f1PlayersUnsub) f1PlayersUnsub();
     
-    document.getElementById("f1-lobby").classList.remove("hidden");
-    document.getElementById("f1-game").classList.add("hidden");
-    
+    // Usuń gracza z bazy
     deleteDoc(doc(db, "f1_players", currentUserId));
+    
+    // Zmniejsz licznik w lobby (opcjonalne, ale dobre dla porządku)
+    if(activeF1RaceId) {
+        updateDoc(doc(db, "f1_lobbies", activeF1RaceId), { playerCount: increment(-1) }).catch(()=>{});
+    }
+
+    activeF1RaceId = null;
+    document.getElementById("f1-lobby").classList.remove("hidden");
+    document.getElementById("f1-menu-view").classList.remove("hidden");
+    document.getElementById("f1-car-select-view").classList.add("hidden");
+    document.getElementById("f1-game").classList.add("hidden");
 }
 
-// --- SYNC Z BAZĄ ---
-// ZMIANA: Lepsze nasłuchiwanie + czyszczenie duchów
-// --- SYNC Z BAZĄ (POPRAWIONY) ---
-function startF1Listener() {
-    // Nasłuchuj zmian w pozycji graczy
-    f1Unsub = onSnapshot(collection(db, "f1_players"), (snap) => {
-        const now = Date.now();
+// --- 3. SYNCHRONIZACJA I PĘTLA GRY ---
+
+function startF1RaceSync() {
+    // 1. Nasłuchuj stanu lobby (Start, Host)
+    f1RaceStateUnsub = onSnapshot(doc(db, "f1_lobbies", activeF1RaceId), (snap) => {
+        if(!snap.exists()) { leaveF1Game(); return; }
+        const data = snap.data();
         
+        // Sprawdź czy wyścig ruszył
+        if (data.status === 'racing' && data.startTime) {
+            f1RaceStartTime = data.startTime.toMillis();
+        } else {
+            f1RaceStartTime = 0; // Oczekiwanie
+        }
+
+        // Jeśli jestem Hostem i jest >1 graczy i status open -> pokaż przycisk START
+        // Tutaj robimy uproszczenie: Host widzi przycisk w UI gry (np. overlay)
+        if (data.hostId === currentUserId && data.status === 'open') {
+             drawHostStartButton(); // Rysuje przycisk na canvasie lub w DOM
+        }
+    });
+
+    // 2. Nasłuchuj przeciwników (tylko z tym samym raceId)
+    const q = query(collection(db, "f1_players"), where("raceId", "==", activeF1RaceId));
+    f1PlayersUnsub = onSnapshot(q, (snap) => {
+        const now = Date.now();
         snap.docChanges().forEach(change => {
             const d = change.doc.data();
             const id = change.doc.id;
-
-            // Ignoruj siebie
-            if(id === currentUserId) return;
+            if(id === currentUserId) return; // Ignoruj siebie
 
             if(change.type === "added" || change.type === "modified") {
-                // Jeśli gracz nie był aktywny przez ostatnie 10 sekund -> ignoruj go (duch)
-                if (d.lastActive && (now - d.lastActive.toMillis()) > 10000) {
-                    if (f1Opponents[id]) delete f1Opponents[id];
+                // Usuwanie duchów (nieaktywni > 5s)
+                if (d.lastActive && (now - d.lastActive.toMillis() > 5000)) {
+                    delete f1Opponents[id];
                     return;
                 }
-
+                
                 if(!f1Opponents[id]) {
-                    // Nowy gracz na torze
                     f1Opponents[id] = { ...d, currX: d.x, currY: d.y, currAngle: d.angle };
-                    // Opcjonalnie: dźwięk lub powiadomienie
                 } else {
-                    // Aktualizacja pozycji (do interpolacji)
+                    // Interpolacja celu
                     f1Opponents[id].x = d.x;
                     f1Opponents[id].y = d.y;
                     f1Opponents[id].angle = d.angle;
-                    f1Opponents[id].type = d.type; 
                 }
             }
-            if(change.type === "removed") {
-                delete f1Opponents[id];
-            }
+            if(change.type === "removed") delete f1Opponents[id];
         });
     });
-
-    // Czyść lokalnie "duchy" co 5 sekund
-    setInterval(() => {
-        const now = Date.now();
-        // Logika czyszczenia graczy, którzy nie wysłali update'u od dawna
-    }, 5000);
 }
 
-// --- FIZYKA (POPRAWIONA - ZAMYKAJĄCA KLAMRA DODANA) ---
+function startRaceAsHost() {
+    // Host klika start
+    updateDoc(doc(db, "f1_lobbies", activeF1RaceId), {
+        status: "racing",
+        startTime: Timestamp.fromMillis(Date.now() + 3000) // Start za 3 sekundy
+    });
+}
+
+// --- FIZYKA I UPDATE ---
+
 function updateF1Physics() {
-    // 1. Samonaprawa toru
-    if (!f1TrackPath) {
-        createTrackPath(); 
-        if (!f1TrackPath) return; 
+    // Samonaprawa toru
+    if (!f1TrackPath) { createTrackPath(); if(!f1TrackPath) return; }
+
+    const now = Date.now();
+    const stats = F1_CARS[f1MyCar.type];
+
+    // CZY WYŚCIG TRWA?
+    // 1. Jeśli startTime nie ustawione -> Oczekiwanie (blokada)
+    // 2. Jeśli startTime w przyszłości -> Odliczanie (blokada)
+    // 3. Jeśli startTime minęło -> Jazda!
+    
+    let canDrive = false;
+    let statusText = "";
+
+    if (f1RaceStartTime === 0) {
+        statusText = "Oczekiwanie na Hosta...";
+        // Jeśli jestem hostem, sprawdź kliknięcie w przycisk Start (uproszczone: robimy to w HTML)
+    } else if (now < f1RaceStartTime) {
+        const seconds = Math.ceil((f1RaceStartTime - now) / 1000);
+        statusText = `START ZA: ${seconds}`;
+    } else if (f1MyCar.finished) {
+        statusText = "META!";
+        f1MyCar.speed *= 0.92; // Hamowanie na mecie
+    } else {
+        canDrive = true;
     }
 
-    const stats = F1_CARS[f1MyCar.type];
-    
-    // --- 2. STEROWANIE (Działa tylko jeśli NIE ukończyłeś wyścigu) ---
-    if (!f1MyCar.finished) {
+    // STEROWANIE
+    if (canDrive) {
         if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
         if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; 
-        
         if(Math.abs(f1MyCar.speed) > 0.1) {
             const dir = f1MyCar.speed > 0 ? 1 : -1;
             if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
             if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
         }
-    } else {
-        // Jeśli ukończyłeś, auto samo zwalnia do zera
-        f1MyCar.speed *= 0.90;
     }
 
-    // --- 3. FIZYKA I KOLIZJE ---
+    // FIZYKA (Kolizje z torem)
     f1Ctx.lineWidth = 70; 
     const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
-    
-    let friction = 0.96; 
-    let maxS = stats.maxSpeed;
-
-    if (!onTrack) {
-        friction = 0.90; 
-        maxS = 2.0; 
-    }
+    let friction = onTrack ? 0.96 : 0.90;
+    let maxS = onTrack ? stats.maxSpeed : 2.0;
 
     f1MyCar.speed *= friction;
     if(f1MyCar.speed > maxS) f1MyCar.speed = maxS;
@@ -5883,42 +5974,31 @@ function updateF1Physics() {
     f1MyCar.x += Math.cos(f1MyCar.angle) * f1MyCar.speed;
     f1MyCar.y += Math.sin(f1MyCar.angle) * f1MyCar.speed;
 
-    // --- 4. LOGIKA OKRĄŻEŃ I METY ---
-    if (!f1MyCar.finished) {
-        // Checkpointy
+    // META I OKRĄŻENIA
+    if (canDrive) {
         if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
         if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
         
-        // Linia Mety
         if(f1MyCar.x < 200 && f1MyCar.y > 400 && f1MyCar.lastCheckpoint === 2) {
-            
-            // SPRAWDZENIE CZY TO KONIEC WYŚCIGU
             if (f1MyCar.lap >= F1_TOTAL_LAPS) {
-                finishF1Race(); // <--- Funkcja kończąca (poniżej)
+                f1MyCar.finished = true;
+                finishF1Race();
             } else {
-                // Kolejne okrążenie
                 f1MyCar.lap++;
                 f1MyCar.lastCheckpoint = 0;
-                
-                // Dźwięk okrążenia
-                if(dom.audioKaching) { 
-                     const c = dom.audioKaching.cloneNode(); c.volume=0.3; c.play().catch(()=>{});
-                }
             }
         }
     }
 
-    // --- 5. UI UPDATE ---
+    // UI & SYNC
     document.getElementById("f1-speed").textContent = (Math.abs(f1MyCar.speed) * 40).toFixed(0);
-    // Wyświetlanie "Okrążenie X / 12"
     document.getElementById("f1-lap").textContent = `${f1MyCar.lap} / ${F1_TOTAL_LAPS}`;
     
-    // Czas całkowity wyścigu zamiast czasu okrążenia (jeśli wolisz)
-    const time = ((Date.now() - f1MyCar.raceStartTime) / 1000).toFixed(2);
-    document.getElementById("f1-time").textContent = time;
+    // Wyświetl status na ekranie (nadpisz czas)
+    if(statusText) document.getElementById("f1-time").textContent = statusText;
+    else document.getElementById("f1-time").textContent = ((now - f1RaceStartTime)/1000).toFixed(2);
 
-    // --- 6. SYNC Z BAZĄ ---
-    const now = Date.now();
+    // Wysyłka do bazy co 80ms
     if(now - f1LastSent > 80) {
         f1LastSent = now;
         updateDoc(doc(db, "f1_players", currentUserId), {
@@ -5926,173 +6006,111 @@ function updateF1Physics() {
             y: Number(f1MyCar.y.toFixed(1)),
             angle: Number(f1MyCar.angle.toFixed(3)),
             lastActive: serverTimestamp()
-        }).catch(err => {});
+        }).catch(()=>{});
     }
 }
 
-// TEJ FUNKCJI BRAKOWAŁO (Dlatego błąd "ReferenceError: f1GameLoop is not defined")
+function drawHostStartButton() {
+    // Prosta metoda: jeśli przycisk nie istnieje w DOM, dodaj go dynamicznie nad canvasem
+    let btn = document.getElementById("host-start-btn");
+    if(!btn) {
+        btn = document.createElement("button");
+        btn.id = "host-start-btn";
+        btn.textContent = "ROZPOCZNIJ WYŚCIG";
+        btn.className = "btn-green";
+        btn.style.position = "absolute";
+        btn.style.top = "50%";
+        btn.style.left = "50%";
+        btn.style.transform = "translate(-50%, -50%)";
+        btn.style.zIndex = 100;
+        btn.onclick = () => {
+            startRaceAsHost();
+            btn.remove();
+        };
+        document.querySelector('.f1-canvas-container').appendChild(btn);
+    }
+}
+
+async function finishF1Race() {
+    showNotification("META! Wyścig ukończony!", "news", "positive");
+    // Nagroda
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            const reward = 500; 
+            t.update(uRef, { cash: d.cash + reward, zysk: (d.zysk||0)+reward, totalValue: calculateTotalValue(d.cash+reward, d.shares)});
+        });
+    } catch(e) {}
+}
+
 function f1GameLoop() {
     if(!f1GameActive) return;
-
     updateF1Physics();
     drawF1Game();
-    
     requestAnimationFrame(f1GameLoop);
 }
 
 function drawF1Game() {
-    // Tło (Trawa)
-    f1Ctx.fillStyle = '#2d5a27'; // Ciemna zieleń
+    // Tło
+    f1Ctx.fillStyle = '#2d5a27';
     f1Ctx.fillRect(0, 0, f1Canvas.width, f1Canvas.height);
 
-    // Tor (Asfalt)
+    // Tor
     f1Ctx.lineCap = 'round';
     f1Ctx.lineJoin = 'round';
+    f1Ctx.strokeStyle = '#fff'; f1Ctx.lineWidth = 76; f1Ctx.stroke(f1TrackPath);
+    f1Ctx.strokeStyle = '#c00'; f1Ctx.lineWidth = 74; f1Ctx.setLineDash([10, 10]); f1Ctx.stroke(f1TrackPath); f1Ctx.setLineDash([]);
+    f1Ctx.strokeStyle = '#333'; f1Ctx.lineWidth = 70; f1Ctx.stroke(f1TrackPath);
     
-    // Obramowanie toru (Krawężniki)
-    f1Ctx.strokeStyle = '#fff';
-    f1Ctx.lineWidth = 76;
-    f1Ctx.stroke(f1TrackPath);
-    
-    f1Ctx.strokeStyle = '#c00'; // Tarky (czerwone paski - uproszczone)
-    f1Ctx.lineWidth = 74;
-    f1Ctx.setLineDash([10, 10]);
-    f1Ctx.stroke(f1TrackPath);
-    f1Ctx.setLineDash([]);
+    // Meta
+    f1Ctx.save(); f1Ctx.translate(120, 450); f1Ctx.fillStyle = '#fff'; f1Ctx.fillRect(-35, -5, 70, 10);
+    f1Ctx.fillStyle = '#000'; f1Ctx.fillRect(-35, 0, 10, 5); f1Ctx.fillRect(-15, 0, 10, 5); f1Ctx.fillRect(5, 0, 10, 5); f1Ctx.fillRect(25, 0, 10, 5); f1Ctx.restore();
 
-    // Właściwy asfalt
-    f1Ctx.strokeStyle = '#333';
-    f1Ctx.lineWidth = 70;
-    f1Ctx.stroke(f1TrackPath);
-    
-    // Linia startu/mety
-    f1Ctx.save();
-    f1Ctx.translate(120, 450);
-    f1Ctx.fillStyle = '#fff';
-    f1Ctx.fillRect(-35, -5, 70, 10); // Biała krecha
-    f1Ctx.fillStyle = '#000'; // Szachownica (uproszczona)
-    f1Ctx.fillRect(-35, 0, 10, 5);
-    f1Ctx.fillRect(-15, 0, 10, 5);
-    f1Ctx.fillRect(5, 0, 10, 5);
-    f1Ctx.fillRect(25, 0, 10, 5);
-    f1Ctx.restore();
-
-    // Rysowanie Przeciwników (Z interpolacją)
+    // Rysuj Przeciwników
     Object.values(f1Opponents).forEach(opp => {
-        // Interpolacja pozycji (smoothing)
-        opp.currX += (opp.x - opp.currX) * 0.15;
-        opp.currY += (opp.y - opp.currY) * 0.15;
-        
-        // Kąt jest trudniejszy do interpolacji (problem 359 -> 1 st), więc bierzemy bezpośrednio
-        // lub prostą interpolację
-        
-        drawF1Car(opp.currX, opp.currY, opp.angle, F1_CARS[opp.type].color, false);
+        opp.currX += (opp.x - opp.currX) * 0.2;
+        opp.currY += (opp.y - opp.currY) * 0.2;
+        drawF1Car(opp.currX, opp.currY, opp.angle, F1_CARS[opp.type].color, false, opp.name);
     });
 
-    // Rysowanie Mojego Auta
+    // Rysuj Siebie
     drawF1Car(f1MyCar.x, f1MyCar.y, f1MyCar.angle, F1_CARS[f1MyCar.type].color, true);
 }
 
-function drawF1Car(x, y, angle, color, isMe) {
+function drawF1Car(x, y, angle, color, isMe, name="") {
     f1Ctx.save();
     f1Ctx.translate(x, y);
     f1Ctx.rotate(angle);
+    f1Ctx.fillStyle = 'rgba(0,0,0,0.5)'; f1Ctx.fillRect(-8, -8, 24, 16); // Cień
+    f1Ctx.fillStyle = '#000'; f1Ctx.fillRect(-8,-10,8,4); f1Ctx.fillRect(-8,6,8,4); f1Ctx.fillRect(10,-10,6,4); f1Ctx.fillRect(10,6,6,4); // Koła
+    f1Ctx.fillStyle = color; f1Ctx.beginPath(); f1Ctx.moveTo(-10,-5); f1Ctx.lineTo(15,-3); f1Ctx.lineTo(15,3); f1Ctx.lineTo(-10,5); f1Ctx.fill(); // Body
+    f1Ctx.fillStyle = isMe ? '#fff' : '#ccc'; f1Ctx.fillRect(-12,-8,4,16); // Spoiler
+    f1Ctx.fillStyle = color; f1Ctx.fillRect(14,-8,2,16); // Front wing
+    f1Ctx.fillStyle = '#ffff00'; f1Ctx.beginPath(); f1Ctx.arc(0,0,3,0,Math.PI*2); f1Ctx.fill(); // Helmet
     
-    // Cień
-    f1Ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    f1Ctx.fillRect(-8, -8, 24, 16);
-
-    // Koła
-    f1Ctx.fillStyle = '#000';
-    f1Ctx.fillRect(-8, -10, 8, 4);  // Tył L
-    f1Ctx.fillRect(-8, 6, 8, 4);    // Tył P
-    f1Ctx.fillRect(10, -10, 6, 4);  // Przód L
-    f1Ctx.fillRect(10, 6, 6, 4);    // Przód P
-
-    // Korpus (Bolid)
-    f1Ctx.fillStyle = color;
-    // Główna bryła
-    f1Ctx.beginPath();
-    f1Ctx.moveTo(-10, -5);
-    f1Ctx.lineTo(15, -3); // Nos
-    f1Ctx.lineTo(15, 3);
-    f1Ctx.lineTo(-10, 5);
-    f1Ctx.fill();
-    
-    // Spoiler tył
-    f1Ctx.fillStyle = isMe ? '#fff' : '#ccc'; // Własny spoiler jaśniejszy
-    f1Ctx.fillRect(-12, -8, 4, 16);
-    
-    // Spoiler przód
-    f1Ctx.fillStyle = color;
-    f1Ctx.fillRect(14, -8, 2, 16);
-
-    // Kask kierowcy
-    f1Ctx.fillStyle = '#ffff00';
-    f1Ctx.beginPath();
-    f1Ctx.arc(0, 0, 3, 0, Math.PI*2);
-    f1Ctx.fill();
-
-    // Oznaczenie gracza (trójkąt nad autem)
     if(!isMe) {
-        f1Ctx.restore(); // Reset rotacji żeby nick był prosto? Nie, nick nad autem
+        f1Ctx.restore(); 
         f1Ctx.save();
         f1Ctx.translate(x, y);
         f1Ctx.fillStyle = '#fff';
         f1Ctx.font = "10px Arial";
         f1Ctx.textAlign = "center";
-        f1Ctx.fillText("Rival", 0, -20);
+        f1Ctx.fillText(name, 0, -20);
     }
-
     f1Ctx.restore();
 }
-async function finishF1Race() {
-    if (f1MyCar.finished) return; // Zabezpieczenie przed podwójnym wywołaniem
-    f1MyCar.finished = true;
 
-    // Oblicz całkowity czas
-    const totalTime = ((Date.now() - f1MyCar.raceStartTime) / 1000).toFixed(2);
-    
-    // Dźwięk wygranej/końca
-    if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
-
-    // Pokaż powiadomienie
-    showNotification(`🏁 META! Czas: ${totalTime}s`, 'news', 'positive');
-    
-    // Wyświetl komunikat na środku ekranu (możesz użyć alertu lub ładniejszego diva)
-    const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.top = '50%';
-    overlay.style.left = '50%';
-    overlay.style.transform = 'translate(-50%, -50%)';
-    overlay.style.background = 'rgba(0,0,0,0.9)';
-    overlay.style.padding = '20px';
-    overlay.style.border = '2px solid gold';
-    overlay.style.borderRadius = '10px';
-    overlay.style.textAlign = 'center';
-    overlay.style.zIndex = '1000';
-    overlay.innerHTML = `
-        <h2 style="color:gold; margin:0;">WYŚCIG UKOŃCZONY!</h2>
-        <p style="color:white; font-size:1.5em; margin:10px 0;">Czas: ${totalTime}s</p>
-        <button onclick="this.parentElement.remove()" style="padding:10px 20px; cursor:pointer;">OK</button>
-    `;
-    
-    // Dodaj overlay do kontenera gry
-    document.querySelector('.f1-canvas-container').appendChild(overlay);
-
-    // Opcjonalnie: Zapisz wynik w historii lub daj nagrodę
-    // Np. 1000 zł za ukończenie
-    try {
-        await runTransaction(db, async (t) => {
-            const uRef = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(uRef)).data();
-            const reward = 500; // Nagroda za dojechanie
-            t.update(uRef, { 
-                cash: d.cash + reward, 
-                zysk: (d.zysk || 0) + reward,
-                totalValue: calculateTotalValue(d.cash + reward, d.shares)
-            });
-        });
-        showNotification(`Nagroda za wyścig: +500 zł`, 'news', 'positive');
-    } catch(e) { console.error(e); }
+function createTrackPath() {
+    f1TrackPath = new Path2D();
+    f1TrackPath.moveTo(120, 420); 
+    f1TrackPath.lineTo(120, 100); 
+    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
+    f1TrackPath.lineTo(300, 280); 
+    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
+    f1TrackPath.lineTo(500, 100);
+    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
+    f1TrackPath.lineTo(700, 420); 
+    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
+    f1TrackPath.closePath();
 }
