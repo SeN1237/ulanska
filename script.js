@@ -5095,10 +5095,17 @@ function handleSkiGameState(data) {
             btnJump.classList.add("hidden");
         }
     }
-    else if (data.status === 'finished') {
+	else if (data.status === 'finished') {
         overlay.classList.remove("hidden");
         btnJump.classList.add("hidden");
-        const winner = [...data.players].sort((a,b) => b.score - a.score)[0];
+        
+        // --- POPRAWKA ---
+        // Sprawdzamy, czy to turniej. Jeśli tak, sortujemy po sumie punktów TCS.
+        // Jeśli zwykły konkurs, sortujemy po wyniku bieżącym (score).
+        const scoreKey = data.isTournament ? 'totalTournamentScore' : 'score';
+        const winner = [...data.players].sort((a,b) => (b[scoreKey] || 0) - (a[scoreKey] || 0))[0];
+        // ----------------
+        
         statusMsg.innerHTML = `<span style="color:gold">ZWYCIĘZCA: ${winner.name}</span>`;
         instruction.textContent = "Gratulacje!";
     }
