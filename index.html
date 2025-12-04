@@ -289,29 +289,25 @@
         <div id="skijump-lobby-view">
             <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
                 <input type="number" id="skijump-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
-                <button id="btn-skijump-create" class="btn-accent">UTWÓRZ KONKURS</button>
+                <div style="margin-top: 10px; text-align: left; display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="skijump-tcs-mode" style="width:20px; height:20px;">
+                    <label for="skijump-tcs-mode" style="color:#fff; cursor:pointer;">Turniej 4 Skoczni (4 obiekty)</label>
+                </div>
+                <button id="btn-skijump-create" class="btn-accent" style="margin-top:10px;">UTWÓRZ KONKURS</button>
             </div>
-            <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
-    <input type="number" id="skijump-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
-    <div style="margin-top: 10px; text-align: left; display:flex; align-items:center; gap:10px;">
-        <input type="checkbox" id="skijump-tcs-mode" style="width:20px; height:20px;">
-        <label for="skijump-tcs-mode" style="color:#fff; cursor:pointer;">Turniej 4 Skoczni (4 obiekty)</label>
-    </div>
-    <button id="btn-skijump-create" class="btn-accent" style="margin-top:10px;">UTWÓRZ KONKURS</button>
-</div>
             <h3>Aktywne Konkursy</h3>
             <div id="skijump-list" class="race-list-container">
                 <p style="text-align:center; color:var(--text-muted)">Brak zawodów...</p>
             </div>
         </div>
 
-        <<div class="race-header-info">
-    <button id="btn-skijump-leave" class="btn-sell"><i class="fa-solid fa-arrow-left"></i> Wyjdź</button>
-    <div class="race-pot-info" style="text-align: right;">
-        <div id="skijump-hill-name" style="font-size: 0.8em; color: gold; text-transform: uppercase;">OBERSTDORF (K-120)</div>
-        <div>Runda: <strong id="skijump-round">1/2</strong> | Pula: <strong id="skijump-pot" style="color:var(--green)">0 zł</strong></div>
-    </div>
-</div>
+        <div id="skijump-game-view" class="hidden">
+            <div class="race-header-info">
+                <button id="btn-skijump-leave" class="btn-sell"><i class="fa-solid fa-arrow-left"></i> Wyjdź</button>
+                <div class="race-pot-info" style="text-align: right;">
+                    <div id="skijump-hill-name" style="font-size: 0.8em; color: gold; text-transform: uppercase;">OBERSTDORF (K-120)</div>
+                    <div>Runda: <strong id="skijump-round">1/2</strong> | Pula: <strong id="skijump-pot" style="color:var(--green)">0 zł</strong></div>
+                </div>
             </div>
 
             <div class="skijump-container">
@@ -342,6 +338,7 @@
                             <th>Skok 1</th>
                             <th>Skok 2</th>
                             <th>Nota</th>
+                            <th>TCS Total</th>
                         </tr>
                     </thead>
                     <tbody id="skijump-scoreboard">
