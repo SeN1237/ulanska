@@ -5133,28 +5133,31 @@ function playerReadyOnGate() {
 function handleSkiClick() {
     if (!activeSkiId) return;
 
+    // --- POPRAWKA: Pobieramy punkt wybicia z aktualnej skoczni ---
+    const takeoffX = currentHillParams.takeoff;
+
     if (skiState.phase === 'gate') {
         // 1. Ruszamy z belki
         skiState.phase = 'inrun';
-        skiState.vx = 2.0; // Pęd początkowy
+        skiState.vx = 2.0; 
         skiState.vy = 1.0;
     } 
     else if (skiState.phase === 'inrun') {
-        // 2. Wybicie (Musi być blisko progu)
-        if (skiState.x > SKI_TAKEOFF_X - 50 && skiState.x < SKI_TAKEOFF_X + 20) {
+        // 2. Wybicie (Używamy dynamicznego takeoffX)
+        if (skiState.x > takeoffX - 50 && skiState.x < takeoffX + 20) {
             skiState.phase = 'flight';
-            // Siła wybicia (im bliżej krawędzi tym lepiej)
-            const quality = 1 - Math.abs(skiState.x - SKI_TAKEOFF_X) / 50;
-            skiState.vy -= (4.0 + (quality * 1.5)); // Skok w górę
+            // Siła wybicia
+            const quality = 1 - Math.abs(skiState.x - takeoffX) / 50;
+            skiState.vy -= (4.0 + (quality * 1.5)); 
             skiState.vx += 0.5;
-            if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); } // Sound effect
+            if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); }
         }
     }
     else if (skiState.phase === 'flight') {
-        // 3. Lądowanie (Telemark?) - tylko jeśli blisko ziemi
+        // 3. Lądowanie
         const groundY = getHillY(skiState.x);
         if (skiState.y > groundY - 50) {
-            landSki(true); // Wymuszone lądowanie
+            landSki(true); 
         }
     }
 }
@@ -5184,15 +5187,18 @@ function recordFrame() {
 }
 
 function physicsStep() {
+    // --- POPRAWKA: Pobieramy punkt wybicia ---
+    const takeoffX = currentHillParams.takeoff;
+
     if (skiState.phase === 'inrun') {
         skiState.x += skiState.vx;
-        skiState.y = getHillY(skiState.x); // Przyklejony do toru
-        skiState.vx += 0.05; // Przyspieszenie
+        skiState.y = getHillY(skiState.x);
+        skiState.vx += 0.05; 
         
-        // Auto-wybicie na końcu (słabe)
-        if (skiState.x > SKI_TAKEOFF_X) {
+        // Auto-wybicie na końcu (spadnięcie z progu)
+        if (skiState.x > takeoffX) {
             skiState.phase = 'flight';
-            skiState.vy -= 2.0; // Słabe wybicie
+            skiState.vy -= 2.0; 
         }
         recordFrame();
     }
@@ -5200,17 +5206,13 @@ function physicsStep() {
         skiState.x += skiState.vx;
         skiState.y += skiState.vy;
         
-        // Grawitacja
         skiState.vy += SKI_GRAVITY;
         
-        // Aerodynamika (prosta)
-        // Optymalny kąt to ok -0.2 (lekko dzioby w górę)
-        // Im bliżej optimum, tym mniejszy opór i większa nośna
         const angleDiff = Math.abs(skiState.rotation - (-0.3)); 
         const lift = (1 - angleDiff) * SKI_LIFT_FACTOR * (skiState.vx * skiState.vx);
         
         skiState.vy -= lift;
-        skiState.vx *= SKI_AIR_RESISTANCE; // Opór powietrza
+        skiState.vx *= SKI_AIR_RESISTANCE; 
 
         // Kolizja z ziemią
         const groundY = getHillY(skiState.x);
@@ -5218,14 +5220,14 @@ function physicsStep() {
             landSki(false);
         }
         
-        // Aktualizacja HUD dystansu
-        const dist = (skiState.x - SKI_TAKEOFF_X) / 4; // Skalowanie na metry
-        document.getElementById("sj-distance-display").textContent = dist.toFixed(1) + " m";
+        // Aktualizacja HUD dystansu (używamy dynamicznego takeoffX)
+        const dist = (skiState.x - takeoffX) / 4; 
+        const distEl = document.getElementById("sj-distance-display");
+        if(distEl) distEl.textContent = dist.toFixed(1) + " m";
         
         recordFrame();
     }
     else if (skiState.phase === 'landed') {
-        // Wyhamowanie
         skiState.x += skiState.vx;
         skiState.y = getHillY(skiState.x);
         skiState.vx *= 0.95;
@@ -5264,19 +5266,19 @@ function getHillY(x) {
 async function landSki(manual) {
     if(skiState.phase === 'landed') return;
     
+    // --- POPRAWKA ---
+    const takeoffX = currentHillParams.takeoff;
+
     skiState.phase = 'landed';
-    const finalDist = (skiState.x - SKI_TAKEOFF_X) / 4;
+    const finalDist = (skiState.x - takeoffX) / 4;
     
     // Oblicz notę
     let stylePoints = 20.0;
-    // Karne za lądowanie
-    if (!manual) stylePoints -= 5.0; // Upadek/późno
-    // Karne za niestabilny lot
+    if (!manual) stylePoints -= 5.0; 
     if (Math.abs(skiState.rotation) > 0.5) stylePoints -= 3.0;
     
-    const totalScore = finalDist + stylePoints; // Uproszczone punkty (1m = 1pkt)
+    const totalScore = finalDist + stylePoints;
     
-    // Wyślij wynik i powtórkę do bazy
     await uploadJumpData(finalDist, totalScore, skiState.trajectory);
 }
 
@@ -5404,24 +5406,27 @@ function renderSkiLoop() {
             // Kamera
             let targetCamX = skiState.x - 200;
             if (targetCamX < 0) targetCamX = 0;
-            if (targetCamX > 600) targetCamX = 600;
+            // Usunięto limit kamery
             skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
 
-            const dist = (skiState.x - SKI_TAKEOFF_X) / 4;
+            // --- POPRAWKA HUD W POWTÓRCE ---
+            const takeoffX = currentHillParams.takeoff;
+            const dist = (skiState.x - takeoffX) / 4;
             let displayDist = dist > 0 ? dist : 0;
-            document.getElementById("sj-distance-display").textContent = displayDist.toFixed(1) + " m";
+            
+            const distEl = document.getElementById("sj-distance-display");
+            if(distEl) distEl.textContent = displayDist.toFixed(1) + " m";
+
         } else {
-            // KONIEC POWTÓRKI - POKAŻ WYNIK
+            // KONIEC POWTÓRKI
             const msg = document.getElementById("skijump-status-msg");
             if(msg) {
                 msg.textContent = `${replayData.playerName}: ${replayData.dist.toFixed(1)}m`;
                 msg.style.color = "gold";
             }
             
-            // Czekaj 2 sekundy i WRÓĆ DO GRY
             if (skiState.phase === 'replay') {
                 setTimeout(() => {
-                    // Sprawdzamy czy nadal jesteśmy w replay (zabezpieczenie)
                     if (skiState.phase === 'replay') {
                         skiState.phase = 'idle';
                         skiState.x = SKI_HILL_START_X;
@@ -5429,16 +5434,12 @@ function renderSkiLoop() {
                         skiState.cameraX = 0;
                         skiState.rotation = 0;
                         
-                        // === KLUCZOWE: ODŚWIEŻ UI NA PODSTAWIE AKTUALNEGO STANU ===
-                        // To sprawi, że jeśli jest Twoja kolej, pojawi się przycisk "Idź na belkę"
-                        // A jeśli nie, pojawi się "Oczekiwanie..."
                         if (cachedSkiData) {
                             handleSkiGameState(cachedSkiData);
                         }
                     }
                 }, 2000);
-                
-                replayFrame = Number.MAX_SAFE_INTEGER; // Stop pętli
+                replayFrame = Number.MAX_SAFE_INTEGER; 
             }
         }
     }
