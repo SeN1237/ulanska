@@ -5266,16 +5266,26 @@ function getHillY(x) {
 async function landSki(manual) {
     if(skiState.phase === 'landed') return;
     
-    // --- POPRAWKA ---
     const takeoffX = currentHillParams.takeoff;
 
     skiState.phase = 'landed';
+    
+    // --- NOWE: Zapisujemy styl lądowania ---
+    // Jeśli manual (kliknięcie) = Telemark, jeśli nie = Crash
+    skiState.landingType = manual ? 'telemark' : 'crash';
+    // ---------------------------------------
+
     const finalDist = (skiState.x - takeoffX) / 4;
     
     // Oblicz notę
     let stylePoints = 20.0;
-    if (!manual) stylePoints -= 5.0; 
-    if (Math.abs(skiState.rotation) > 0.5) stylePoints -= 3.0;
+    
+    if (!manual) {
+        stylePoints -= 10.0; // Upadek = duża kara
+    } else {
+        // Telemark, ale sprawdzamy czy nie trzęsło przy lądowaniu
+        if (Math.abs(skiState.rotation) > 0.5) stylePoints -= 3.0;
+    }
     
     const totalScore = finalDist + stylePoints;
     
@@ -5533,39 +5543,88 @@ function drawSkiGame() {
     skiCtx.fillStyle = "#003366"; 
     skiCtx.fillRect(takeoffX - 5, getHillY(takeoffX), 5, 10);
 
-    // --- 5. RYSOWANIE SKOCZKA ---
+   // --- 6. RYSOWANIE SKOCZKA (Zaktualizowane o animacje lądowania) ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
         skiCtx.save();
         skiCtx.translate(skiState.x, skiState.y);
         skiCtx.rotate(skiState.rotation); 
         
-        // Narty
-        skiCtx.fillStyle = "orange";
-        skiCtx.fillRect(-20, 0, 45, 3);
-        
-        // Ludzik
-        skiCtx.fillStyle = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
-        
-        if (skiState.phase === 'inrun') {
-            skiCtx.fillRect(-10, -8, 15, 8); 
+        // Kolor ludzika (Czerwony = powtórka, Niebieski = gracz)
+        const jumperColor = (skiState.phase === 'replay') ? '#ff4444' : '#0044ff';
+
+        if (skiState.phase === 'landed') {
+            // === RYSOWANIE LĄDOWANIA ===
+            
+            if (skiState.landingType === 'crash') {
+                // --- UPADEK (CRASH) ---
+                // Narty "połamane" (na krzyż)
+                skiCtx.fillStyle = "orange";
+                skiCtx.save();
+                skiCtx.rotate(0.5); skiCtx.fillRect(-20, -5, 45, 3);
+                skiCtx.rotate(-1.0); skiCtx.fillRect(-20, 5, 45, 3);
+                skiCtx.restore();
+
+                // Ciało leży płasko
+                skiCtx.fillStyle = jumperColor;
+                skiCtx.fillRect(-15, -8, 30, 8); // Tułów na ziemi
+                
+                // Głowa na ziemi
+                skiCtx.beginPath();
+                skiCtx.arc(18, -4, 4, 0, Math.PI*2);
+                skiCtx.fill();
+                
+            } else {
+                // --- TELEMARK (ŁADNE LĄDOWANIE) ---
+                // Narty płasko
+                skiCtx.fillStyle = "orange";
+                skiCtx.fillRect(-25, 0, 50, 3);
+
+                skiCtx.fillStyle = jumperColor;
+                
+                // Noga tylna (ugięta)
+                skiCtx.fillRect(-15, -10, 8, 10);
+                // Noga przednia (wyprostowana/wykroczna)
+                skiCtx.fillRect(5, -10, 8, 10);
+                
+                // Tułów (wyprostowany)
+                skiCtx.fillRect(-5, -28, 10, 18);
+                
+                // Ręce (rozłożone na boki dla równowagi)
+                skiCtx.fillRect(-12, -26, 24, 4);
+
+                // Głowa
+                skiCtx.beginPath();
+                skiCtx.arc(0, -32, 4, 0, Math.PI*2);
+                skiCtx.fill();
+            }
+
+        } else if (skiState.phase === 'inrun') {
+            // === JAZDA PO ROZBIEGU (Pozycja dojazdowa) ===
+            skiCtx.fillStyle = "orange";
+            skiCtx.fillRect(-20, 0, 45, 3); // Narty
+            
+            skiCtx.fillStyle = jumperColor;
+            skiCtx.fillRect(-10, -8, 15, 8); // Skulony tułów
             skiCtx.beginPath(); 
-            skiCtx.arc(0, -8, 4, 0, Math.PI*2); 
+            skiCtx.arc(0, -8, 4, 0, Math.PI*2); // Głowa
             skiCtx.fill();
+
         } else {
-            // Styl V
+            // === LOT (V-STYLE) ===
+            skiCtx.fillStyle = "orange";
+            skiCtx.fillRect(-20, 0, 45, 3); // Narty
+            
+            skiCtx.fillStyle = jumperColor;
             skiCtx.beginPath();
             skiCtx.moveTo(-5, -2); 
-            skiCtx.lineTo(25, -10);
+            skiCtx.lineTo(25, -10); // Ciało pochylone mocno do przodu
             skiCtx.lineTo(10, -2);
             skiCtx.fill();
             
             skiCtx.beginPath();
-            skiCtx.arc(26, -11, 4, 0, Math.PI*2);
+            skiCtx.arc(26, -11, 4, 0, Math.PI*2); // Głowa
             skiCtx.fill();
         }
         
         skiCtx.restore();
     }
-
-    skiCtx.restore();
-}
