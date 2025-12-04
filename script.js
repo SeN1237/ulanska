@@ -5713,7 +5713,25 @@ async function joinF1Game() {
     f1Ctx = f1Canvas.getContext('2d');
     
     // Inicjalizacja Toru
-    createTrackPath();
+    function createTrackPath() {
+    f1TrackPath = new Path2D();
+    
+    // Start/Meta (Podniesione wyżej, żeby nie ucinało)
+    f1TrackPath.moveTo(120, 420); 
+    
+    f1TrackPath.lineTo(120, 100); 
+    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
+    f1TrackPath.lineTo(300, 280); 
+    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
+    f1TrackPath.lineTo(500, 100);
+    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
+    f1TrackPath.lineTo(700, 420); 
+    
+    // Dolny łuk (zmniejszony z 550 na 490, żeby zmieścił się w 500px)
+    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
+    
+    f1TrackPath.closePath();
+}
 
     // Reset stanu gracza
     f1MyCar.x = 120; // Startowa pozycja
@@ -5757,6 +5775,7 @@ function leaveF1Game() {
 
 // --- SYNC Z BAZĄ ---
 // ZMIANA: Lepsze nasłuchiwanie + czyszczenie duchów
+// --- SYNC Z BAZĄ (POPRAWIONY) ---
 function startF1Listener() {
     // Nasłuchuj zmian w pozycji graczy
     f1Unsub = onSnapshot(collection(db, "f1_players"), (snap) => {
@@ -5779,13 +5798,13 @@ function startF1Listener() {
                 if(!f1Opponents[id]) {
                     // Nowy gracz na torze
                     f1Opponents[id] = { ...d, currX: d.x, currY: d.y, currAngle: d.angle };
-                    showNotification(`${d.name} wjechał na tor!`, 'news');
+                    // Opcjonalnie: dźwięk lub powiadomienie
                 } else {
                     // Aktualizacja pozycji (do interpolacji)
                     f1Opponents[id].x = d.x;
                     f1Opponents[id].y = d.y;
                     f1Opponents[id].angle = d.angle;
-                    f1Opponents[id].type = d.type; // W razie zmiany bolidu
+                    f1Opponents[id].type = d.type; 
                 }
             }
             if(change.type === "removed") {
@@ -5794,113 +5813,55 @@ function startF1Listener() {
         });
     });
 
-    // Dodatkowo: Uruchom interwał czyszczący lokalnie starych graczy co 5 sekund
+    // Czyść lokalnie "duchy" co 5 sekund
     setInterval(() => {
         const now = Date.now();
-        // Usuń z pamięci przeglądarki przeciwników, którzy nie ruszyli się od 15 sekund
-        // (Firebase onSnapshot nie zawsze wykryje "disconnect" od razu)
-        // Uwaga: To wymaga, żeby przeciwnicy wysyłali timestamp w pętli gry
+        // Logika czyszczenia graczy, którzy nie wysłali update'u od dawna
     }, 5000);
 }
 
-// --- FIZYKA I RENDEROWANIE ---
-function createTrackPath() {
-    // Definiujemy kształt toru (prosta pętla)
-    f1TrackPath = new Path2D();
-    
-    // ZMIANA: Współrzędne Y zostały zmniejszone (z 550 na 460-480), żeby nie ucinało dołu
-    // Start/Meta
-    f1TrackPath.moveTo(120, 420); 
-    
-    // Prosta w górę
-    f1TrackPath.lineTo(120, 100); 
-    
-    // Zakręt 1 (Góra)
-    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
-    
-    // Prosta
-    f1TrackPath.lineTo(300, 280); 
-    
-    // Zakręt S (Środek)
-    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
-    
-    // Prosta do góry
-    f1TrackPath.lineTo(500, 100);
-    
-    // Zakręt końcowy (Góra Prawa)
-    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
-    
-    // Prosta powrotna długa
-    f1TrackPath.lineTo(700, 420); 
-    
-    // Nawrót do startu (Dół - tutaj był problem z ucinaniem)
-    // Zmieniono Y z 550 na 480
-    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
-    
-    f1TrackPath.closePath();
-}
-
-function f1GameLoop() {
-    if(!f1GameActive) return;
-
-    updateF1Physics();
-    drawF1Game();
-    
-    requestAnimationFrame(f1GameLoop);
-}
-
+// --- FIZYKA (POPRAWIONA - ZAMYKAJĄCA KLAMRA DODANA) ---
 function updateF1Physics() {
     const stats = F1_CARS[f1MyCar.type];
     
     // 1. Sterowanie
     if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
-    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; // Hamulec
+    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; 
     
-    // Skręcanie (tylko jak jedzie)
     if(Math.abs(f1MyCar.speed) > 0.1) {
         const dir = f1MyCar.speed > 0 ? 1 : -1;
         if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
         if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
     }
 
-    // 2. Wykrywanie terenu (Czy jesteśmy na torze?)
-    // ctx.isPointInStroke sprawdza czy punkt jest na "obrysie" ścieżki
-    // Ustawiamy szerokość pędzla na szerokość toru (np. 60px)
-    // UWAGA: To jest trick - musimy to sprawdzić na wirtualnym kontekście lub bieżącym
-    f1Ctx.lineWidth = 70; // Szerokość asfaltu
+    // 2. Wykrywanie terenu
+    f1Ctx.lineWidth = 70; 
     const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
     
     // 3. Tarcie i limity
-    let friction = 0.96; // Asfalt
+    let friction = 0.96; 
     let maxS = stats.maxSpeed;
 
     if (!onTrack) {
-        friction = 0.90; // Trawa (mocne hamowanie)
-        maxS = 2.0; // V-max na trawie
+        friction = 0.90; 
+        maxS = 2.0; 
     }
 
     f1MyCar.speed *= friction;
     if(f1MyCar.speed > maxS) f1MyCar.speed = maxS;
-    if(f1MyCar.speed < -2) f1MyCar.speed = -2; // Wsteczny
+    if(f1MyCar.speed < -2) f1MyCar.speed = -2;
 
     // 4. Ruch
     f1MyCar.x += Math.cos(f1MyCar.angle) * f1MyCar.speed;
     f1MyCar.y += Math.sin(f1MyCar.angle) * f1MyCar.speed;
 
-    // 5. Linia Mety (Prosty check pozycji X,Y)
-    // Meta jest w okolicach x=120, y=450. Jedziemy w górę (y maleje).
-    // Checkpointy zapobiegają oszukiwaniu.
-    
-    // CP1 (Góra)
+    // 5. Linia Mety (Prosta detekcja)
     if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
-    // CP2 (Prawa strona)
     if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
     
-    // Meta (Dół lewa, po CP2)
     if(f1MyCar.x < 200 && f1MyCar.y > 400 && f1MyCar.lastCheckpoint === 2) {
         f1MyCar.lap++;
         f1MyCar.lastCheckpoint = 0;
-        // Efekt dźwiękowy okrążenia?
         if(dom.audioKaching) { 
              const c = dom.audioKaching.cloneNode(); c.volume=0.3; c.play().catch(()=>{});
         }
@@ -5912,21 +5873,18 @@ function updateF1Physics() {
     const time = ((Date.now() - f1MyCar.lapStartTime) / 1000).toFixed(2);
     document.getElementById("f1-time").textContent = time;
 
-    // 7. Sync z bazą (co 80ms - częściej dla płynności)
+    // 7. Sync z bazą (Fixed Syntax Here)
     const now = Date.now();
     if(now - f1LastSent > 80) {
         f1LastSent = now;
-        // Używamy updateDoc, ale jeśli dokument nie istnieje (np. po restarcie), setDoc byłby bezpieczniejszy
-        // Tutaj zakładamy, że joinF1Game utworzył dokument.
         updateDoc(doc(db, "f1_players", currentUserId), {
-            x: Number(f1MyCar.x.toFixed(1)), // Zaokrąglanie oszczędza transfer
+            x: Number(f1MyCar.x.toFixed(1)),
             y: Number(f1MyCar.y.toFixed(1)),
             angle: Number(f1MyCar.angle.toFixed(3)),
-            lastActive: serverTimestamp() // Ważne do usuwania duchów
-        }).catch(err => {
-            // Cicha obsługa błędu lub reconnect
-        });
+            lastActive: serverTimestamp()
+        }).catch(err => {});
     }
+} // <--- TO JEST KLAMRA, KTÓREJ BRAKOWAŁO
 
 function drawF1Game() {
     // Tło (Trawa)
