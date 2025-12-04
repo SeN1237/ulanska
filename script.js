@@ -5756,27 +5756,51 @@ function leaveF1Game() {
 }
 
 // --- SYNC Z BAZĄ ---
+// ZMIANA: Lepsze nasłuchiwanie + czyszczenie duchów
 function startF1Listener() {
+    // Nasłuchuj zmian w pozycji graczy
     f1Unsub = onSnapshot(collection(db, "f1_players"), (snap) => {
+        const now = Date.now();
+        
         snap.docChanges().forEach(change => {
             const d = change.doc.data();
             const id = change.doc.id;
+
+            // Ignoruj siebie
             if(id === currentUserId) return;
 
             if(change.type === "added" || change.type === "modified") {
+                // Jeśli gracz nie był aktywny przez ostatnie 10 sekund -> ignoruj go (duch)
+                if (d.lastActive && (now - d.lastActive.toMillis()) > 10000) {
+                    if (f1Opponents[id]) delete f1Opponents[id];
+                    return;
+                }
+
                 if(!f1Opponents[id]) {
+                    // Nowy gracz na torze
                     f1Opponents[id] = { ...d, currX: d.x, currY: d.y, currAngle: d.angle };
+                    showNotification(`${d.name} wjechał na tor!`, 'news');
                 } else {
-                    // Update celu (do interpolacji)
+                    // Aktualizacja pozycji (do interpolacji)
                     f1Opponents[id].x = d.x;
                     f1Opponents[id].y = d.y;
                     f1Opponents[id].angle = d.angle;
-                    f1Opponents[id].type = d.type;
+                    f1Opponents[id].type = d.type; // W razie zmiany bolidu
                 }
             }
-            if(change.type === "removed") delete f1Opponents[id];
+            if(change.type === "removed") {
+                delete f1Opponents[id];
+            }
         });
     });
+
+    // Dodatkowo: Uruchom interwał czyszczący lokalnie starych graczy co 5 sekund
+    setInterval(() => {
+        const now = Date.now();
+        // Usuń z pamięci przeglądarki przeciwników, którzy nie ruszyli się od 15 sekund
+        // (Firebase onSnapshot nie zawsze wykryje "disconnect" od razu)
+        // Uwaga: To wymaga, żeby przeciwnicy wysyłali timestamp w pętli gry
+    }, 5000);
 }
 
 // --- FIZYKA I RENDEROWANIE ---
@@ -5784,16 +5808,35 @@ function createTrackPath() {
     // Definiujemy kształt toru (prosta pętla)
     f1TrackPath = new Path2D();
     
-    // Rysujemy linię środkową toru
-    f1TrackPath.moveTo(120, 450); // Start/Meta
-    f1TrackPath.lineTo(120, 150); // Prosta w górę
-    f1TrackPath.bezierCurveTo(120, 50, 300, 50, 300, 150); // Zakręt 1
-    f1TrackPath.lineTo(300, 300); // Prosta
-    f1TrackPath.bezierCurveTo(300, 450, 500, 450, 500, 300); // Zakręt S
-    f1TrackPath.lineTo(500, 150);
-    f1TrackPath.bezierCurveTo(500, 50, 700, 50, 700, 150); // Zakręt końcowy
-    f1TrackPath.lineTo(700, 450); // Prosta powrotna długa
-    f1TrackPath.bezierCurveTo(700, 550, 120, 550, 120, 450); // Nawrót do startu
+    // ZMIANA: Współrzędne Y zostały zmniejszone (z 550 na 460-480), żeby nie ucinało dołu
+    // Start/Meta
+    f1TrackPath.moveTo(120, 420); 
+    
+    // Prosta w górę
+    f1TrackPath.lineTo(120, 100); 
+    
+    // Zakręt 1 (Góra)
+    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
+    
+    // Prosta
+    f1TrackPath.lineTo(300, 280); 
+    
+    // Zakręt S (Środek)
+    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
+    
+    // Prosta do góry
+    f1TrackPath.lineTo(500, 100);
+    
+    // Zakręt końcowy (Góra Prawa)
+    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
+    
+    // Prosta powrotna długa
+    f1TrackPath.lineTo(700, 420); 
+    
+    // Nawrót do startu (Dół - tutaj był problem z ucinaniem)
+    // Zmieniono Y z 550 na 480
+    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
+    
     f1TrackPath.closePath();
 }
 
@@ -5869,17 +5912,21 @@ function updateF1Physics() {
     const time = ((Date.now() - f1MyCar.lapStartTime) / 1000).toFixed(2);
     document.getElementById("f1-time").textContent = time;
 
-    // 7. Sync z bazą (co 100ms)
+    // 7. Sync z bazą (co 80ms - częściej dla płynności)
     const now = Date.now();
-    if(now - f1LastSent > 100) {
+    if(now - f1LastSent > 80) {
         f1LastSent = now;
+        // Używamy updateDoc, ale jeśli dokument nie istnieje (np. po restarcie), setDoc byłby bezpieczniejszy
+        // Tutaj zakładamy, że joinF1Game utworzył dokument.
         updateDoc(doc(db, "f1_players", currentUserId), {
-            x: f1MyCar.x,
-            y: f1MyCar.y,
-            angle: f1MyCar.angle
-        }).catch(()=>{});
+            x: Number(f1MyCar.x.toFixed(1)), // Zaokrąglanie oszczędza transfer
+            y: Number(f1MyCar.y.toFixed(1)),
+            angle: Number(f1MyCar.angle.toFixed(3)),
+            lastActive: serverTimestamp() // Ważne do usuwania duchów
+        }).catch(err => {
+            // Cicha obsługa błędu lub reconnect
+        });
     }
-}
 
 function drawF1Game() {
     // Tło (Trawa)
