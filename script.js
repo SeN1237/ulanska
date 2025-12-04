@@ -5635,6 +5635,7 @@ function drawSkiGame() {
 // ==========================================
 
 // --- KONFIGURACJA BOLIDÓW ---
+const F1_TOTAL_LAPS = 12; // Ustawiamy wyścig na 12 okrążeń
 const F1_CARS = {
     'red':    { name: "Scuderia", color: '#ff0000', maxSpeed: 7.0, acc: 0.15, turn: 0.04 }, // Szybki, średni skręt
     'silver': { name: "Silver Arrow", color: '#c0c0c0', maxSpeed: 7.2, acc: 0.12, turn: 0.035 }, // V-max, słabe przyspieszenie
@@ -5705,47 +5706,33 @@ function selectF1Car(key, element) {
 async function joinF1Game() {
     if(!currentUserId) return showMessage("Zaloguj się!", "error");
 
-    // Przełącz widok
     document.getElementById("f1-lobby").classList.add("hidden");
     document.getElementById("f1-game").classList.remove("hidden");
     
     f1Canvas = document.getElementById("f1-canvas");
     f1Ctx = f1Canvas.getContext('2d');
     
-    // Inicjalizacja Toru
-    function createTrackPath() {
-    f1TrackPath = new Path2D();
-    
-    // Start/Meta (Podniesione wyżej, żeby nie ucinało)
-    f1TrackPath.moveTo(120, 420); 
-    
-    f1TrackPath.lineTo(120, 100); 
-    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
-    f1TrackPath.lineTo(300, 280); 
-    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
-    f1TrackPath.lineTo(500, 100);
-    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
-    f1TrackPath.lineTo(700, 420); 
-    
-    // Dolny łuk (zmniejszony z 550 na 490, żeby zmieścił się w 500px)
-    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
-    
-    f1TrackPath.closePath();
-}
+    // Upewnij się, że tor istnieje
+    createTrackPath();
 
-    // Reset stanu gracza
-    f1MyCar.x = 120; // Startowa pozycja
+    // --- RESET STANU GRACZA (ZMIANA TUTAJ) ---
+    f1MyCar.x = 120; 
     f1MyCar.y = 420;
-    f1MyCar.angle = -Math.PI / 2; // Skierowany w górę
+    f1MyCar.angle = -Math.PI / 2; 
     f1MyCar.speed = 0;
     f1MyCar.lap = 1;
     f1MyCar.lastCheckpoint = 0;
     f1MyCar.lapStartTime = Date.now();
+    f1MyCar.raceStartTime = Date.now(); // Czas startu całego wyścigu
+    f1MyCar.finished = false; // Flaga czy ukończył
     f1MyCar.id = currentUserId;
+    // -----------------------------------------
 
     f1GameActive = true;
 
-    // Zapisz gracza w bazie
+    // Aktualizacja UI od razu
+    document.getElementById("f1-lap").textContent = `1 / ${F1_TOTAL_LAPS}`;
+
     const myRef = doc(db, "f1_players", currentUserId);
     await setDoc(myRef, {
         name: portfolio.name,
@@ -5756,10 +5743,7 @@ async function joinF1Game() {
         lastActive: serverTimestamp()
     });
 
-    // Nasłuchiwanie innych
     startF1Listener();
-
-    // Start pętli
     requestAnimationFrame(f1GameLoop);
 }
 
@@ -5822,37 +5806,38 @@ function startF1Listener() {
 
 // --- FIZYKA (POPRAWIONA - ZAMYKAJĄCA KLAMRA DODANA) ---
 function updateF1Physics() {
-    // --- SAMONAPRAWA: Jeśli tor nie istnieje, stwórz go teraz ---
+    // 1. Samonaprawa toru
     if (!f1TrackPath) {
-        console.warn("Wykryto brak toru, naprawianie...");
         createTrackPath(); 
-        if (!f1TrackPath) return; // Jeśli nadal brak, przerwij klatkę (bezpiecznik)
+        if (!f1TrackPath) return; 
     }
-    // -----------------------------------------------------------
 
     const stats = F1_CARS[f1MyCar.type];
     
-    // 1. Sterowanie
-    if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
-    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; // Hamulec
-    
-    // Skręcanie
-    if(Math.abs(f1MyCar.speed) > 0.1) {
-        const dir = f1MyCar.speed > 0 ? 1 : -1;
-        if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
-        if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
+    // --- 2. STEROWANIE (Działa tylko jeśli NIE ukończyłeś wyścigu) ---
+    if (!f1MyCar.finished) {
+        if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
+        if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; 
+        
+        if(Math.abs(f1MyCar.speed) > 0.1) {
+            const dir = f1MyCar.speed > 0 ? 1 : -1;
+            if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
+            if(f1Keys['ArrowRight']) f1MyCar.angle += stats.turn * dir;
+        }
+    } else {
+        // Jeśli ukończyłeś, auto samo zwalnia do zera
+        f1MyCar.speed *= 0.90;
     }
 
-    // 2. Wykrywanie terenu (Teraz bezpieczne dzięki if powyżej)
+    // --- 3. FIZYKA I KOLIZJE ---
     f1Ctx.lineWidth = 70; 
     const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
     
-    // 3. Tarcie i limity
-    let friction = 0.96; // Asfalt
+    let friction = 0.96; 
     let maxS = stats.maxSpeed;
 
     if (!onTrack) {
-        friction = 0.90; // Trawa
+        friction = 0.90; 
         maxS = 2.0; 
     }
 
@@ -5860,29 +5845,44 @@ function updateF1Physics() {
     if(f1MyCar.speed > maxS) f1MyCar.speed = maxS;
     if(f1MyCar.speed < -2) f1MyCar.speed = -2;
 
-    // 4. Ruch
     f1MyCar.x += Math.cos(f1MyCar.angle) * f1MyCar.speed;
     f1MyCar.y += Math.sin(f1MyCar.angle) * f1MyCar.speed;
 
-    // 5. Linia Mety i Checkpointy
-    if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
-    if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
-    
-    if(f1MyCar.x < 200 && f1MyCar.y > 400 && f1MyCar.lastCheckpoint === 2) {
-        f1MyCar.lap++;
-        f1MyCar.lastCheckpoint = 0;
-        if(dom.audioKaching) { 
-             const c = dom.audioKaching.cloneNode(); c.volume=0.3; c.play().catch(()=>{});
+    // --- 4. LOGIKA OKRĄŻEŃ I METY ---
+    if (!f1MyCar.finished) {
+        // Checkpointy
+        if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
+        if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
+        
+        // Linia Mety
+        if(f1MyCar.x < 200 && f1MyCar.y > 400 && f1MyCar.lastCheckpoint === 2) {
+            
+            // SPRAWDZENIE CZY TO KONIEC WYŚCIGU
+            if (f1MyCar.lap >= F1_TOTAL_LAPS) {
+                finishF1Race(); // <--- Funkcja kończąca (poniżej)
+            } else {
+                // Kolejne okrążenie
+                f1MyCar.lap++;
+                f1MyCar.lastCheckpoint = 0;
+                
+                // Dźwięk okrążenia
+                if(dom.audioKaching) { 
+                     const c = dom.audioKaching.cloneNode(); c.volume=0.3; c.play().catch(()=>{});
+                }
+            }
         }
     }
 
-    // 6. UI Update
+    // --- 5. UI UPDATE ---
     document.getElementById("f1-speed").textContent = (Math.abs(f1MyCar.speed) * 40).toFixed(0);
-    document.getElementById("f1-lap").textContent = f1MyCar.lap;
-    const time = ((Date.now() - f1MyCar.lapStartTime) / 1000).toFixed(2);
+    // Wyświetlanie "Okrążenie X / 12"
+    document.getElementById("f1-lap").textContent = `${f1MyCar.lap} / ${F1_TOTAL_LAPS}`;
+    
+    // Czas całkowity wyścigu zamiast czasu okrążenia (jeśli wolisz)
+    const time = ((Date.now() - f1MyCar.raceStartTime) / 1000).toFixed(2);
     document.getElementById("f1-time").textContent = time;
 
-    // 7. Sync z bazą
+    // --- 6. SYNC Z BAZĄ ---
     const now = Date.now();
     if(now - f1LastSent > 80) {
         f1LastSent = now;
@@ -6011,36 +6011,53 @@ function drawF1Car(x, y, angle, color, isMe) {
 
     f1Ctx.restore();
 }
-function createTrackPath() {
-    // Definiujemy kształt toru (prosta pętla)
-    f1TrackPath = new Path2D();
+async function finishF1Race() {
+    if (f1MyCar.finished) return; // Zabezpieczenie przed podwójnym wywołaniem
+    f1MyCar.finished = true;
+
+    // Oblicz całkowity czas
+    const totalTime = ((Date.now() - f1MyCar.raceStartTime) / 1000).toFixed(2);
     
-    // Start/Meta (Podniesione wyżej, żeby nie ucinało na dole)
-    f1TrackPath.moveTo(120, 420); 
+    // Dźwięk wygranej/końca
+    if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+
+    // Pokaż powiadomienie
+    showNotification(`🏁 META! Czas: ${totalTime}s`, 'news', 'positive');
     
-    // Prosta w górę
-    f1TrackPath.lineTo(120, 100); 
+    // Wyświetl komunikat na środku ekranu (możesz użyć alertu lub ładniejszego diva)
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.top = '50%';
+    overlay.style.left = '50%';
+    overlay.style.transform = 'translate(-50%, -50%)';
+    overlay.style.background = 'rgba(0,0,0,0.9)';
+    overlay.style.padding = '20px';
+    overlay.style.border = '2px solid gold';
+    overlay.style.borderRadius = '10px';
+    overlay.style.textAlign = 'center';
+    overlay.style.zIndex = '1000';
+    overlay.innerHTML = `
+        <h2 style="color:gold; margin:0;">WYŚCIG UKOŃCZONY!</h2>
+        <p style="color:white; font-size:1.5em; margin:10px 0;">Czas: ${totalTime}s</p>
+        <button onclick="this.parentElement.remove()" style="padding:10px 20px; cursor:pointer;">OK</button>
+    `;
     
-    // Zakręt 1 (Góra)
-    f1TrackPath.bezierCurveTo(120, 20, 300, 20, 300, 100); 
-    
-    // Prosta
-    f1TrackPath.lineTo(300, 280); 
-    
-    // Zakręt S (Środek)
-    f1TrackPath.bezierCurveTo(300, 420, 500, 420, 500, 280); 
-    
-    // Prosta do góry
-    f1TrackPath.lineTo(500, 100);
-    
-    // Zakręt końcowy (Góra Prawa)
-    f1TrackPath.bezierCurveTo(500, 20, 700, 20, 700, 100); 
-    
-    // Prosta powrotna długa
-    f1TrackPath.lineTo(700, 420); 
-    
-    // Nawrót do startu (Dół - zmniejszony Y, żeby mieścił się w oknie)
-    f1TrackPath.bezierCurveTo(700, 490, 120, 490, 120, 420); 
-    
-    f1TrackPath.closePath();
+    // Dodaj overlay do kontenera gry
+    document.querySelector('.f1-canvas-container').appendChild(overlay);
+
+    // Opcjonalnie: Zapisz wynik w historii lub daj nagrodę
+    // Np. 1000 zł za ukończenie
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            const reward = 500; // Nagroda za dojechanie
+            t.update(uRef, { 
+                cash: d.cash + reward, 
+                zysk: (d.zysk || 0) + reward,
+                totalValue: calculateTotalValue(d.cash + reward, d.shares)
+            });
+        });
+        showNotification(`Nagroda za wyścig: +500 zł`, 'news', 'positive');
+    } catch(e) { console.error(e); }
 }
