@@ -2585,3 +2585,15 @@ input:focus, select:focus { border-color: var(--accent-color); }
     height: 100%;
     display: block;
 }
+.f1-garage-grid .f1-car-card {
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+}
+.f1-garage-grid .f1-car-card.selected {
+    border-color: var(--accent-color);
+    background: rgba(0, 210, 255, 0.1);
+}
