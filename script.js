@@ -5826,8 +5826,9 @@ function updateF1Physics() {
     
     // 1. Sterowanie
     if(f1Keys['ArrowUp']) f1MyCar.speed += stats.acc;
-    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; 
+    if(f1Keys['ArrowDown']) f1MyCar.speed -= stats.acc; // Hamulec
     
+    // Skręcanie
     if(Math.abs(f1MyCar.speed) > 0.1) {
         const dir = f1MyCar.speed > 0 ? 1 : -1;
         if(f1Keys['ArrowLeft']) f1MyCar.angle -= stats.turn * dir;
@@ -5839,11 +5840,11 @@ function updateF1Physics() {
     const onTrack = f1Ctx.isPointInStroke(f1TrackPath, f1MyCar.x, f1MyCar.y);
     
     // 3. Tarcie i limity
-    let friction = 0.96; 
+    let friction = 0.96; // Asfalt
     let maxS = stats.maxSpeed;
 
     if (!onTrack) {
-        friction = 0.90; 
+        friction = 0.90; // Trawa
         maxS = 2.0; 
     }
 
@@ -5855,7 +5856,7 @@ function updateF1Physics() {
     f1MyCar.x += Math.cos(f1MyCar.angle) * f1MyCar.speed;
     f1MyCar.y += Math.sin(f1MyCar.angle) * f1MyCar.speed;
 
-    // 5. Linia Mety (Prosta detekcja)
+    // 5. Linia Mety i Checkpointy
     if(f1MyCar.y < 150 && f1MyCar.x < 200) f1MyCar.lastCheckpoint = 1;
     if(f1MyCar.x > 600 && f1MyCar.lastCheckpoint === 1) f1MyCar.lastCheckpoint = 2;
     
@@ -5873,7 +5874,7 @@ function updateF1Physics() {
     const time = ((Date.now() - f1MyCar.lapStartTime) / 1000).toFixed(2);
     document.getElementById("f1-time").textContent = time;
 
-    // 7. Sync z bazą (Fixed Syntax Here)
+    // 7. Sync z bazą
     const now = Date.now();
     if(now - f1LastSent > 80) {
         f1LastSent = now;
@@ -5884,7 +5885,17 @@ function updateF1Physics() {
             lastActive: serverTimestamp()
         }).catch(err => {});
     }
-} // <--- TO JEST KLAMRA, KTÓREJ BRAKOWAŁO
+} // <--- TEJ KLAMRY BRAKOWAŁO!
+
+// TEJ FUNKCJI BRAKOWAŁO (Dlatego błąd "ReferenceError: f1GameLoop is not defined")
+function f1GameLoop() {
+    if(!f1GameActive) return;
+
+    updateF1Physics();
+    drawF1Game();
+    
+    requestAnimationFrame(f1GameLoop);
+}
 
 function drawF1Game() {
     // Tło (Trawa)
