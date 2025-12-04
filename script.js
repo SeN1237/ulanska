@@ -4751,14 +4751,27 @@ let skiState = {
     trajectory: [] // Do powtórek
 };
 
-// Stałe fizyki
+// ==========================================
+// === SKI JUMP CONFIG & DATA ===
+// ==========================================
+
+// Definicje 4 skoczni (Parametry fizyczne i wizualne)
+const HILLS_CONFIG = [
+    { name: "Oberstdorf", k: 600, takeoff: 350, scale: 1.0, color: "#87CEEB" }, // Normalna
+    { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff" }, // Trochę większa
+    { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de" }, // Mniejsza, techniczna (Bergisel)
+    { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5" } // Gigant (zachód słońca)
+];
+
+// Zmienna trzymająca parametry AKTUALNEJ skoczni (domyślnie pierwsza)
+let currentHillParams = HILLS_CONFIG[0]; 
+
+// Stałe fizyki (Grawitacja itp. bez zmian)
 const SKI_GRAVITY = 0.15;
 const SKI_AIR_RESISTANCE = 0.99;
-const SKI_LIFT_FACTOR = 0.008; // Siła nośna
+const SKI_LIFT_FACTOR = 0.008;
 const SKI_HILL_START_X = 50;
 const SKI_HILL_START_Y = 100;
-const SKI_TAKEOFF_X = 350; // Próg
-const SKI_K_POINT = 600; // Punkt K (wizualny)
 
 // --- INIT ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -4831,6 +4844,9 @@ function listenToSkiLobbies() {
 
 async function createSkiLobby() {
     const amount = parseFloat(document.getElementById("skijump-create-amount").value);
+    // Pobieramy stan checkboxa
+    const isTCS = document.getElementById("skijump-tcs-mode").checked;
+    
     if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
     if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
 
@@ -4847,15 +4863,28 @@ async function createSkiLobby() {
                 hostName: portfolio.name,
                 entryFee: amount,
                 status: "open",
+                
+                // --- NOWE POLA TCS ---
+                isTournament: isTCS,  // Czy to turniej?
+                hillIndex: 0,         // Która skocznia (0-3)
+                // ---------------------
+                
                 round: 1,
                 currentPlayerIndex: 0,
                 createdAt: serverTimestamp(),
-                // Struktura gracza: id, name, jump1 (dist), jump2 (dist), score (total)
-                players: [{ id: currentUserId, name: portfolio.name, jump1: 0, jump2: 0, score: 0 }],
-                lastJumpData: null // Tu będą trafiać powtórki: { playerId, trajectory: [...] }
+                // Struktura gracza z nowym polem 'totalTournamentScore'
+                players: [{ 
+                    id: currentUserId, 
+                    name: portfolio.name, 
+                    jump1: 0, 
+                    jump2: 0, 
+                    score: 0, 
+                    totalTournamentScore: 0 // Suma punktów z całego turnieju
+                }],
+                lastJumpData: null 
             });
         });
-        showMessage("Konkurs utworzony!", "success");
+        showMessage(isTCS ? "Turniej 4 Skoczni utworzony!" : "Konkurs utworzony!", "success");
     } catch (e) { showMessage(e.message, "error"); }
 }
 
@@ -4876,7 +4905,15 @@ window.joinSkiLobby = async function(id, fee) {
             if (data.players.length >= 8) throw new Error("Pełna lista!");
             if (uDoc.data().cash < fee) throw new Error("Brak środków!");
             
-            const newPlayers = [...data.players, { id: currentUserId, name: portfolio.name, jump1: 0, jump2: 0, score: 0 }];
+            // Wewnątrz funkcji joinSkiLobby, w miejscu tworzenia newPlayers:
+const newPlayers = [...data.players, { 
+    id: currentUserId, 
+    name: portfolio.name, 
+    jump1: 0, 
+    jump2: 0, 
+    score: 0,
+    totalTournamentScore: 0 // <-- WAŻNE
+}];
             
             t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
             t.update(ref, { players: newPlayers });
@@ -4899,11 +4936,24 @@ function enterSkiGame(id) {
     // Główny Listener Gry
     skiSubscription = onSnapshot(doc(db, "skijump_lobbies", id), (snap) => {
         if (!snap.exists()) { leaveSkiGame(); return; }
-        const data = snap.data();
+        // Wewnątrz onSnapshot...
+    const data = snap.data();
+    cachedSkiData = data; 
+    
+    // --- AKTUALIZACJA SKOCZNI ---
+    if (data.hillIndex !== undefined) {
+        currentHillParams = HILLS_CONFIG[data.hillIndex];
+        // Ustawienie tła canvasa (kolor nieba/zachodu słońca)
+        skiCanvas.style.background = currentHillParams.color;
         
-        cachedSkiData = data; // <--- ZAPISUJEMY DANE DO PAMIĘCI
-        
-        updateSkiScoreboard(data);
+        // Aktualizacja nagłówka nazwy
+        document.getElementById("skijump-hill-name").textContent = 
+            `${currentHillParams.name} (K-${(currentHillParams.k / 4).toFixed(0)})`;
+    }
+    // ----------------------------
+
+    updateSkiScoreboard(data);
+    // ... reszta bez zmian
         handleSkiGameState(data);
     });
 
@@ -4924,23 +4974,43 @@ function updateSkiScoreboard(data) {
     document.getElementById("skijump-round").textContent = `${data.round}/2`;
     document.getElementById("skijump-pot").textContent = formatujWalute(data.entryFee * data.players.length);
     
+    const thead = document.querySelector("#skijump-game-view thead tr");
     const tbody = document.getElementById("skijump-scoreboard");
+    
+    // Zmiana nagłówków tabeli w zależności od trybu
+    if (data.isTournament) {
+        thead.innerHTML = `<th>Msc</th><th>Gracz</th><th>Skok 1</th><th>Skok 2</th><th>Nota</th><th>TCS Total</th>`;
+    } else {
+        thead.innerHTML = `<th>Msc</th><th>Gracz</th><th>Skok 1</th><th>Skok 2</th><th>Nota</th>`;
+    }
+
     tbody.innerHTML = "";
     
-    // Sortuj po wyniku malejąco
-    const sorted = [...data.players].sort((a,b) => b.score - a.score);
+    // Sortowanie: w TCS po 'totalTournamentScore', w zwykłym po 'score'
+    const sortKey = data.isTournament ? 'totalTournamentScore' : 'score';
+    const sorted = [...data.players].sort((a,b) => b[sortKey] - a[sortKey]);
     
     sorted.forEach((p, idx) => {
         const isCurrent = (p.id === data.players[data.currentPlayerIndex]?.id);
         const tr = document.createElement("tr");
         if(isCurrent && data.status === 'active') tr.classList.add("sj-current-row");
         
+        let extraCol = "";
+        if (data.isTournament) {
+            // Pokazujemy sumę dotychczasową + aktualny konkurs
+            // Uwaga: totalTournamentScore aktualizujemy dopiero po konkursie, 
+            // więc "live" wynik to total + current_score
+            const currentTotal = (p.totalTournamentScore || 0) + p.score;
+            extraCol = `<td><strong style="color:gold">${currentTotal.toFixed(1)}</strong></td>`;
+        }
+
         tr.innerHTML = `
             <td>${idx + 1}</td>
             <td>${p.name} ${isCurrent ? '⛷️' : ''}</td>
             <td>${p.jump1 ? p.jump1.toFixed(1) + 'm' : '-'}</td>
             <td>${p.jump2 ? p.jump2.toFixed(1) + 'm' : '-'}</td>
-            <td><strong>${p.score.toFixed(1)}</strong></td>
+            <td>${p.score.toFixed(1)}</td>
+            ${extraCol}
         `;
         tbody.appendChild(tr);
     });
@@ -5144,27 +5214,30 @@ function physicsStep() {
     }
 }
 
-// Funkcja kształtu skoczni
 function getHillY(x) {
-    // Rozbieg
-    if (x < SKI_TAKEOFF_X) {
-        // Krzywa
-        const t = x / SKI_TAKEOFF_X; 
-        return SKI_HILL_START_Y + (t*t) * 100; 
+    const takeoffX = currentHillParams.takeoff;
+    const scale = currentHillParams.scale;
+
+    // 1. Rozbieg
+    if (x < takeoffX) {
+        const t = x / takeoffX; 
+        return SKI_HILL_START_Y + (Math.pow(t, 2.5)) * (120 * scale); 
     }
-    // Zeskok
+    // 2. Zeskok
     else {
-        // Parabola + wyprostowanie
-        const dx = x - SKI_TAKEOFF_X;
-        // Profil zeskoku (krzywa logistyczna uproszczona)
-        let drop = 0;
-        if (dx < 400) drop = (dx * dx) * 0.002; // Stroma część
-        else drop = 320 + (dx - 400) * 0.5; // Wypłaszczenie
+        const dx = x - takeoffX;
+        const takeoffH = SKI_HILL_START_Y + (120 * scale); 
         
-        return (SKI_HILL_START_Y + 100) + drop;
+        if (dx < 300 * scale) {
+            return takeoffH + 10 + (dx * 0.8) + (dx * dx * 0.0005);
+        } else {
+            const boundary = 300 * scale;
+            const hAtBoundary = takeoffH + 10 + (boundary * 0.8) + (boundary * boundary * 0.0005);
+            const ddx = dx - boundary;
+            return hAtBoundary + (ddx * 0.45); 
+        }
     }
 }
-
 async function landSki(manual) {
     if(skiState.phase === 'landed') return;
     
@@ -5200,31 +5273,57 @@ async function uploadJumpData(dist, pts, traj) {
             
             p.score += pts;
             
-            // Logika następnego gracza
+            // Logika następnego kroku
             let nextIndex = pIndex + 1;
             let nextRound = data.round;
+            let nextHillIndex = data.hillIndex || 0;
             let status = data.status;
-            let nextJumperId = null;
 
+            // Jeśli wszyscy skoczyli w tej rundzie
             if (nextIndex >= players.length) {
                 if (data.round === 1) {
-                    // Koniec rundy 1
+                    // Koniec 1. serii -> idziemy do 2. serii
                     nextIndex = 0;
                     nextRound = 2;
                 } else {
-                    // Koniec gry
-                    status = 'finished';
-                    // Wypłata dla zwycięzcy
-                    const winner = [...players].sort((a,b) => b.score - a.score)[0];
-                    const pot = data.entryFee * players.length;
+                    // Koniec 2. serii (Koniec konkursu na tej skoczni)
                     
-                    const wRef = doc(db, "uzytkownicy", winner.id);
-                    const wData = (await t.get(wRef)).data();
-                    t.update(wRef, { 
-                        cash: wData.cash + pot, 
-                        zysk: (wData.zysk||0) + (pot - data.entryFee),
-                        totalValue: calculateTotalValue(wData.cash + pot, wData.shares)
+                    // 1. Dodaj punkty z tego konkursu do generalki turnieju
+                    players.forEach(pl => {
+                        pl.totalTournamentScore = (pl.totalTournamentScore || 0) + pl.score;
                     });
+
+                    if (data.isTournament && nextHillIndex < 3) {
+                        // --- IDZIEMY NA KOLEJNĄ SKOCZNIĘ ---
+                        nextHillIndex++;
+                        nextRound = 1;
+                        nextIndex = 0;
+                        
+                        // Reset wyników konkursowych (ale totalTournamentScore zostaje!)
+                        players.forEach(pl => {
+                            pl.jump1 = 0;
+                            pl.jump2 = 0;
+                            pl.score = 0;
+                        });
+                        
+                    } else {
+                        // --- KONIEC GRY (Zwykły konkurs lub Finał TCS) ---
+                        status = 'finished';
+                        
+                        // Zwycięzca (w trybie TCS patrzymy na totalTournamentScore)
+                        const scoreKey = data.isTournament ? 'totalTournamentScore' : 'score';
+                        const winner = [...players].sort((a,b) => b[scoreKey] - a[scoreKey])[0];
+                        
+                        const pot = data.entryFee * players.length;
+                        
+                        const wRef = doc(db, "uzytkownicy", winner.id);
+                        const wData = (await t.get(wRef)).data();
+                        t.update(wRef, { 
+                            cash: wData.cash + pot, 
+                            zysk: (wData.zysk||0) + (pot - data.entryFee),
+                            totalValue: calculateTotalValue(wData.cash + pot, wData.shares)
+                        });
+                    }
                 }
             }
 
@@ -5234,8 +5333,9 @@ async function uploadJumpData(dist, pts, traj) {
                 currentPlayerIndex: nextIndex,
                 round: nextRound,
                 status: status,
+                hillIndex: nextHillIndex, // Zapisujemy nową skocznię
                 lastJumpData: {
-                    jumpId: Date.now(), // Unique ID dla wykrycia zmiany
+                    jumpId: Date.now(),
                     playerName: p.name,
                     dist: dist,
                     trajectory: traj
@@ -5244,7 +5344,6 @@ async function uploadJumpData(dist, pts, traj) {
         });
     } catch(e) { console.error(e); }
 }
-
 // --- SYSTEM POWTÓREK (Dla obserwatorów) ---
 
 let replayData = null;
@@ -5329,99 +5428,39 @@ function drawSkiGame() {
     const w = skiCanvas.width;
     const h = skiCanvas.height;
     
-    // --- 1. ULEPSZONA LOGIKA KAMERY ---
-    // Kamera ustawia się tak, żeby skoczek był 200px od lewej krawędzi
+    // Dynamiczne parametry
+    const takeoffX = currentHillParams.takeoff;
+    const kPointX = takeoffX + currentHillParams.k;
+
+    // Kamera
     let targetCamX = skiState.x - 200;
     if (targetCamX < 0) targetCamX = 0;
-    // USUNIĘTO LIMIT 600px! Teraz kamera jedzie do końca.
-
-    // Opcjonalnie: Lekkie śledzenie w pionie, jeśli spadnie nisko
-    let targetCamY = 0;
-    if (skiState.y > 350) targetCamY = skiState.y - 350;
-
-    // Płynne podążanie (interpolacja)
     skiState.cameraX += (targetCamX - skiState.cameraX) * 0.1;
-    // Jeśli nie zdefiniowałeś cameraY w skiState, użyjemy zmiennej lokalnej lub 0
-    // (Dla prostoty zakładamy 0, chyba że dodasz cameraY do obiektu skiState)
-    let currentCamY = targetCamY; 
 
-    skiCtx.clearRect(0, 0, w, h);
-    skiCtx.save();
-    
-    // Przesuń świat
-    skiCtx.translate(-skiState.cameraX, -currentCamY);
+    // ... (kod czyszczenia canvas i save context bez zmian) ...
+    // ... (kod rysowania śniegu - użyj takeoffX w pętli jeśli trzeba, ale getHillY już to robi) ...
 
-    // --- 2. RYSOWANIE SKOCZNI (DYNAMICZNE) ---
-    skiCtx.beginPath();
-    skiCtx.strokeStyle = "#eee"; 
-    skiCtx.lineWidth = 2;
-    skiCtx.fillStyle = "#fff"; 
+    // Rysowanie Linii Punktu K
+    const kY = getHillY(kPointX);
     
-    skiCtx.moveTo(0, SKI_HILL_START_Y);
-    
-    // Rysujemy profil góry AŻ DO KOŃCA EKRANU + zapas
-    // Dzięki temu skocznia nigdy się nie kończy wizualnie
-    const drawEnd = skiState.cameraX + w + 100; 
-    
-    for(let i=0; i < drawEnd; i+=20) {
-        skiCtx.lineTo(i, getHillY(i));
-    }
-    
-    // Domykamy kształt do dołu, żeby wypełnić śniegiem
-    // Musimy uwzględnić przesunięcie w dół, żeby nie ucięło dołu przy długich lotach
-    skiCtx.lineTo(drawEnd, h + 500 + currentCamY);
-    skiCtx.lineTo(0, h + 500 + currentCamY);
-    skiCtx.fill();
-    skiCtx.stroke();
-
-    // --- 3. LINIE DYSTANSU (ZESKOK) ---
-    const kX = SKI_TAKEOFF_X + SKI_K_POINT;
-    const kY = getHillY(kX);
-    
-    // Punkt K (Czerwona krecha)
     skiCtx.beginPath();
     skiCtx.strokeStyle = "red";
     skiCtx.lineWidth = 3;
-    skiCtx.moveTo(kX, kY);
-    skiCtx.lineTo(kX + 20, kY + 10);
+    skiCtx.moveTo(kPointX, kY);
+    skiCtx.lineTo(kPointX + 20, kY + 10);
     skiCtx.stroke();
-    
-    // Linie metrowe (co 10m gry = 40px)
-    skiCtx.lineWidth = 1;
-    skiCtx.strokeStyle = "rgba(0,0,255,0.2)"; // Bardziej przezroczyste
-    
-    // Rysujemy linie tylko w zasięgu widzenia kamery (optymalizacja)
-    let startLine = Math.floor(skiState.cameraX / 40) * 40;
-    if (startLine < SKI_TAKEOFF_X) startLine = SKI_TAKEOFF_X;
-    
-    for(let lx = startLine; lx < drawEnd; lx += 40) {
-        // Rysuj tylko na zeskoku
-        if (lx > SKI_TAKEOFF_X + 50) {
-            let lineY = getHillY(lx);
-            skiCtx.beginPath();
-            skiCtx.moveTo(lx, lineY);
-            skiCtx.lineTo(lx, lineY + 10);
-            skiCtx.stroke();
-            
-            // Opcjonalnie: Numery metrów co 50m
-            const dist = (lx - SKI_TAKEOFF_X) / 4;
-            if (dist % 50 === 0) {
-                skiCtx.fillStyle = "rgba(0,0,100,0.5)";
-                skiCtx.font = "12px monospace";
-                skiCtx.fillText(dist + "m", lx - 10, lineY + 25);
-            }
-        }
-    }
 
-    // --- 4. BELKA I PRÓG ---
+    // ... (kod linii metrowych: używaj takeoffX zamiast stałej) ...
+    // np: let lineX = takeoffX + distPx;
+
     // Belka
     skiCtx.fillStyle = "#8B4513"; 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y - 2, 20, 5); 
     skiCtx.fillRect(SKI_HILL_START_X - 20, SKI_HILL_START_Y, 5, 20);
 
-    // Próg
+    // Próg (dynamiczny X)
     skiCtx.fillStyle = "#003366"; 
-    skiCtx.fillRect(SKI_TAKEOFF_X - 5, getHillY(SKI_TAKEOFF_X), 5, 10);
+    skiCtx.fillRect(takeoffX - 5, getHillY(takeoffX), 5, 10);
 
     // --- 5. SKOCZEK ---
     if (skiState.phase !== 'idle' || skiState.x > 0) {
