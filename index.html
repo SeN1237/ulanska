@@ -260,6 +260,7 @@
 
             <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
+                <button class="game-nav-btn" data-game-tab="f1"><i class="fa-solid fa-flag-checkered"></i> F1 Racing</button>
                 <button class="game-nav-btn" data-game-tab="exam"><i class="fa-solid fa-graduation-cap"></i> Sesja (Exam)</button>
                 <button class="game-nav-btn" data-game-tab="skijump"><i class="fa-solid fa-snowflake"></i> Skoki (DSJ)</button>
                 <button class="game-nav-btn" data-game-tab="crossy"><i class="fa-solid fa-frog"></i> WIG Road</button>
@@ -279,6 +280,37 @@
             </div>
 
             <div class="games-content-container">
+                <div id="tab-game-f1" class="game-tab-content">
+    <section class="glass-panel center-content">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-car-side"></i> WIG Grand Prix (Live MMO)</h2>
+        </div>
+
+        <div id="f1-lobby">
+            <h3>Wybierz swój bolid:</h3>
+            <div class="f1-garage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 20px 0;">
+                </div>
+            <div id="f1-selected-stats" style="margin-bottom: 20px; color: var(--accent-color); font-weight: bold; min-height: 1.2em;"></div>
+            <button id="btn-f1-join" class="btn-accent btn-full-width" disabled>WYBIERZ BOLID</button>
+        </div>
+
+        <div id="f1-game" class="hidden">
+            <div class="race-header-info">
+                <button id="btn-f1-leave" class="btn-sell">Zjedź do Pit-Stopu</button>
+                <div style="text-align: right;">
+                    <div>Okrążenie: <strong id="f1-lap">1</strong> | Czas: <strong id="f1-time">0.00</strong>s</div>
+                    <div style="font-size: 0.8em; color: #aaa;">Prędkość: <span id="f1-speed">0</span> km/h</div>
+                </div>
+            </div>
+            
+            <div class="f1-canvas-container" style="position:relative; margin:0 auto; width:800px; max-width:100%; height:500px; background:#2c3e50; border:4px solid #fff; border-radius: 10px; overflow:hidden;">
+                <canvas id="f1-canvas" width="800" height="500"></canvas>
+            </div>
+            
+            <p style="font-size:0.8em; color:#888; margin-top:10px;">Sterowanie: Strzałki (Gaz/Hamulec/Skręt). Na trawie zwalniasz!</p>
+        </div>
+    </section>
+</div>
 
                 <div id="tab-game-skijump" class="game-tab-content">
     <section class="glass-panel">
