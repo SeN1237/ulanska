@@ -2543,3 +2543,26 @@ input:focus, select:focus { border-color: var(--accent-color); }
     background: rgba(255, 215, 0, 0.1); /* Podświetlenie aktualnego skoczka */
     border-left: 3px solid gold;
 }
+.f1-car-card {
+    background: rgba(255,255,255,0.05);
+    border: 2px solid transparent;
+    padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+    text-align: center;
+}
+.f1-car-card:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-5px);
+}
+.f1-car-card.selected {
+    border-color: var(--accent-color);
+    background: rgba(0, 210, 255, 0.1);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+}
+.f1-icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    display: block;
+}
