@@ -614,103 +614,79 @@ initMinesGrid(); // Funkcja rysująca pustą siatkę na start
     setTimeout(initDailyWheel, 1000);
     setTimeout(updateChessTournament, 2000); 
     
-    // ==========================================
-// === CHESS.COM TOURNAMENT LOGIC (UPDATED) ===
+// ==========================================
+// === CHESS.COM TOURNAMENT LOGIC (ALL MODES) ===
 // ==========================================
 
-// KONFIGURACJA GRACZY
-// W dniu startu (10.12) wpisz tu ich aktualne rankingi.
+// KONFIGURACJA GRACZY (Wpisz startowe ELO z dnia 10.12)
 const CHESS_PLAYERS = [
     { 
         nick: "igiblack", 
         startBullet: 247, 
-        startBlitz: 385, 
+        startBlitz: 392, 
         startRapid: 698 
     },
-
-    // Przykład dla zwykłego gracza (dodaj swoich tutaj):
-    /*
-    { 
-        nick: "TwójKolega", 
-        startBullet: 800, 
-        startBlitz: 1000, 
-        startRapid: 1200 
-    },
-    */
+    // { nick: "TwójNick", startBullet: 800, startBlitz: 900, startRapid: 1000 }
 ];
 
 async function updateChessTournament() {
     const tbody = document.getElementById("chess-leaderboard-body");
     const updateLabel = document.getElementById("chess-last-update");
     
-    // Zabezpieczenie: jeśli nie ma tabeli w HTML, nie rób nic
     if(!tbody) return;
 
-    // Pobieranie danych dla każdego gracza
+    // Helper do formatowania wyniku (kolor i znak)
+    const formatDiff = (diff) => {
+        if (diff > 0) return `<span style="color:var(--green); font-weight:bold;">+${diff}</span>`;
+        if (diff < 0) return `<span style="color:var(--red); font-weight:bold;">${diff}</span>`;
+        return `<span style="color:var(--text-muted); opacity:0.5;">0</span>`;
+    };
+
     const promises = CHESS_PLAYERS.map(async (player) => {
         try {
             const response = await fetch(`https://api.chess.com/pub/player/${player.nick}/stats`);
-            
-            if(!response.ok) {
-                console.warn(`Nie znaleziono gracza: ${player.nick}`);
-                return null;
-            }
-            
+            if(!response.ok) return null;
             const data = await response.json();
             
-            // 1. Pobieramy aktualne rankingi (0 jeśli gracz nie gra w dany tryb)
+            // 1. Pobieramy aktualne rankingi (0 jeśli brak)
             const curBullet = data.chess_bullet?.last?.rating || 0;
             const curBlitz  = data.chess_blitz?.last?.rating  || 0;
             const curRapid  = data.chess_rapid?.last?.rating  || 0;
 
-            // 2. Obliczamy przyrost dla każdego trybu osobno
-            // Jeśli startowe ELO nie zostało podane (undefined), przyjmujemy 0, co da wynik = aktualnemu ELO
-            // (Dlatego ważne, żebyś uzupełnił startBullet/Blitz/Rapid w konfigu!)
-            
-            const diffBullet = curBullet - (player.startBullet || curBullet);
-            const diffBlitz  = curBlitz  - (player.startBlitz  || curBlitz);
-            const diffRapid  = curRapid  - (player.startRapid  || curRapid);
+            // 2. Obliczamy przyrosty
+            // Jeśli cur == 0 (gracz nie gra w ten tryb w ogóle), ustawiamy różnicę na 0, żeby nie pokazywało np. -1000
+            const diffBullet = curBullet > 0 ? (curBullet - (player.startBullet || curBullet)) : 0;
+            const diffBlitz  = curBlitz > 0  ? (curBlitz  - (player.startBlitz  || curBlitz))  : 0;
+            const diffRapid  = curRapid > 0  ? (curRapid  - (player.startRapid  || curRapid))  : 0;
 
-            // 3. Tworzymy listę wyników i szukamy najlepszego
-            const modes = [
-                { name: "Bullet", growth: diffBullet, current: curBullet, start: player.startBullet },
-                { name: "Blitz",  growth: diffBlitz,  current: curBlitz,  start: player.startBlitz },
-                { name: "Rapid",  growth: diffRapid,  current: curRapid,  start: player.startRapid }
-            ];
-
-            // Sortujemy od największego przyrostu
-            modes.sort((a, b) => b.growth - a.growth);
-
-            // Wybieramy najlepszy tryb tego gracza
-            const bestMode = modes[0];
+            // 3. Szukamy najlepszego wyniku do sortowania
+            const maxGrowth = Math.max(diffBullet, diffBlitz, diffRapid);
 
             return {
                 nick: player.nick,
-                mode: bestMode.name,
-                current: bestMode.current,
-                growth: bestMode.growth,
-                start: bestMode.start || 0
+                diffBullet,
+                diffBlitz,
+                diffRapid,
+                maxGrowth // To służy tylko do ustalenia pozycji w rankingu
             };
 
         } catch (error) {
-            console.error(`Błąd API dla ${player.nick}`, error);
-            return { nick: player.nick, error: true };
+            console.error(`Błąd API dla ${player.nick}`);
+            return null;
         }
     });
 
     const playersData = await Promise.all(promises);
-
-    // Filtrowanie błędów (np. zły nick) i sortowanie graczy względem siebie
-    const validPlayers = playersData.filter(p => p && !p.error);
+    const validPlayers = playersData.filter(p => p !== null);
     
-    // Sortujemy graczy: Kto ma większy przyrost, ten wyżej
-    validPlayers.sort((a, b) => b.growth - a.growth);
+    // Sortujemy: Kto ma najwyższy "maxGrowth" jest pierwszy
+    validPlayers.sort((a, b) => b.maxGrowth - a.maxGrowth);
 
-    // --- RENDEROWANIE TABELI ---
+    // --- RENDEROWANIE ---
     tbody.innerHTML = "";
     
     if(validPlayers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:15px; color:#aaa;">Brak danych. Sprawdź nicki w kodzie.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px; color:#aaa;">Brak danych.</td></tr>`;
         return;
     }
 
@@ -719,34 +695,31 @@ async function updateChessTournament() {
         let rank = index + 1;
         let icon = "";
         
-        // Kolory dla podium
         if (index === 0) { color = "#ffd700"; icon = "🥇"; }
         else if (index === 1) { color = "#c0c0c0"; icon = "🥈"; }
         else if (index === 2) { color = "#cd7f32"; icon = "🥉"; }
 
-        // Kolorowanie przyrostu (zielony plus, czerwony minus)
-        const growthColor = p.growth > 0 ? "var(--green)" : (p.growth < 0 ? "var(--red)" : "var(--text-muted)");
-        const growthSign = p.growth > 0 ? "+" : "";
-
+        // Tworzymy wiersz z 3 kolumnami wyników
         const row = `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="padding: 10px 5px; color: ${color}; font-weight:bold;">${rank} ${icon}</td>
                 <td style="padding: 10px 5px;">
-                    <strong style="color:var(--text-main); font-size:0.95em;">${p.nick}</strong><br>
-                    <small style="color:var(--text-muted); font-size:0.8em;">Start: ${p.start} ➝ ${p.current}</small>
+                    <strong style="color:var(--text-main); font-size:0.95em;">${p.nick}</strong>
                 </td>
-                <td style="padding: 10px 5px; font-size: 0.85em; color:#ccc;">
-                    <i class="fa-solid fa-chess-pawn"></i> ${p.mode}
+                <td style="padding: 10px 5px; text-align: center; background:rgba(255,255,255,0.02);">
+                    ${formatDiff(p.diffBullet)}
                 </td>
-                <td style="padding: 10px 5px; text-align: right; font-weight: bold; font-size:1.1em; color: ${growthColor};">
-                    ${growthSign}${p.growth}
+                <td style="padding: 10px 5px; text-align: center;">
+                    ${formatDiff(p.diffBlitz)}
+                </td>
+                <td style="padding: 10px 5px; text-align: center; background:rgba(255,255,255,0.02);">
+                    ${formatDiff(p.diffRapid)}
                 </td>
             </tr>
         `;
         tbody.insertAdjacentHTML('beforeend', row);
     });
 
-    // Data aktualizacji
     const now = new Date();
     if(updateLabel) updateLabel.textContent = `Aktualizacja: ${now.toLocaleTimeString()}`;
 }
