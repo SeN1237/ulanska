@@ -2543,3 +2543,100 @@ input:focus, select:focus { border-color: var(--accent-color); }
     background: rgba(255, 215, 0, 0.1); /* Podświetlenie aktualnego skoczka */
     border-left: 3px solid gold;
 }
+/* --- DAILY WHEEL STYLES --- */
+.daily-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.wheel-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto;
+    filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.3));
+}
+
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 5px solid #fff;
+    position: relative;
+    overflow: hidden;
+    transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); /* Efekt zwalniania */
+    background: conic-gradient(
+        #333 0deg 45deg,
+        #444 45deg 90deg,
+        #333 90deg 135deg,
+        #444 135deg 180deg,
+        #333 180deg 225deg,
+        #444 225deg 270deg,
+        #333 270deg 315deg,
+        #444 315deg 360deg
+    );
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.wheel-segment {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 50%;
+    height: 2px;
+    transform-origin: 0% 50%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 20px;
+    box-sizing: border-box;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 2px black;
+    font-size: 0.9rem;
+}
+
+.wheel-segment span {
+    transform: rotate(90deg); /* Obrót tekstu żeby był czytelny */
+    display: inline-block;
+}
+
+.wheel-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, #fff 0%, #ccc 100%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 4px solid var(--accent-color);
+}
+
+.wheel-pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 30px solid var(--red);
+    z-index: 20;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}
+
+/* Kolory nagród (klasy dodawane przez JS) */
+.seg-low { color: #fff; }
+.seg-med { color: var(--green); font-weight: 800; }
+.seg-high { color: #ffd700; font-weight: 900; text-shadow: 0 0 5px gold; }
+.seg-jackpot { color: #ff00cc; font-size: 1.1rem; text-shadow: 0 0 10px #ff00cc; }
