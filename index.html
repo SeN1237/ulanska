@@ -989,6 +989,73 @@
             
             </div> </div> <div id="view-info" class="view-section">
              <div class="info-grid">
+                 <section class="glass-panel" style="border: 2px solid #7fa650; box-shadow: 0 0 15px rgba(127, 166, 80, 0.2);">
+    <div class="panel-head" style="border-bottom-color: rgba(127, 166, 80, 0.3);">
+        <h2 style="color: #7fa650;"><i class="fa-solid fa-chess-knight"></i> Turniej Chess.com</h2>
+    </div>
+    <div class="info-content">
+        <p style="font-size: 1.1em; margin-bottom: 15px;">
+            <strong>📅 Data:</strong> <span style="color: #fff;">10.12 - 21.12</span>
+        </p>
+
+        <ul style="list-style: none; padding: 0; margin-bottom: 15px; color: var(--text-muted);">
+            <li style="margin-bottom: 8px;"><i class="fa-solid fa-user-plus" style="color:var(--accent-color)"></i> <strong>Zgłoszenia:</strong> Wyślij swój nick z Chess.com na pv.</li>
+            <li style="margin-bottom: 8px;"><i class="fa-solid fa-chart-line" style="color:var(--green)"></i> <strong>Cel:</strong> Największy <u>przyrost ELO</u> w czasie trwania turnieju.</li>
+            <li style="margin-bottom: 8px;"><i class="fa-solid fa-bolt"></i> <strong>Tryby:</strong> Bullet, Blitz lub Rapid (liczy się ten, gdzie zrobisz największy progres).</li>
+            <li style="margin-bottom: 8px;"><i class="fa-solid fa-shield-halved" style="color:orange"></i> <strong>Fair Play:</strong> Wybrane partie będą sprawdzane pod kątem silników (antycheat).</li>
+        </ul>
+
+        <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+            <h3 style="margin-top: 0; color: #ffd700; text-align: center; text-transform: uppercase;">💰 Pula Nagród (PLN w grze)</h3>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                <span style="color: #ffd700; font-weight: bold;">🥇 1. Miejsce</span>
+                <span style="font-weight: bold;">750 000 </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                <span style="color: #c0c0c0; font-weight: bold;">🥈 2. Miejsce</span>
+                <span style="font-weight: bold;">500 000 </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                <span style="color: #cd7f32; font-weight: bold;">🥉 3. Miejsce</span>
+                <span style="font-weight: bold;">250 000 </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                <span style="color: #fff;">4. Miejsce</span>
+                <span>100 000 </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                <span style="color: #fff;">5. Miejsce</span>
+                <span>50 000 </span>
+            </div>
+            <div class="mt-10">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0; color: #fff;">🏆 Ranking LIVE</h3>
+        <small id="chess-last-update" style="color: var(--text-muted); font-size: 0.8em;">Ostatnia akt.: ...</small>
+    </div>
+    
+    <div style="overflow-x: auto;">
+        <table class="betting-table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">#</th>
+                    <th style="width: 40%;">Gracz</th>
+                    <th style="width: 25%;">Tryb</th>
+                    <th style="width: 25%; text-align: right;">Przyrost</th>
+                </tr>
+            </thead>
+            <tbody id="chess-leaderboard-body">
+                <tr><td colspan="4" style="text-align:center; padding: 20px;">Ładowanie danych z Chess.com...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 5px; text-align: center;">
+        *System sprawdza Bullet, Blitz i Rapid i wybiera najlepszy wynik.
+    </p>
+</div>
+        </div>
+    </div>
+</section>
                 <section id="help-panel" class="glass-panel">
                     <h2><i class="fa-solid fa-book-open"></i> Zasady Gry</h2>
                     <div class="info-content">
