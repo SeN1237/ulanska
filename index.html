@@ -1030,28 +1030,29 @@
             </div>
         </div>
 
-            <div class="mt-10">
+           <div class="mt-10" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h3 style="margin: 0; color: #fff;">🏆 Ranking LIVE</h3>
         <small id="chess-last-update" style="color: var(--text-muted); font-size: 0.8em;">Ostatnia akt.: ...</small>
     </div>
     
     <div style="overflow-x: auto;">
-        <table class="betting-table" style="width: 100%;">
-            <thead>
-                <tr>
-                    <th style="width: 10%;">#</th>
-                    <th style="width: 40%;">Gracz</th>
-                    <th style="width: 25%;">Tryb</th>
-                    <th style="width: 25%; text-align: right;">Przyrost</th>
-                </tr>
-            </thead>
-            <tbody id="chess-leaderboard-body">
-                <tr><td colspan="4" style="text-align:center; padding: 20px;">Ładowanie danych z Chess.com...</td></tr>
-            </tbody>
-        </table>
+        <table class="betting-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr style="font-size: 0.8em; color: var(--text-muted); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+            <th style="width: 5%; text-align: left; padding: 8px;">#</th>
+            <th style="width: 35%; text-align: left; padding: 8px;">Gracz</th>
+            <th style="width: 20%; text-align: center; padding: 8px;"><i class="fa-solid fa-rocket"></i> Bull</th>
+            <th style="width: 20%; text-align: center; padding: 8px;"><i class="fa-solid fa-bolt"></i> Blitz</th>
+            <th style="width: 20%; text-align: center; padding: 8px;"><i class="fa-solid fa-stopwatch"></i> Rap</th>
+        </tr>
+    </thead>
+    <tbody id="chess-leaderboard-body">
+        <tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-muted);">Ładowanie...</td></tr>
+    </tbody>
+</table>
     </div>
-    <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 5px; text-align: center;">
+    <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 10px; text-align: center; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px;">
         *System sprawdza Bullet, Blitz i Rapid i wybiera najlepszy wynik.
     </p>
 </div>
