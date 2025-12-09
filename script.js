@@ -611,6 +611,8 @@ initMinesGrid(); // Funkcja rysująca pustą siatkę na start
     }
     // ---------------------------
 
+    setTimeout(initDailyWheel, 1000);
+    
     startAuthListener();
 }); // <--- To jest klamra zamykająca DOMContentLoaded
 
@@ -5637,3 +5639,232 @@ function drawSkiGame() {
     }
 	skiCtx.restore(); // <--- TEGO BRAKOWAŁO: Przywraca kamerę (save z początku funkcji)
 } // <--- TEGO BRAKOWAŁO: Zamyka funkcję drawSkiGame()
+// ==========================================
+// === DAILY WHEEL LOGIC (KOŁO FORTUNY) ===
+// ==========================================
+
+const DAILY_PRIZES = [
+    { label: '500 zł',   value: 500,   color: '#444', weight: 40 },
+    { label: '1 000 zł', value: 1000,  color: '#333', weight: 30 },
+    { label: '2 500 zł', value: 2500,  color: '#444', weight: 15 },
+    { label: '5 000 zł', value: 5000,  color: '#333', weight: 10 },
+    { label: '10k zł',   value: 10000, color: '#444', weight: 4 },
+    { label: '25k zł',   value: 25000, color: '#333', weight: 0.9 },
+    { label: '50k zł',   value: 50000, color: 'gold', weight: 0.1 }, // Jackpot
+    { label: 'Bieda',    value: 100,   color: 'red',  weight: 5 }    // Troll
+];
+
+let dailyWheelSpinning = false;
+let dailyNextSpinTime = null;
+
+// Wywołaj to wewnątrz DOMContentLoaded
+function initDailyWheel() {
+    const wheelEl = document.getElementById("daily-wheel");
+    const btnSpin = document.getElementById("btn-daily-spin");
+    
+    if(!wheelEl || !btnSpin) return;
+
+    btnSpin.addEventListener("click", spinDailyWheel);
+
+    // 1. Wygeneruj segmenty wizualnie
+    // Mamy 8 segmentów -> każdy zajmuje 45 stopni (360 / 8)
+    const segmentAngle = 360 / DAILY_PRIZES.length;
+    
+    // Czyścimy stare (oprócz środka)
+    const center = wheelEl.querySelector('.wheel-center');
+    wheelEl.innerHTML = '';
+    wheelEl.appendChild(center);
+
+    DAILY_PRIZES.forEach((prize, index) => {
+        const seg = document.createElement("div");
+        seg.className = "wheel-segment";
+        
+        // Stylizacja tekstu zależna od wartości
+        if(prize.value >= 25000) seg.classList.add("seg-jackpot");
+        else if(prize.value >= 5000) seg.classList.add("seg-high");
+        else if(prize.value >= 1000) seg.classList.add("seg-med");
+        else seg.classList.add("seg-low");
+
+        // Obrót segmentu
+        // Przesuwamy o połowę kąta (segmentAngle / 2), żeby tekst był na środku klina
+        const rotation = (index * segmentAngle) + (segmentAngle / 2);
+        
+        seg.style.transform = `rotate(${rotation}deg) translateY(-50%)`;
+        // Hack: używamy height: 0 i overflow visible, albo position absolute od środka
+        // CSS wyżej jest ustawiony na transform-origin: 0 50% (lewa krawędź środkiem koła)
+        
+        seg.innerHTML = `<span>${prize.label}</span>`;
+        wheelEl.appendChild(seg);
+    });
+
+    // 2. Sprawdź dostępność spina (z bazy)
+    checkDailyAvailability();
+}
+
+async function checkDailyAvailability() {
+    if(!currentUserId) return;
+    
+    try {
+        const userRef = doc(db, "uzytkownicy", currentUserId);
+        const snap = await getDoc(userRef);
+        if(!snap.exists()) return;
+
+        const data = snap.data();
+        const lastSpin = data.lastDailyBonus ? data.lastDailyBonus.toDate() : new Date(0);
+        const now = new Date();
+        
+        // 24 godziny w milisekundach
+        const cooldown = 24 * 60 * 60 * 1000;
+        const diff = now - lastSpin;
+
+        const btn = document.getElementById("btn-daily-spin");
+        const status = document.getElementById("daily-status");
+        const timer = document.getElementById("daily-timer");
+
+        if (diff < cooldown) {
+            // Zablokowane
+            const nextTime = new Date(lastSpin.getTime() + cooldown);
+            dailyNextSpinTime = nextTime;
+            
+            btn.disabled = true;
+            btn.textContent = "WRÓĆ JUTRO";
+            btn.style.background = "#333";
+            status.textContent = "Odebrałeś już bonus.";
+            
+            startDailyTimer();
+        } else {
+            // Dostępne
+            btn.disabled = false;
+            btn.textContent = "ZAKRĘĆ (FREE)";
+            btn.style.background = "var(--accent-gradient)"; // Przywróć kolor
+            status.textContent = "Bonus dostępny!";
+            timer.textContent = "";
+        }
+    } catch(e) { console.error(e); }
+}
+
+function startDailyTimer() {
+    const timerEl = document.getElementById("daily-timer");
+    const interval = setInterval(() => {
+        if(!dailyNextSpinTime) { clearInterval(interval); return; }
+        
+        const now = new Date();
+        const diff = dailyNextSpinTime - now;
+
+        if(diff <= 0) {
+            clearInterval(interval);
+            checkDailyAvailability(); // Odblokuj
+            return;
+        }
+
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        timerEl.textContent = `Następny spin za: ${h}h ${m}m ${s}s`;
+    }, 1000);
+}
+
+async function spinDailyWheel() {
+    if(dailyWheelSpinning) return;
+    if(!currentUserId) return showMessage("Zaloguj się!", "error");
+    
+    const wheelEl = document.getElementById("daily-wheel");
+    const statusEl = document.getElementById("daily-status");
+    const btn = document.getElementById("btn-daily-spin");
+
+    // 1. Losowanie ważone
+    let totalWeight = 0;
+    DAILY_PRIZES.forEach(p => totalWeight += p.weight);
+    let random = Math.random() * totalWeight;
+    
+    let selectedPrizeIndex = 0;
+    for(let i=0; i<DAILY_PRIZES.length; i++) {
+        if(random < DAILY_PRIZES[i].weight) {
+            selectedPrizeIndex = i;
+            break;
+        }
+        random -= DAILY_PRIZES[i].weight;
+    }
+
+    const prize = DAILY_PRIZES[selectedPrizeIndex];
+    
+    // 2. Blokada UI
+    dailyWheelSpinning = true;
+    btn.disabled = true;
+    statusEl.textContent = "Kręcimy...";
+    
+    // 3. Obliczanie kąta obrotu
+    // Koło ma 8 segmentów po 45 stopni.
+    // Index 0 jest na 0 stopni (na prawo -> w CSS rotate(0)).
+    // Ale wskaźnik jest na górze (270 stopni / -90 stopni).
+    // Musimy obrócić koło tak, żeby wybrany segment trafił pod wskaźnik.
+    
+    const segmentAngle = 360 / DAILY_PRIZES.length;
+    // Żeby segment `i` był na górze (270deg), musimy obrócić koło o: 
+    // TargetRotation = 270 - (i * segmentAngle) - (random offset wewnątrz segmentu)
+    
+    // Dodajemy dużo pełnych obrotów (np. 5-10)
+    const spins = 5 + Math.floor(Math.random() * 5); 
+    const randomOffset = Math.floor(Math.random() * (segmentAngle - 4)) + 2; // Żeby nie trafić w linię
+    
+    // Logika: Wskaźnik jest na górze (-90deg lub 270deg).
+    // Segmenty rysują się od 0deg (prawa strona).
+    // Żeby index 0 trafił na górę, trzeba obrócić o -90deg.
+    // Żeby index 1 trafił na górę, trzeba obrócić o -90 - 45 itd.
+    
+    const targetRotation = (spins * 360) - (90) - (selectedPrizeIndex * segmentAngle) - (segmentAngle/2); // Celujemy w środek segmentu
+    
+    // Dodajemy lekką losowość wewnątrz segmentu dla realizmu
+    const finalRot = targetRotation + (Math.random() * 20 - 10); 
+
+    wheelEl.style.transform = `rotate(${finalRot}deg)`;
+
+    // 4. Dźwięk (opcjonalnie)
+    // if(dom.audioNews) { dom.audioNews.play().catch(()=>{}); }
+
+    // 5. Czekamy na koniec animacji (4 sekundy w CSS)
+    setTimeout(async () => {
+        dailyWheelSpinning = false;
+        
+        if(prize.value > 1000) {
+            if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+        }
+
+        statusEl.innerHTML = `WYGRANA: <span style="color:${prize.color}; font-weight:bold">${formatujWalute(prize.value)}</span>`;
+        
+        try {
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const d = (await t.get(userRef)).data();
+                
+                // Sprawdzenie double-check (server timestamp rule by się przydała, ale tu robimy client-check w transaction)
+                const lastSpin = d.lastDailyBonus ? d.lastDailyBonus.toDate() : new Date(0);
+                const now = new Date();
+                if (now - lastSpin < 23 * 60 * 60 * 1000) { // Margines błędu
+                    throw new Error("Już odebrano dzisiaj!");
+                }
+
+                const newCash = d.cash + prize.value;
+                const newTotal = calculateTotalValue(newCash, d.shares); // Funkcja helper z main script
+                
+                t.update(userRef, { 
+                    cash: newCash, 
+                    totalValue: newTotal,
+                    zysk: (d.zysk || 0) + prize.value, // To jest darmowy zysk
+                    lastDailyBonus: serverTimestamp() // Zapisz czas
+                });
+            });
+
+            showNotification(`Daily Spin: +${formatujWalute(prize.value)}`, 'news', 'positive');
+            
+            // Zablokuj przycisk
+            checkDailyAvailability();
+
+        } catch(e) {
+            showMessage(e.message, "error");
+            statusEl.textContent = "Błąd: " + e.message;
+        }
+
+    }, 4000);
+}
