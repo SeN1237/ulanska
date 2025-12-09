@@ -623,7 +623,7 @@ initMinesGrid(); // Funkcja rysująca pustą siatkę na start
 const CHESS_PLAYERS = [
     { 
         nick: "igiblack", 
-        startBullet: 360, 
+        startBullet: 247, 
         startBlitz: 385, 
         startRapid: 698 
     },
