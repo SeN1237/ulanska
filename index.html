@@ -260,6 +260,7 @@
 
             <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
+                <button class="game-nav-btn" data-game-tab="daily"><i class="fa-solid fa-calendar-check"></i> Daily Spin</button>
                 <button class="game-nav-btn" data-game-tab="exam"><i class="fa-solid fa-graduation-cap"></i> Sesja (Exam)</button>
                 <button class="game-nav-btn" data-game-tab="skijump"><i class="fa-solid fa-snowflake"></i> Skoki (DSJ)</button>
                 <button class="game-nav-btn" data-game-tab="crossy"><i class="fa-solid fa-frog"></i> WIG Road</button>
@@ -279,7 +280,34 @@
             </div>
 
             <div class="games-content-container">
+
+             <div id="tab-game-daily" class="game-tab-content">
+    <section class="glass-panel center-content">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-calendar-check"></i> Codzienne Koło Fortuny</h2>
+        </div>
+        
+        <div class="daily-wrapper">
+            <div class="wheel-container">
+                <div class="wheel-pointer"></div>
+                <div id="daily-wheel" class="wheel">
+                    <div class="wheel-center">
+                        <span style="font-size:2rem">🎰</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="daily-controls mt-10">
+                <h3 id="daily-status" style="margin-bottom: 10px; min-height: 1.5em;">Zakręć i wygraj darmową kasę!</h3>
+                <p id="daily-timer" style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 10px;"></p>
                 
+                <button id="btn-daily-spin" class="btn-accent btn-full-width spin-button-big">
+                    ZAKRĘĆ (FREE)
+                </button>
+            </div>
+        </div>
+    </section>
+</div>   
 
                 <div id="tab-game-skijump" class="game-tab-content">
     <section class="glass-panel">
