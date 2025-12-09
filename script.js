@@ -626,6 +626,12 @@ const CHESS_PLAYERS = [
         startBlitz: 392, 
         startRapid: 698 
     },
+	{ 
+        nick: "kcprlx", 
+        startBullet: 354, 
+        startBlitz: 100, 
+        startRapid: 354 
+    },
     // { nick: "TwójNick", startBullet: 800, startBlitz: 900, startRapid: 1000 }
 ];
 
