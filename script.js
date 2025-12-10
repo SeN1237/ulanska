@@ -729,7 +729,29 @@ async function updateChessTournament() {
     const now = new Date();
     if(updateLabel) updateLabel.textContent = `Aktualizacja: ${now.toLocaleTimeString()}`;
 }
+   // Obsługa przycisku odświeżania rankingu szachowego
+document.addEventListener("DOMContentLoaded", () => {
+    const btnRefresh = document.getElementById("btn-refresh-chess");
     
+    if(btnRefresh) {
+        btnRefresh.addEventListener("click", async () => {
+            const icon = btnRefresh.querySelector("i");
+            
+            // 1. Włącz animację kręcenia
+            icon.classList.add("fa-spin");
+            btnRefresh.disabled = true; // Zablokuj przycisk, żeby nie spamować
+            
+            // 2. Pobierz dane
+            await updateChessTournament();
+            
+            // 3. Wyłącz animację po krótkim opóźnieniu (dla efektu)
+            setTimeout(() => {
+                icon.classList.remove("fa-spin");
+                btnRefresh.disabled = false;
+            }, 500);
+        });
+    }
+}); 
     startAuthListener();
 }); // <--- To jest klamra zamykająca DOMContentLoaded
 
