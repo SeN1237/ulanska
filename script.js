@@ -1022,6 +1022,10 @@ function startAuthListener() {
     onAuthStateChanged(auth, user => {
         if (user) {
             currentUserId = user.uid;
+            // --- WKLEJ TEN KOD TUTAJ ---
+            const wModal = document.getElementById("welcome-modal");
+            if (wModal) wModal.classList.remove("hidden");
+            // ---------------------------
             dom.simulatorContainer.classList.remove("hidden");
             dom.authContainer.classList.add("hidden");
             const oneTimeClickListener = () => { unlockAudio(); document.body.removeEventListener('click', oneTimeClickListener); };
@@ -4893,6 +4897,7 @@ function resetExamUI() {
 
 
 let activeSkiId = null;
+let isSkiTraining = false;
 let cachedSkiData = null;
 let skiSubscription = null;
 let skiGameLoop = null;
@@ -4929,6 +4934,37 @@ const SKI_LIFT_FACTOR = 0.008;
 const SKI_HILL_START_X = 50;
 const SKI_HILL_START_Y = 100;
 
+function startSkiTraining() {
+    const hillSelect = document.getElementById("skijump-training-hill");
+    const hillIndex = parseInt(hillSelect.value);
+    
+    isSkiTraining = true;
+    activeSkiId = null; 
+    
+    document.getElementById("skijump-lobby-view").classList.add("hidden");
+    document.getElementById("skijump-game-view").classList.remove("hidden");
+    
+    currentHillParams = HILLS_CONFIG[hillIndex];
+    
+    skiCanvas = document.getElementById("skijump-canvas");
+    skiCtx = skiCanvas.getContext('2d');
+    
+    skiCanvas.style.background = currentHillParams.color;
+    document.getElementById("skijump-hill-name").textContent = 
+        `TRENING: ${currentHillParams.name} (K-${(currentHillParams.k / 4).toFixed(0)})`;
+    document.getElementById("skijump-pot").textContent = "BRAK (Trening)";
+    document.getElementById("skijump-round").textContent = "∞";
+
+    document.getElementById("skijump-overlay").classList.remove("hidden");
+    document.getElementById("skijump-status-msg").textContent = "TRYB TRENINGOWY";
+    document.getElementById("skijump-instruction").textContent = "Skacz ile chcesz. Nie tracisz gotówki.";
+    document.getElementById("btn-skijump-jump").classList.remove("hidden");
+    document.getElementById("sj-current-jumper").textContent = "Zawodnik: Ty";
+
+    if (!skiGameLoop) skiGameLoop = requestAnimationFrame(renderSkiLoop);
+}
+// ------------------------------
+
 // --- INIT ---
 document.addEventListener("DOMContentLoaded", () => {
     const btnCreate = document.getElementById("btn-skijump-create");
@@ -4938,6 +4974,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnCreate) btnCreate.addEventListener("click", createSkiLobby);
     if (btnLeave) btnLeave.addEventListener("click", leaveSkiGame);
     if (btnJump) btnJump.addEventListener("click", playerReadyOnGate);
+    
+    const btnTraining = document.getElementById("btn-skijump-training");
+    if(btnTraining) btnTraining.addEventListener("click", startSkiTraining);
+
+    const welcomeModal = document.getElementById("welcome-modal");
+    const closeWelcomeBtns = [
+        document.getElementById("close-welcome-btn"), 
+        document.getElementById("welcome-confirm-btn")
+    ];
+    closeWelcomeBtns.forEach(btn => {
+        if(btn) btn.addEventListener("click", () => {
+            if(welcomeModal) welcomeModal.classList.add("hidden");
+        });
+    });
+    // ------------------------------
 
     // Sterowanie Myszką (DSJ Style)
     const canvas = document.getElementById("skijump-canvas");
@@ -5118,6 +5169,7 @@ function enterSkiGame(id) {
 
 function leaveSkiGame() {
     activeSkiId = null;
+    isSkiTraining = false;
     if (skiSubscription) skiSubscription();
     if (skiGameLoop) cancelAnimationFrame(skiGameLoop);
     skiGameLoop = null;
@@ -5274,7 +5326,7 @@ function playerReadyOnGate() {
 }
 
 function handleSkiClick() {
-    if (!activeSkiId) return;
+    if (!activeSkiId && !isSkiTraining) return;
 
     // --- POPRAWKA: Pobieramy punkt wybicia z aktualnej skoczni ---
     const takeoffX = currentHillParams.takeoff;
@@ -5432,6 +5484,18 @@ async function landSki(manual) {
     
     const totalScore = finalDist + stylePoints;
     
+    if (isSkiTraining) {
+        document.getElementById("sj-distance-display").textContent = finalDist.toFixed(1) + " m";
+        setTimeout(() => {
+            const overlay = document.getElementById("skijump-overlay");
+            overlay.classList.remove("hidden");
+            document.getElementById("skijump-status-msg").innerHTML = `Odległość: <strong style="color:gold">${finalDist.toFixed(1)}m</strong><br>Nota: ${totalScore.toFixed(1)}`;
+            document.getElementById("skijump-instruction").textContent = "Kliknij 'IDŹ NA BELKĘ' aby powtórzyć.";
+            document.getElementById("btn-skijump-jump").classList.remove("hidden");
+        }, 1000);
+        return; 
+    }
+    
     await uploadJumpData(finalDist, totalScore, skiState.trajectory);
 }
 
@@ -5541,7 +5605,7 @@ function playReplay(data) {
 // --- GŁÓWNA PĘTLA RENDEROWANIA ---
 
 function renderSkiLoop() {
-    if (!activeSkiId) return;
+    if (!activeSkiId && !isSkiTraining) return;
 
     // 1. Fizyka
     if (['inrun', 'flight', 'landed'].includes(skiState.phase)) {
