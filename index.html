@@ -1032,9 +1032,15 @@
 
            <div class="mt-10" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin: 0; color: #fff;">🏆 Ranking LIVE</h3>
-        <small id="chess-last-update" style="color: var(--text-muted); font-size: 0.8em;">Ostatnia akt.: ...</small>
+    <h3 style="margin: 0; color: #fff;">🏆 Ranking LIVE</h3>
+    
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <small id="chess-last-update" style="color: var(--text-muted); font-size: 0.8em;">...</small>
+        <button id="btn-refresh-chess" title="Odśwież" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: var(--accent-color); cursor: pointer; padding: 2px 8px; transition: 0.3s;">
+            <i class="fa-solid fa-rotate-right"></i>
+        </button>
     </div>
+</div>
     
     <div style="overflow-x: auto;">
         <table class="betting-table" style="width: 100%; border-collapse: collapse;">
