@@ -4923,7 +4923,7 @@ const HILLS_CONFIG = [
     { name: "Zakopane", k: 920, takeoff: 480, scale: 1.45, color: "#f0f8ff", landingAngle: 0.9 }, 
     
     // Bydgoszcz: K-350 (Bardzo stroma - 1.3, żeby to był prawdziwy lot)
-    { name: "Bydgoszcz", k: 1400, takeoff: 650, scale: 1.9, color: "#1a1a2e", landingAngle: 1.3 } 
+    { name: "Bydgoszcz", k: 1400, takeoff: 650, scale: 1.9, color: "#1a1a2e", landingAngle: 5.3 } 
 ];
 
 // Zmienna trzymająca parametry AKTUALNEJ skoczni (domyślnie pierwsza)
