@@ -1220,7 +1220,7 @@ async function onSendMessage(e) {
 }
 
 function listenToLeaderboard() {
-    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
+    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("prestigeLevel", "desc"), orderBy("totalValue", "desc"), limit(10)), snap => {
         dom.leaderboardList.innerHTML = "";
         let r = 1;
         snap.forEach(d => {
