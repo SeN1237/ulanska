@@ -316,19 +316,33 @@
         </div>
 
         <div id="skijump-lobby-view">
-            <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
-                <input type="number" id="skijump-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
-                <div style="margin-top: 10px; text-align: left; display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="skijump-tcs-mode" style="width:20px; height:20px;">
-                    <label for="skijump-tcs-mode" style="color:#fff; cursor:pointer;">Turniej 4 Skoczni (4 obiekty)</label>
-                </div>
-                <button id="btn-skijump-create" class="btn-accent" style="margin-top:10px;">UTWÓRZ KONKURS</button>
-            </div>
-            <h3>Aktywne Konkursy</h3>
-            <div id="skijump-list" class="race-list-container">
-                <p style="text-align:center; color:var(--text-muted)">Brak zawodów...</p>
-            </div>
+    <div class="glass-panel" style="margin-bottom: 20px; border: 1px solid var(--accent-color);">
+        <h3 style="margin-top:0; color:var(--accent-color)">Trening (Darmowy)</h3>
+        <div class="input-row" style="max-width: 400px; margin: 0 auto;">
+            <select id="skijump-training-hill" class="dark-input">
+                <option value="0">Oberstdorf (K-120)</option>
+                <option value="1">Garmisch-Partenkirchen (K-130)</option>
+                <option value="2">Innsbruck (K-110)</option>
+                <option value="3">Bischofshofen (K-140)</option>
+            </select>
+            <button id="btn-skijump-training" class="btn-green">TRENUJ</button>
         </div>
+    </div>
+
+    <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
+        <input type="number" id="skijump-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
+        <div style="margin-top: 10px; text-align: left; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="skijump-tcs-mode" style="width:20px; height:20px;">
+            <label for="skijump-tcs-mode" style="color:#fff; cursor:pointer;">Turniej 4 Skoczni (4 obiekty)</label>
+        </div>
+        <button id="btn-skijump-create" class="btn-accent" style="margin-top:10px;">UTWÓRZ KONKURS (MULTI)</button>
+    </div>
+
+    <h3>Aktywne Konkursy</h3>
+    <div id="skijump-list" class="race-list-container">
+        <p style="text-align:center; color:var(--text-muted)">Brak zawodów...</p>
+    </div>
+</div>
 
         <div id="skijump-game-view" class="hidden">
             <div class="race-header-info">
@@ -1131,6 +1145,21 @@
         <input type="text" id="chat-input" placeholder="Napisz..." required autocomplete="off">
         <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
     </form>
+</div>
+
+<div id="welcome-modal" class="modal-overlay hidden" style="z-index: 10000;">
+    <div class="modal-content glass-panel" style="text-align: center; max-width: 600px; border: 2px solid var(--accent-color);">
+        <button id="close-welcome-btn" class="modal-close">&times;</button>
+        <h2 style="color: var(--accent-color); font-size: 2rem; margin-bottom: 15px;">Witaj Inwestorze!</h2>
+        <div class="modal-body" style="font-size: 1.1rem; line-height: 1.6;">
+            <p>Newsy</p>
+            <ul style="text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; list-style: none; margin: 20px 0;">
+                <li style="margin-bottom: 10px;">⛷️ <strong>Trening Skoków:</strong> Dodano tryb trenignu i wybór skoczni</li>
+                <li style="margin-bottom: 10px;">🏆 <strong>Turniej:</strong>Wiem że nie każdy umie grać w szachy ale i tak warto spróbować bo po ogranięciu ruchów łatwo wbić co najmniej 200elo czyli być pierwszym w tabeli</li>
+            </ul>
+            <button id="welcome-confirm-btn" class="btn-accent btn-full-width">Rozumiem, wchodzę!</button>
+        </div>
+    </div>
 </div>
 
 </body>
