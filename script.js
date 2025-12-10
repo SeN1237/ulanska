@@ -4928,9 +4928,9 @@ let skiState = {
 };
 
 // Stałe fizyki
-const SKI_GRAVITY = 0.09;
-const SKI_AIR_RESISTANCE = 0.996;
-const SKI_LIFT_FACTOR = 0.014;
+const SKI_GRAVITY = 0.15;
+const SKI_AIR_RESISTANCE = 0.99;
+const SKI_LIFT_FACTOR = 0.008;
 const SKI_HILL_START_X = 50;
 const SKI_HILL_START_Y = 100;
 
@@ -5343,8 +5343,8 @@ function handleSkiClick() {
             skiState.phase = 'flight';
             // Siła wybicia
             const quality = 1 - Math.abs(skiState.x - takeoffX) / 50;
-            skiState.vy -= (5.5 + (quality * 2.0));
-            skiState.vx += 1.5;
+            skiState.vy -= (4.0 + (quality * 1.5)); 
+            skiState.vx += 0.5;
             if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); }
         }
     }
@@ -5388,7 +5388,7 @@ function physicsStep() {
     if (skiState.phase === 'inrun') {
         skiState.x += skiState.vx;
         skiState.y = getHillY(skiState.x);
-        skiState.vx += 0.09; 
+        skiState.vx += 0.05; 
         
         // Auto-wybicie na końcu (spadnięcie z progu)
         if (skiState.x > takeoffX) {
