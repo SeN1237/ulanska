@@ -4911,13 +4911,19 @@ let skiCanvas, skiCtx;
 
 // Definicje 4 skoczni (Parametry fizyczne i wizualne)
 // WAŻNE: To musi być tutaj, żeby fizyka to widziała!
+// Definicje skoczni z nowym parametrem "landingAngle" (kąt nachylenia)
 const HILLS_CONFIG = [
-    { name: "Oberstdorf", k: 600, takeoff: 350, scale: 1.0, color: "#87CEEB" }, 
-    { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff" }, 
-    { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de" }, 
-    { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5" },
-	{ name: "Zakopane", k: 920, takeoff: 480, scale: 1.45, color: "#f0f8ff" },
-    { name: "Bydgoszcz", k: 1400, takeoff: 650, scale: 1.9, color: "#1a1a2e" }
+    { name: "Oberstdorf", k: 600, takeoff: 350, scale: 1.0, color: "#87CEEB", landingAngle: 0.8 }, 
+    { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff", landingAngle: 0.8 }, 
+    { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de", landingAngle: 0.85 }, 
+    { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5", landingAngle: 0.8 },
+    
+    // --- NOWE SKOCZNIE ---
+    // Zakopane: K-230 (Lekko stromsza niż standard - 0.9)
+    { name: "Zakopane", k: 920, takeoff: 480, scale: 1.45, color: "#f0f8ff", landingAngle: 0.9 }, 
+    
+    // Bydgoszcz: K-350 (Bardzo stroma - 1.3, żeby to był prawdziwy lot)
+    { name: "Bydgoszcz", k: 1400, takeoff: 650, scale: 1.9, color: "#1a1a2e", landingAngle: 1.3 } 
 ];
 
 // Zmienna trzymająca parametry AKTUALNEJ skoczni (domyślnie pierwsza)
@@ -5440,11 +5446,13 @@ function physicsStep() {
 }
 
 function getHillY(x) {
-    // Zabezpieczenie: Jeśli params nie istnieją, użyj domyślnych
+    // Pobieramy parametry, jeśli ich brak to ustawiamy domyślne
     const params = currentHillParams || { takeoff: 350, scale: 1.0 };
     
     const takeoffX = params.takeoff;
     const scale = params.scale;
+    // Tutaj pobieramy kąt nachylenia (domyślnie 0.8)
+    const slope = params.landingAngle || 0.8; 
 
     // 1. Rozbieg
     if (x < takeoffX) {
@@ -5456,11 +5464,16 @@ function getHillY(x) {
         const dx = x - takeoffX;
         const takeoffH = SKI_HILL_START_Y + (120 * scale); 
         
+        // Strefa lądowania (krzywa)
         if (dx < 300 * scale) {
-            return takeoffH + 10 + (dx * 0.8) + (dx * dx * 0.0005);
-        } else {
+            // Używamy zmiennej 'slope' zamiast sztywnego 0.8
+            return takeoffH + 10 + (dx * slope) + (dx * dx * 0.0005);
+        } 
+        // Wypłaszczenie (Outrun)
+        else {
             const boundary = 300 * scale;
-            const hAtBoundary = takeoffH + 10 + (boundary * 0.8) + (boundary * boundary * 0.0005);
+            // Obliczamy wysokość w punkcie granicznym używając 'slope'
+            const hAtBoundary = takeoffH + 10 + (boundary * slope) + (boundary * boundary * 0.0005);
             const ddx = dx - boundary;
             return hAtBoundary + (ddx * 0.45); 
         }
