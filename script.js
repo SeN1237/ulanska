@@ -4916,6 +4916,8 @@ const HILLS_CONFIG = [
     { name: "Garmisch-Partenkirchen", k: 650, takeoff: 380, scale: 1.1, color: "#aaddff" }, 
     { name: "Innsbruck", k: 550, takeoff: 320, scale: 0.9, color: "#b0c4de" }, 
     { name: "Bischofshofen", k: 750, takeoff: 420, scale: 1.25, color: "#ffe4b5" }
+	{ name: "Zakopane", k: 920, takeoff: 480, scale: 1.45, color: "#f0f8ff" },
+    { name: "Bydgoszcz", k: 1400, takeoff: 650, scale: 1.9, color: "#1a1a2e" }
 ];
 
 // Zmienna trzymająca parametry AKTUALNEJ skoczni (domyślnie pierwsza)
