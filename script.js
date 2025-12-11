@@ -5338,7 +5338,7 @@ function playerReadyOnGate() {
         x: SKI_HILL_START_X,
         y: SKI_HILL_START_Y,
         vx: 0, vy: 0,
-        rotation: 1.0, // Lekko w dół
+        rotation: -1.0, // Lekko w dół
         distance: 0,
         cameraX: 0,
         trajectory: [] // Reset trackera
