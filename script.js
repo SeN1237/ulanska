@@ -1385,7 +1385,9 @@ function renderBettingPanel() {
         'ski': '<i class="fa-solid fa-person-skiing"></i>',
         'f1': '<i class="fa-solid fa-flag-checkered"></i>',
         'mma': '<i class="fa-solid fa-hand-fist"></i>',
-        'snooker': '<i class="fa-solid fa-pool-8-ball"></i>', // <-- NOWE: Snooker
+        'snooker': '<i class="fa-solid fa-pool-8-ball"></i>',
+		'swim': '<i class="fa-solid fa-person-swimming"></i>',
+		'dart': '<i class="fa-brands fa-dart-lang"></i>',
         'default': '<i class="fa-solid fa-calendar-day"></i>'
     };
 
