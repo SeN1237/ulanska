@@ -5006,15 +5006,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     // ------------------------------
 
-    // Sterowanie Myszką (DSJ Style)
+// Sterowanie Myszką i Dotykiem (DSJ Style)
     const canvas = document.getElementById("skijump-canvas");
     if(canvas) {
-        // Kliknięcie = Start / Wybicie / Lądowanie
+        // Kliknięcie / Dotyk = Start / Wybicie / Lądowanie
         canvas.addEventListener("mousedown", handleSkiClick);
+        canvas.addEventListener("touchstart", (e) => { 
+            // Zapobiegamy np. zoomowaniu przy szybkim klikaniu
+            if(e.cancelable) e.preventDefault(); 
+            handleSkiClick(); 
+        }, { passive: false });
+
         // Ruch myszką = Balans ciałem w locie
         canvas.addEventListener("mousemove", handleSkiMove);
-        // Mobile touch
-        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleSkiClick(); });
+        
+        // NOWE: Ruch palcem = Balans ciałem (Mobile)
+        canvas.addEventListener("touchmove", handleSkiTouchMove, { passive: false });
     }
 
     // Odpalamy nasłuch lobby
@@ -5331,7 +5338,7 @@ function playerReadyOnGate() {
         x: SKI_HILL_START_X,
         y: SKI_HILL_START_Y,
         vx: 0, vy: 0,
-        rotation: -0.5, // Lekko w dół
+        rotation: 1.0, // Lekko w dół
         distance: 0,
         cameraX: 0,
         trajectory: [] // Reset trackera
@@ -5376,13 +5383,28 @@ function handleSkiClick() {
 function handleSkiMove(e) {
     if (skiState.phase === 'flight') {
         const rect = skiCanvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
         // Sterowanie: Myszka góra/dół zmienia kąt nart
-        // Idealny kąt to lekko do góry, ale nie za bardzo (opór)
         const centerH = skiCanvas.height / 2;
-        const delta = (mouseY - centerH) / 100; // -1 do 1
+        const delta = (mouseY - centerH) / 100; 
+        
+        skiState.rotation = delta; 
+    }
+}
+
+// NOWA FUNKCJA DO STEROWANIA MOBILNEGO
+function handleSkiTouchMove(e) {
+    if (skiState.phase === 'flight') {
+        e.preventDefault(); // Zapobiega przewijaniu strony podczas sterowania skoczkiem
+        
+        const rect = skiCanvas.getBoundingClientRect();
+        // Pobieramy pierwszy punkt dotyku
+        const touchY = e.touches[0].clientY - rect.top;
+        
+        const centerH = skiCanvas.height / 2;
+        // Ta sama logika co przy myszce - przesuwanie palca góra/dół zmienia kąt
+        const delta = (touchY - centerH) / 100; 
         
         skiState.rotation = delta; 
     }
