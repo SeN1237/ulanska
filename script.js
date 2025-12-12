@@ -3317,12 +3317,12 @@ async function endBlackjack(result) {
 // ==========================================
 
 const SLOT_SYMBOLS = [
-    { icon: '🍒', weight: 50, pay: 10 }, 
-    { icon: '🍋', weight: 40, pay: 5 },  
-    { icon: '🍇', weight: 30, pay: 15 }, 
-    { icon: '🎰', weight: 15, pay: 20 }, 
-    { icon: '💎', weight: 8,  pay: 50 }, 
-    { icon: '7️⃣', weight: 3,  pay: 100 } 
+    { icon: '🍒', weight: 12, pay: 10 }, 
+    { icon: '🍋', weight: 10, pay: 5 },  
+    { icon: '🍇', weight: 8,  pay: 15 }, 
+    { icon: '🎰', weight: 6,  pay: 20 }, 
+    { icon: '💎', weight: 4,  pay: 50 }, 
+    { icon: '7️⃣', weight: 1,  pay: 100 } 
 ];
 
 // Definicja 5 linii wygrywających (współrzędne: [kolumna, rząd])
