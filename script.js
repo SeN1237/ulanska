@@ -5639,6 +5639,335 @@ async function spinDailyWheel() {
 
     }, 4000);
 }
+
+// ==========================================
+// === F1 RACING LOGIC ===
+// ==========================================
+
+let f1Canvas, f1Ctx;
+let f1GameLoop = null;
+let f1Car = { x: 0, y: 0, angle: 0, speed: 0, maxSpeed: 12, acc: 0.2, friction: 0.96, turnSpeed: 0.07 };
+let f1State = 'menu'; // menu, running, finished
+let f1StartTime = 0;
+let f1CurrentLap = 0;
+let f1TotalLaps = 3;
+let f1Checkpoints = [false, false, false]; // Prosty system checkpointów na trasie
+let f1Keys = { up: false, down: false, left: false, right: false };
+
+// Definicja toru (proste linie wyznaczające trawę - kolizja zwalnia)
+// x, y, w, h
+const F1_GRASS = [
+    // Środek (Wyspa)
+    { x: 150, y: 150, w: 500, h: 300 },
+    // Zewnętrzne bandy (żeby nie wyjechać z mapy to po prostu trawa dookoła)
+    // Tło jest asfaltem, więc rysujemy trawę tam gdzie nie wolno jechać
+];
+
+const F1_START_POS = { x: 400, y: 530, angle: -Math.PI / 2 }; // Start na dole, skierowany w górę (w lewo po łuku)
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnStart = document.getElementById("btn-f1-start");
+    if(btnStart) btnStart.addEventListener("click", startF1Race);
+
+    // Sterowanie Klawiatura
+    window.addEventListener("keydown", (e) => updateF1Keys(e.key, true));
+    window.addEventListener("keyup", (e) => updateF1Keys(e.key, false));
+
+    // Sterowanie Mobile
+    const setupMobileBtn = (id, key) => {
+        const btn = document.getElementById(id);
+        if(btn) {
+            btn.addEventListener("pointerdown", (e) => { e.preventDefault(); updateF1Keys(key, true); });
+            btn.addEventListener("pointerup", (e) => { e.preventDefault(); updateF1Keys(key, false); });
+            btn.addEventListener("pointerleave", (e) => { e.preventDefault(); updateF1Keys(key, false); });
+        }
+    };
+    setupMobileBtn("btn-f1-up", "ArrowUp");
+    setupMobileBtn("btn-f1-down", "ArrowDown");
+    setupMobileBtn("btn-f1-left", "ArrowLeft");
+    setupMobileBtn("btn-f1-right", "ArrowRight");
+
+    // Inicjalizacja nasłuchiwania rankingu
+    setTimeout(listenToF1Leaderboard, 3000);
+});
+
+function updateF1Keys(key, pressed) {
+    if (key === "ArrowUp" || key === "w") f1Keys.up = pressed;
+    if (key === "ArrowDown" || key === "s") f1Keys.down = pressed;
+    if (key === "ArrowLeft" || key === "a") f1Keys.left = pressed;
+    if (key === "ArrowRight" || key === "d") f1Keys.right = pressed;
+}
+
+function startF1Race() {
+    f1Canvas = document.getElementById("f1-canvas");
+    f1Ctx = f1Canvas.getContext("2d");
+    
+    document.getElementById("f1-overlay").classList.add("hidden");
+    
+    // Reset Car
+    f1Car.x = F1_START_POS.x;
+    f1Car.y = F1_START_POS.y;
+    f1Car.angle = -Math.PI / 2; // Skierowany w lewo/górę
+    f1Car.speed = 0;
+    
+    // Reset Game
+    f1State = 'running';
+    f1StartTime = Date.now();
+    f1CurrentLap = 0; // Lap 0 oznacza start
+    f1Checkpoints = [false, false, false, false]; // 4 ćwiartki toru
+    
+    if (f1GameLoop) cancelAnimationFrame(f1GameLoop);
+    f1Loop();
+}
+
+function f1Loop() {
+    if (f1State !== 'running') return;
+    updateF1Physics();
+    drawF1Game();
+    f1GameLoop = requestAnimationFrame(f1Loop);
+}
+
+function updateF1Physics() {
+    // 1. Sterowanie
+    if (f1Keys.up) f1Car.speed += f1Car.acc;
+    if (f1Keys.down) f1Car.speed -= f1Car.acc;
+    
+    // Skręcanie działa tylko jak auto jedzie
+    if (Math.abs(f1Car.speed) > 0.5) {
+        if (f1Keys.left) f1Car.angle -= f1Car.turnSpeed * (f1Car.speed > 0 ? 1 : -1);
+        if (f1Keys.right) f1Car.angle += f1Car.turnSpeed * (f1Car.speed > 0 ? 1 : -1);
+    }
+
+    // Tarcie i Max Speed
+    f1Car.speed *= f1Car.friction;
+    
+    // Sprawdzenie terenu (Trawa spowalnia)
+    if (isCarOnGrass(f1Car.x, f1Car.y)) {
+        f1Car.speed *= 0.85; // Mocne hamowanie na trawie
+    }
+
+    // Ruch
+    f1Car.x += Math.cos(f1Car.angle) * f1Car.speed;
+    f1Car.y += Math.sin(f1Car.angle) * f1Car.speed;
+
+    // Kolizja z krawędziami ekranu
+    if(f1Car.x < 0) f1Car.x = 0;
+    if(f1Car.x > 800) f1Car.x = 800;
+    if(f1Car.y < 0) f1Car.y = 0;
+    if(f1Car.y > 600) f1Car.y = 600;
+
+    // 2. Logika Okrążeń
+    checkF1Progress();
+
+    // 3. UI Czasu
+    const now = Date.now();
+    const diff = now - f1StartTime;
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    const ms = Math.floor((diff % 1000) / 10);
+    document.getElementById("f1-time").textContent = 
+        `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+}
+
+function isCarOnGrass(x, y) {
+    // Definicja toru (Asfalt to obszar między wewnętrzną wyspą a krawędzią)
+    // Prosta logika: Trawa jest na środku (150,150 szer 500x300) LUB poza torem
+    // Tor ma szerokość np. 100px.
+    
+    // Wewnętrzna trawa (Wyspa)
+    if (x > 150 && x < 650 && y > 150 && y < 450) return true;
+    
+    // Zewnętrzna trawa (obrzeża) - Tor ma np. 120px szerokości od wyspy
+    // Lewa banda
+    if (x < 30) return true;
+    // Prawa banda
+    if (x > 770) return true;
+    // Górna banda
+    if (y < 30) return true;
+    // Dolna banda
+    if (y > 570) return true;
+
+    return false;
+}
+
+function checkF1Progress() {
+    // Tor dzielimy na ćwiartki względem środka (400, 300)
+    const cx = 400; const cy = 300;
+    const x = f1Car.x; const y = f1Car.y;
+
+    // Checkpoint 1: Lewa Góra (x < 400, y < 300)
+    if (x < 400 && y < 300) f1Checkpoints[0] = true;
+    
+    // Checkpoint 2: Prawa Góra (x > 400, y < 300) - Wymaga CP1
+    if (f1Checkpoints[0] && x > 400 && y < 300) f1Checkpoints[1] = true;
+
+    // Checkpoint 3: Prawa Dół (x > 400, y > 300) - Wymaga CP2
+    if (f1Checkpoints[1] && x > 400 && y > 300) f1Checkpoints[2] = true;
+
+    // META: Lewa Dół (x < 400, y > 300) - Wymaga CP3 i przekroczenia linii startu X=400
+    if (f1Checkpoints[2] && x < 400 && y > 300 && x > 380 && x < 420 && y > 450) {
+        // Przekroczenie linii (okno 40px w okolicach startu)
+        if (f1CurrentLap < f1TotalLaps) {
+            f1CurrentLap++;
+            document.getElementById("f1-lap").textContent = `${f1CurrentLap}/${f1TotalLaps}`;
+            // Reset checkpointów na nowe kółko
+            f1Checkpoints = [false, false, false, false]; 
+            
+            // Koniec wyścigu
+            if (f1CurrentLap === f1TotalLaps) {
+                finishF1Race();
+            }
+        }
+    }
+}
+
+function drawF1Game() {
+    const w = f1Canvas.width;
+    const h = f1Canvas.height;
+    
+    // 1. Tło (Trawa)
+    f1Ctx.fillStyle = "#2e8b57"; // Seagreen
+    f1Ctx.fillRect(0, 0, w, h);
+
+    // 2. Asfalt (Tor) - Rysujemy duży prostokąt zaokrąglony
+    f1Ctx.fillStyle = "#333";
+    f1Ctx.beginPath();
+    f1Ctx.roundRect(30, 30, 740, 540, 150); // Zewnętrzna krawędź
+    f1Ctx.fill();
+
+    // 3. Wewnętrzna trawa (Wyspa)
+    f1Ctx.fillStyle = "#2e8b57";
+    f1Ctx.beginPath();
+    f1Ctx.roundRect(150, 150, 500, 300, 100); // Wewnętrzna krawędź
+    f1Ctx.fill();
+    
+    // Krawężniki (Tarki)
+    f1Ctx.strokeStyle = "red";
+    f1Ctx.lineWidth = 2;
+    f1Ctx.stroke(); // Obrys wyspy
+
+    // 4. Linia Mety
+    f1Ctx.fillStyle = "white";
+    for(let i=0; i<4; i++) { // Szachownica
+        f1Ctx.fillRect(400 + (i%2==0?0:10), 450 + (i*20), 10, 20);
+        f1Ctx.fillRect(410 + (i%2==0?0:10), 450 + (i*20), 10, 20);
+    }
+    
+    // 5. Samochód
+    f1Ctx.save();
+    f1Ctx.translate(f1Car.x, f1Car.y);
+    f1Ctx.rotate(f1Car.angle);
+    
+    // Body
+    f1Ctx.fillStyle = "#ff0000"; // Ferrari ;)
+    f1Ctx.fillRect(-10, -5, 20, 10);
+    // Spoiler przód
+    f1Ctx.fillStyle = "#fff";
+    f1Ctx.fillRect(8, -8, 2, 16);
+    // Spoiler tył
+    f1Ctx.fillRect(-12, -8, 4, 16);
+    // Koła
+    f1Ctx.fillStyle = "black";
+    f1Ctx.fillRect(-8, -9, 6, 3); // LT
+    f1Ctx.fillRect(6, -9, 6, 3);  // PT
+    f1Ctx.fillRect(-8, 6, 6, 3);  // LT
+    f1Ctx.fillRect(6, 6, 6, 3);   // PT
+    // Kask
+    f1Ctx.fillStyle = "yellow";
+    f1Ctx.beginPath(); f1Ctx.arc(-2, 0, 3, 0, Math.PI*2); f1Ctx.fill();
+
+    f1Ctx.restore();
+}
+
+async function finishF1Race() {
+    f1State = 'finished';
+    const totalTime = Date.now() - f1StartTime;
+    
+    const overlay = document.getElementById("f1-overlay");
+    const msg = document.getElementById("f1-msg");
+    const startBtn = document.getElementById("btn-f1-start");
+
+    overlay.classList.remove("hidden");
+    
+    // Formatowanie czasu
+    const mins = Math.floor(totalTime / 60000);
+    const secs = Math.floor((totalTime % 60000) / 1000);
+    const ms = Math.floor((totalTime % 1000) / 10);
+    const timeStr = `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+
+    msg.innerHTML = `KONIEC!<br>Twój czas: <strong style="color:gold">${timeStr}</strong>`;
+    startBtn.textContent = "SPRÓBUJ PONOWNIE";
+
+    if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+
+    // Zapisz do bazy
+    await saveF1Score(totalTime);
+}
+
+async function saveF1Score(timeMs) {
+    if(!currentUserId) return;
+    
+    try {
+        const userRef = doc(db, "f1_scores", currentUserId);
+        const userScoreDoc = await getDoc(userRef);
+
+        let shouldUpdate = true;
+        if (userScoreDoc.exists()) {
+            const oldTime = userScoreDoc.data().time;
+            if (timeMs >= oldTime) shouldUpdate = false; // Nie poprawił czasu
+        }
+
+        if (shouldUpdate) {
+            await setDoc(userRef, {
+                userId: currentUserId,
+                name: portfolio.name,
+                time: timeMs,
+                timestamp: serverTimestamp()
+            });
+            showNotification("F1: Nowy rekord osobisty zapisany!", "news", "positive");
+        }
+    } catch(e) {
+        console.error("F1 Save Error:", e);
+    }
+}
+
+function listenToF1Leaderboard() {
+    const q = query(collection(db, "f1_scores"), orderBy("time", "asc"), limit(10));
+    
+    onSnapshot(q, (snap) => {
+        const list = document.getElementById("f1-top-list");
+        if(!list) return;
+        
+        list.innerHTML = "";
+        let rank = 1;
+        
+        snap.forEach(docSnap => {
+            const d = docSnap.data();
+            // Format time
+            const mins = Math.floor(d.time / 60000);
+            const secs = Math.floor((d.time % 60000) / 1000);
+            const ms = Math.floor((d.time % 1000) / 10);
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+            
+            let color = "#fff";
+            let icon = "";
+            if(rank === 1) { color = "gold"; icon = "🥇"; }
+            else if(rank === 2) { color = "silver"; icon = "🥈"; }
+            else if(rank === 3) { color = "#cd7f32"; icon = "🥉"; }
+
+            list.innerHTML += `
+                <div style="display:flex; justify-content:space-between; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); color:${color}">
+                    <span>${rank}. ${icon} ${d.name}</span>
+                    <span style="font-family:monospace; font-weight:bold;">${timeStr}</span>
+                </div>
+            `;
+            rank++;
+        });
+
+        if(snap.empty) list.innerHTML = "Brak czasów w tym tygodniu.";
+    });
+}
+
 // ==========================================
 // === EFEKT PADAJĄCEGO ŚNIEGU ===
 // ==========================================
@@ -5671,6 +6000,8 @@ function createSnowflake() {
         snow.remove();
     }, duration * 1000);
 }
+
+
 
 // Uruchomienie efektu (generowanie płatka co 200ms)
 // Możesz zmienić 200 na mniejszą liczbę (więcej śniegu) lub większą (mniej śniegu)
