@@ -5639,3 +5639,43 @@ async function spinDailyWheel() {
 
     }, 4000);
 }
+// ==========================================
+// === EFEKT PADAJĄCEGO ŚNIEGU ===
+// ==========================================
+
+function createSnowflake() {
+    const snow = document.createElement("div");
+    snow.classList.add("snowflake");
+    
+    // Możesz użyć różnych znaków: ❄, ❅, ❆, •
+    snow.textContent = Math.random() > 0.5 ? "❄" : "•"; 
+    
+    // Losowa pozycja startowa (oś X)
+    snow.style.left = Math.random() * 100 + "vw";
+    
+    // Losowa prędkość spadania (od 3s do 8s)
+    const duration = Math.random() * 5 + 3; 
+    snow.style.animationDuration = duration + "s";
+    
+    // Losowa wielkość (od 10px do 25px)
+    const size = Math.random() * 15 + 10;
+    snow.style.fontSize = size + "px";
+    
+    // Losowa przezroczystość
+    snow.style.opacity = Math.random() * 0.5 + 0.3;
+
+    document.body.appendChild(snow);
+
+    // Usuń płatek z DOM po zakończeniu animacji, żeby nie zapychać pamięci
+    setTimeout(() => {
+        snow.remove();
+    }, duration * 1000);
+}
+
+// Uruchomienie efektu (generowanie płatka co 200ms)
+// Możesz zmienić 200 na mniejszą liczbę (więcej śniegu) lub większą (mniej śniegu)
+document.addEventListener("DOMContentLoaded", () => {
+    // Sprawdzamy, czy użytkownik nie wyłączył efektów (opcjonalne)
+    // Jeśli chcesz, żeby padało zawsze, zostaw tylko setInterval
+    setInterval(createSnowflake, 200);
+});
