@@ -2331,3 +2331,30 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .seg-med { color: var(--green); font-weight: 800; }
 .seg-high { color: #ffd700; font-weight: 900; text-shadow: 0 0 5px gold; }
 .seg-jackpot { color: #ff00cc; font-size: 1.1rem; text-shadow: 0 0 10px #ff00cc; }
+
+/* --- EFEKT ŚNIEGU --- */
+.snowflake {
+    position: fixed;
+    top: -20px; /* Start powyżej ekranu */
+    color: #fff;
+    font-size: 1em;
+    font-family: Arial, sans-serif;
+    text-shadow: 0 0 5px #000; /* Cień dla lepszej widoczności */
+    user-select: none;
+    pointer-events: none; /* KLUCZOWE: Śnieg nie blokuje klikania w gry! */
+    z-index: 9998; /* Bardzo wysoko, ale pod modalem (który ma 2000 lub 10000) */
+    animation-name: fall-linear;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes fall-linear {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0.8;
+    }
+    100% {
+        transform: translateY(105vh) rotate(360deg); /* Spadnie poza ekran i się obróci */
+        opacity: 0.2;
+    }
+}
