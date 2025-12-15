@@ -280,10 +280,10 @@
 
             <div class="games-content-container">
             
-            <div id="tab-game-f1" class="game-tab-content">
+<div id="tab-game-f1" class="game-tab-content">
     <section class="glass-panel center-content">
         <div class="panel-head">
-            <h2><i class="fa-solid fa-flag-checkered"></i> F1 Grand Prix (Tygodniowy)</h2>
+            <h2><i class="fa-solid fa-flag-checkered"></i> F1 Grand Prix (Strategy Edition)</h2>
         </div>
         
         <div class="f1-wrapper">
@@ -292,24 +292,42 @@
                 <div id="f1-top-list" style="font-size: 0.9rem; text-align: left;">
                     <p>Ładowanie rankingu...</p>
                 </div>
-                <div class="f1-prizes" style="font-size: 0.8em; color: var(--text-muted); margin-top: 5px;">
-                    1. 5000zł | 2. 2500zł | 3. 1250zł
-                </div>
             </div>
 
             <div id="f1-game-container" style="position: relative; display: inline-block;">
-                <canvas id="f1-canvas" width="800" height="600" style="background: #2b2b2b; border-radius: 8px; border: 4px solid #fff;"></canvas>
+                <canvas id="f1-canvas" width="800" height="600" style="background: #1a4d1a; border-radius: 8px; border: 4px solid #fff; box-shadow: 0 0 30px black;"></canvas>
                 
-                <div id="f1-overlay" class="crossy-overlay">
-                    <h2 id="f1-msg">F1 TIME ATTACK</h2>
-                    <p>Sterowanie: Strzałki / WASD</p>
-                    <p style="font-size: 0.9em; color: #ccc;">Zrób 3 okrążenia najszybciej jak potrafisz!</p>
-                    <button id="btn-f1-start" class="btn-accent mt-10" style="font-size: 1.2rem; padding: 10px 40px;">START</button>
+                <div class="f1-hud" style="position: absolute; top: 10px; left: 10px; text-align: left; pointer-events: none;">
+                    <div class="hud-box">TIME: <span id="f1-time">00:00.00</span></div>
+                    <div class="hud-box">LAP: <span id="f1-lap">0/12</span></div>
+                    <div class="hud-box">
+                        TIRES: <span id="f1-tire-type" style="font-weight:bold;">--</span> 
+                        <span id="f1-tire-health">100%</span>
+                    </div>
+                    <div id="pit-indicator" class="hidden" style="color: yellow; font-weight: bold; animation: blink 1s infinite;">PIT WINDOW OPEN</div>
                 </div>
 
-                <div class="f1-hud" style="position: absolute; top: 10px; left: 10px; color: white; font-family: monospace; font-size: 1.2rem; text-align: left; pointer-events: none;">
-                    <div>TIME: <span id="f1-time">00:00.00</span></div>
-                    <div>LAP: <span id="f1-lap">0/3</span></div>
+                <div id="f1-overlay" class="crossy-overlay">
+                    <h2 id="f1-msg">F1 STRATEGY</h2>
+                    <div id="f1-start-menu">
+                        <p>Wybierz opony na start (12 okrążeń):</p>
+                        <div class="tire-select-row">
+                            <button class="tire-btn soft" onclick="selectTiresAndStart('soft')">🔴 SOFT<br><small>Szybkie, zużycie ++</small></button>
+                            <button class="tire-btn medium" onclick="selectTiresAndStart('medium')">🟡 MEDIUM<br><small>Balans</small></button>
+                            <button class="tire-btn hard" onclick="selectTiresAndStart('hard')">⚪ HARD<br><small>Wolne, zużycie --</small></button>
+                        </div>
+                    </div>
+                    <button id="btn-f1-restart" class="btn-accent mt-10 hidden" onclick="resetF1Menu()">SPRÓBUJ PONOWNIE</button>
+                </div>
+
+                <div id="f1-pit-menu" class="crossy-overlay hidden" style="background: rgba(0,0,0,0.85);">
+                    <h2 style="color: var(--accent-color)">PIT STOP</h2>
+                    <p>Wymiana opon:</p>
+                    <div class="tire-select-row">
+                        <button class="tire-btn soft" onclick="performPitStop('soft')">🔴 SOFT</button>
+                        <button class="tire-btn medium" onclick="performPitStop('medium')">🟡 MEDIUM</button>
+                        <button class="tire-btn hard" onclick="performPitStop('hard')">⚪ HARD</button>
+                    </div>
                 </div>
             </div>
 
@@ -319,7 +337,7 @@
                 </div>
                 <div class="dpad-row">
                     <button id="btn-f1-left" class="dpad-btn"><i class="fa-solid fa-arrow-left"></i></button>
-                    <button id="btn-f1-down" class="dpad-btn"><i class="fa-solid fa-arrow-down"></i></button>
+                    <button id="btn-f1-down" class="dpad-btn"><i class="fa-solid fa-brake-warning"></i></button>
                     <button id="btn-f1-right" class="dpad-btn"><i class="fa-solid fa-arrow-right"></i></button>
                 </div>
             </div>
@@ -1118,7 +1136,7 @@
             <ul style="text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; list-style: none; margin: 20px 0;">
                 <li style="margin-bottom: 10px;">⛷️ <strong>Update skoki</strong> Dodano tryb trenignu i wybór skoczni, zmieniono początkowe ułożenie skoczka trzeba się ruszyć aby zrobić lepszy wynik, dodano sterowanie mobilne dotykiem</li>
                 <li style="margin-bottom: 10px;"> 🏁 <strong>Zakłady</strong> Dodano zakłady do końca roku</li>
-                <li style="margin-bottom: 10px;">🏆 <strong>Turniej:</strong>Wiem że nie każdy umie grać w szachy ale i tak warto spróbować bo po ogranięciu ruchów łatwo wbić co najmniej 200elo czyli być pierwszym w tabeli</li>
+                <li style="margin-bottom: 10px;">🏆 <strong>f1:</strong>Jest w testach mozna grać jak znajdziecie bug dajcie znać</li>
             </ul>
             <button id="welcome-confirm-btn" class="btn-accent btn-full-width">exit</button>
         </div>
