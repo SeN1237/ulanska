@@ -5643,7 +5643,7 @@ async function spinDailyWheel() {
 
 
 // ==========================================
-// === F1 RACING LOGIC (FINAL FIXED VERSION) ===
+// === F1 RACING LOGIC (CLOCKWISE & SLOWER) ===
 // ==========================================
 
 let f1Canvas, f1Ctx;
@@ -5655,9 +5655,9 @@ let f1Car = {
     angle: 0, 
     speed: 0, 
     maxSpeed: 0, 
-    acc: 0.25, 
-    friction: 0.96, 
-    turnSpeed: 0.07,
+    acc: 0.15,        // Mniejsze przyspieszenie dla lepszej kontroli
+    friction: 0.97, 
+    turnSpeed: 0.05,  // Mniejszy promień skrętu (wolniejsze auto)
     grip: 1.0 
 };
 
@@ -5666,42 +5666,44 @@ let f1State = 'menu';
 let f1StartTime = 0;
 let f1CurrentLap = 0;
 let f1TotalLaps = 12; 
-let f1CheckpointStatus = 0; // 0 = start, 1 = półmetek zaliczony
+let f1CheckpointStatus = 0; 
 let f1Keys = { up: false, down: false, left: false, right: false };
-let f1PitCooldown = false; // Blokada ponownego wjazdu do pitu
+let f1PitCooldown = false;
 
-// Opony
+// Opony (ZNACZNIE WOLNIEJSZE)
 let f1Tires = {
     type: 'medium',
     wear: 100, 
     stats: {
-        soft:   { maxSpeed: 14.5, grip: 1.35, wearRate: 0.70, color: '#ff3333' },
-        medium: { maxSpeed: 12.5, grip: 1.15, wearRate: 0.35, color: '#ffcc00' },
-        hard:   { maxSpeed: 11.0, grip: 0.95, wearRate: 0.15, color: '#ffffff' }
+        soft:   { maxSpeed: 9.5, grip: 1.4, wearRate: 0.60, color: '#ff3333' },
+        medium: { maxSpeed: 8.5, grip: 1.2, wearRate: 0.30, color: '#ffcc00' },
+        hard:   { maxSpeed: 7.5, grip: 1.0, wearRate: 0.10, color: '#ffffff' }
     }
 };
 
-// --- NOWY TOR (Gładka pętla) ---
-const F1_TRACK_WIDTH = 65;
-// Punkty definiujące środek drogi (Prostokąt z zaokrągleniami)
+// --- NOWY TOR (ZGODNIE ZE WSKAZÓWKAMI ZEGARA) ---
+const F1_TRACK_WIDTH = 70; // Szerszy tor dla łatwiejszej jazdy
+
+// Punkty definiujące środek drogi
+// Startujemy na dole (400,520) i jedziemy w LEWO (zgodnie z zegarem: 6 -> 9 -> 12 -> 3)
 const F1_PATH = [
-    {x: 100, y: 500}, // 0. Start (Prosta dół)
-    {x: 400, y: 500}, 
-    {x: 600, y: 500}, 
-    {x: 700, y: 450}, // Zakręt prawy dół
-    {x: 700, y: 300}, // Prosta prawa
-    {x: 700, y: 150}, // Zakręt prawy góra
-    {x: 600, y: 80},
-    {x: 400, y: 80},  // Prosta góra
-    {x: 200, y: 80},
-    {x: 100, y: 150}, // Zakręt lewy góra
-    {x: 100, y: 300}, // Prosta lewa
-    {x: 100, y: 450}, // Nawrót do startu
-    {x: 100, y: 500}  // Zamknięcie (musi być takie samo jak pkt 0)
+    {x: 400, y: 520}, // 0. Start / Meta (Środek dół)
+    {x: 200, y: 520}, // Prosta startowa
+    {x: 100, y: 450}, // Zakręt 1 (Lewy dół)
+    {x: 80,  y: 300}, // Prosta w górę
+    {x: 150, y: 150}, // Szykana wjazd
+    {x: 250, y: 200}, // Szykana środek
+    {x: 350, y: 150}, // Szykana wyjazd
+    {x: 400, y: 80},  // Szczyt (Góra)
+    {x: 600, y: 80},  // Prosta górna
+    {x: 720, y: 150}, // Zakręt (Prawa góra)
+    {x: 720, y: 350}, // Długa prosta w dół
+    {x: 600, y: 520}, // Zakręt ostatni (Prawy dół)
+    {x: 400, y: 520}  // Zamknięcie (musi być pkt 0)
 ];
 
-// Strefa Pitstopu (Umieszczona na prostej startowej)
-const PIT_ZONE = { x: 450, y: 540, w: 120, h: 50 }; 
+// Strefa Pitstopu (Na prostej startowej, pod torem)
+const PIT_ZONE = { x: 250, y: 560, w: 100, h: 40 }; 
 
 document.addEventListener("DOMContentLoaded", () => {
     // Listenery Mobile i Keyboard
@@ -5731,7 +5733,6 @@ function updateF1Keys(key, pressed) {
     if (key === "ArrowRight" || key === "d") f1Keys.right = pressed;
 }
 
-// Funkcja dostępna w HTML (window)
 window.selectTiresAndStart = function(type) {
     f1Tires.type = type;
     f1Tires.wear = 100;
@@ -5748,14 +5749,11 @@ window.performPitStop = function(type) {
     f1Tires.type = type;
     f1Tires.wear = 100;
     
-    // UI Update
     const menu = document.getElementById("f1-pit-menu");
     menu.innerHTML = `<h2 style="color:yellow; font-size: 2rem;">WYMIANA...</h2>`;
     
-    // Symulacja czasu pitstopu (2 sekundy)
     setTimeout(() => {
         menu.classList.add("hidden");
-        // Reset menu HTML na przyszłość
         menu.innerHTML = `
             <h2 style="color: var(--accent-color)">PIT STOP</h2>
             <p>Wymiana opon:</p>
@@ -5765,14 +5763,11 @@ window.performPitStop = function(type) {
                 <button class="tire-btn hard" onclick="performPitStop('hard')">⚪ HARD</button>
             </div>`;
         
-        // --- NAPRAWA PĘTLI PITSTOPU ---
         f1State = 'running'; 
-        f1Car.speed = 6.0; // Wypchnij auto (Launch Control)
-        f1PitCooldown = true; // Włącz nieśmiertelność na strefę pitu
+        f1Car.speed = 4.0; // Wypchnij wolniej (bo auto jest wolniejsze)
+        f1PitCooldown = true; 
         
-        // Wyłącz cooldown po 4 sekundach (jak już wyjedzie)
-        setTimeout(() => { f1PitCooldown = false; }, 4000);
-
+        setTimeout(() => { f1PitCooldown = false; }, 3000);
     }, 2000); 
 };
 
@@ -5782,17 +5777,16 @@ function startF1Race() {
     
     document.getElementById("f1-overlay").classList.add("hidden");
     
-    // Ustawienie na starcie (Punkt 0 skierowany w stronę Punktu 1)
-    const p1 = F1_PATH[0];
-    const p2 = F1_PATH[1];
+    // Ustawienie na starcie (Punkt 0)
+    const p0 = F1_PATH[0];
+    const p1 = F1_PATH[1];
     
-    f1Car.x = p1.x;
-    f1Car.y = p1.y;
-    // Obliczamy kąt tak, aby auto patrzyło w stronę kolejnego punktu
-    f1Car.angle = Math.atan2(p2.y - p1.y, p2.x - p1.x); 
+    f1Car.x = p0.x;
+    f1Car.y = p0.y;
+    // Oblicz kąt w stronę następnego punktu (Jazda w lewo)
+    f1Car.angle = Math.atan2(p1.y - p0.y, p1.x - p0.x); 
     f1Car.speed = 0;
     
-    // Reset Game
     f1State = 'running';
     f1StartTime = Date.now();
     f1CurrentLap = 0;
@@ -5814,11 +5808,9 @@ function f1Loop() {
 function updateF1Physics() {
     const tireStats = f1Tires.stats[f1Tires.type];
     
-    // 1. Grip i Zużycie
     let wearFactor = f1Tires.wear / 100;
     let currentGrip = tireStats.grip * (wearFactor < 0.15 ? 0.3 : (0.5 + 0.5 * wearFactor));
     
-    // HUD Opon
     const hudHealth = document.getElementById("f1-tire-health");
     const hudType = document.getElementById("f1-tire-type");
     hudType.textContent = f1Tires.type.toUpperCase();
@@ -5828,33 +5820,28 @@ function updateF1Physics() {
     if(f1Tires.wear < 20) { hudHealth.style.color = "red"; hudHealth.style.fontWeight = "bold"; }
     else hudHealth.style.color = "white";
 
-    // 2. Sterowanie
-    const currentMaxSpeed = tireStats.maxSpeed * (0.7 + 0.3 * wearFactor);
+    // Wolniejsza prędkość maksymalna
+    const currentMaxSpeed = tireStats.maxSpeed * (0.8 + 0.2 * wearFactor);
     
     if (f1Keys.up) f1Car.speed += f1Car.acc * currentGrip; 
     if (f1Keys.down) f1Car.speed -= f1Car.acc;
 
-    // Tarcie i Max Speed
     f1Car.speed *= f1Car.friction;
     if(f1Car.speed > currentMaxSpeed) f1Car.speed = currentMaxSpeed;
     
-    // Skręcanie
-    if (Math.abs(f1Car.speed) > 0.3) {
-        const turn = f1Car.turnSpeed * (f1Tires.wear < 5 ? 0.3 : currentGrip);
+    if (Math.abs(f1Car.speed) > 0.2) {
+        const turn = f1Car.turnSpeed * (f1Tires.wear < 5 ? 0.2 : currentGrip);
         if (f1Keys.left) f1Car.angle -= turn;
         if (f1Keys.right) f1Car.angle += turn;
         
-        // Zużycie
-        const stress = (Math.abs(f1Car.speed) / currentMaxSpeed) + (f1Keys.left || f1Keys.right ? 1.5 : 0);
-        f1Tires.wear -= (tireStats.wearRate * 0.04 * stress); // Trochę wolniejsze zużycie
+        const stress = (Math.abs(f1Car.speed) / currentMaxSpeed) + (f1Keys.left || f1Keys.right ? 1.2 : 0);
+        f1Tires.wear -= (tireStats.wearRate * 0.04 * stress);
         if(f1Tires.wear < 0) f1Tires.wear = 0;
     }
 
-    // 3. Wykrywanie Toru
     const distToCenter = getDistanceToTrack(f1Car.x, f1Car.y);
     const isOnTrack = distToCenter < (F1_TRACK_WIDTH / 2); 
     
-    // 4. Obsługa Pitstopu
     const inPitBox = (
         f1Car.x > PIT_ZONE.x && f1Car.x < PIT_ZONE.x + PIT_ZONE.w &&
         f1Car.y > PIT_ZONE.y && f1Car.y < PIT_ZONE.y + PIT_ZONE.h
@@ -5865,8 +5852,7 @@ function updateF1Physics() {
     if (inPitBox) {
         if (!f1PitCooldown) {
             indicator.classList.remove("hidden");
-            indicator.textContent = "ZWOLNIJ DO 0 BY ZMIENIĆ";
-            // Warunek otwarcia menu: auto prawie stoi
+            indicator.textContent = "ZWOLNIJ DO 0 - ZMIANA OPON";
             if (Math.abs(f1Car.speed) < 0.5) {
                 f1State = 'pitting';
                 document.getElementById("f1-pit-menu").classList.remove("hidden");
@@ -5874,17 +5860,15 @@ function updateF1Physics() {
             }
         } else {
             indicator.classList.remove("hidden");
-            indicator.textContent = "WYJAZD Z PITU!"; 
+            indicator.textContent = "WYJAZD!"; 
         }
     } else {
         indicator.classList.add("hidden");
-        // Kara za trawę (poza pitem)
         if (!isOnTrack) {
-            f1Car.speed *= 0.85; // Zwolnienie na trawie
+            f1Car.speed *= 0.85; 
         }
     }
 
-    // Aplikowanie ruchu
     f1Car.x += Math.cos(f1Car.angle) * f1Car.speed;
     f1Car.y += Math.sin(f1Car.angle) * f1Car.speed;
 
@@ -5911,27 +5895,24 @@ function distToSegment(px, py, x1, y1, x2, y2) {
     return Math.hypot(px - (x1 + t*(x2-x1)), py - (y1 + t*(y2-y1)));
 }
 
-// --- NAPRAWIONE LICZENIE OKRĄŻEŃ ---
 function updateF1Laps() {
-    // Checkpoint 1: Połowa toru (Górna prosta, około indexu 7 w tablicy)
-    const midPoint = F1_PATH[7]; 
-    // Start/Meta: Punkt 0
+    // Checkpoint 1: Szykana na górze (Punkt 6)
+    const midPoint = F1_PATH[6]; 
+    // Meta: Punkt 0
     const startPoint = F1_PATH[0];
     
     const distToMid = Math.hypot(f1Car.x - midPoint.x, f1Car.y - midPoint.y);
     const distToStart = Math.hypot(f1Car.x - startPoint.x, f1Car.y - startPoint.y);
     
-    const GATE_SIZE = 100; // Tolerancja
+    const GATE_SIZE = 120; 
 
-    // Logika: Musisz zaliczyć środek, żeby móc zaliczyć metę
     if (f1CheckpointStatus === 0 && distToMid < GATE_SIZE) {
-        f1CheckpointStatus = 1; // Jesteś w połowie
+        f1CheckpointStatus = 1; 
     } 
     else if (f1CheckpointStatus === 1 && distToStart < GATE_SIZE) {
-        // META
         f1CurrentLap++;
         document.getElementById("f1-lap").textContent = `${f1CurrentLap}/${f1TotalLaps}`;
-        f1CheckpointStatus = 0; // Reset na nowe kółko
+        f1CheckpointStatus = 0; 
         
         if(dom.audioKaching) {
              const clone = dom.audioKaching.cloneNode();
@@ -5955,44 +5936,41 @@ function updateF1TimeDisplay() {
 }
 
 function drawF1Game() {
-    // Tło (Trawa)
     f1Ctx.fillStyle = "#228b22"; 
     f1Ctx.fillRect(0, 0, f1Canvas.width, f1Canvas.height);
 
     f1Ctx.lineCap = "round";
     f1Ctx.lineJoin = "round";
 
-    // 1. Rysowanie trasy (Krawędzie)
-    // Używamy helpera, żeby narysować linię po punktach
-    f1Ctx.beginPath();
-    if(F1_PATH.length > 0) {
-        f1Ctx.moveTo(F1_PATH[0].x, F1_PATH[0].y);
-        for(let i=1; i<F1_PATH.length; i++) f1Ctx.lineTo(F1_PATH[i].x, F1_PATH[i].y);
-    }
-    
-    // Obrys (Tarki)
+    // Trasa (Krawędzie)
     f1Ctx.lineWidth = F1_TRACK_WIDTH + 14;
-    f1Ctx.strokeStyle = "#cc0000"; // Czerwony
+    f1Ctx.strokeStyle = "#cc0000"; 
+    f1Ctx.beginPath();
+    drawPathLine();
     f1Ctx.stroke();
     
     f1Ctx.lineWidth = F1_TRACK_WIDTH + 14;
-    f1Ctx.strokeStyle = "white"; // Biały przerywany
+    f1Ctx.strokeStyle = "white"; 
     f1Ctx.setLineDash([25, 25]);
+    f1Ctx.beginPath();
+    drawPathLine();
     f1Ctx.stroke();
     f1Ctx.setLineDash([]); 
 
     // Asfalt
     f1Ctx.lineWidth = F1_TRACK_WIDTH;
     f1Ctx.strokeStyle = "#333";
+    f1Ctx.beginPath();
+    drawPathLine();
     f1Ctx.stroke();
     
     // Linia startu
     const p0 = F1_PATH[0];
     f1Ctx.fillStyle = "white";
-    // Rysujemy kreskę w poprzek (prosta pionowa/pozioma w zależności od trasy, tu prosta jest pozioma)
+    // Rysujemy linię startu pionową (dla prostej poziomej)
     f1Ctx.fillRect(p0.x - 5, p0.y - F1_TRACK_WIDTH/2, 10, F1_TRACK_WIDTH);
 
-    // 3. Rysowanie Pit Lane
+    // Pit Lane (Rysujemy)
     f1Ctx.fillStyle = "rgba(0,0,0,0.5)";
     f1Ctx.fillRect(PIT_ZONE.x, PIT_ZONE.y, PIT_ZONE.w, PIT_ZONE.h);
     f1Ctx.strokeStyle = "yellow";
@@ -6002,42 +5980,45 @@ function drawF1Game() {
     f1Ctx.fillStyle = "yellow";
     f1Ctx.fillText("PIT BOX", PIT_ZONE.x + 20, PIT_ZONE.y + 25);
 
-    // 4. Samochód
+    // Samochód
     f1Ctx.save();
     f1Ctx.translate(f1Car.x, f1Car.y);
     f1Ctx.rotate(f1Car.angle);
     
-    // Opony
     const tireColor = f1Tires.stats[f1Tires.type].color;
     f1Ctx.fillStyle = "black";
-    f1Ctx.fillRect(-10, -10, 8, 4); // LT
-    f1Ctx.fillRect(-10, 6, 8, 4);  // PT
-    f1Ctx.fillRect(8, -10, 8, 4);  // LP
-    f1Ctx.fillRect(8, 6, 8, 4);    // PP
+    f1Ctx.fillRect(-10, -10, 8, 4); 
+    f1Ctx.fillRect(-10, 6, 8, 4);  
+    f1Ctx.fillRect(8, -10, 8, 4);  
+    f1Ctx.fillRect(8, 6, 8, 4);    
     
-    // Paski opon
     f1Ctx.fillStyle = tireColor;
     f1Ctx.fillRect(-9, -9, 6, 2);
     f1Ctx.fillRect(-9, 7, 6, 2);
     f1Ctx.fillRect(9, -9, 6, 2);
     f1Ctx.fillRect(9, 7, 6, 2);
 
-    // Body
     f1Ctx.fillStyle = "#ff0000"; 
     f1Ctx.beginPath();
-    // Prosty kształt bolidu
-    f1Ctx.moveTo(15, 0); // Nos
+    f1Ctx.moveTo(15, 0); 
     f1Ctx.lineTo(-5, -6);
     f1Ctx.lineTo(-10, -6);
     f1Ctx.lineTo(-10, 6);
     f1Ctx.lineTo(-5, 6);
     f1Ctx.fill();
     
-    // Kask
     f1Ctx.fillStyle = "yellow";
     f1Ctx.beginPath(); f1Ctx.arc(-2, 0, 3.5, 0, Math.PI*2); f1Ctx.fill();
 
     f1Ctx.restore();
+}
+
+function drawPathLine() {
+    if(F1_PATH.length < 2) return;
+    f1Ctx.moveTo(F1_PATH[0].x, F1_PATH[0].y);
+    for(let i=1; i<F1_PATH.length; i++) {
+        f1Ctx.lineTo(F1_PATH[i].x, F1_PATH[i].y);
+    }
 }
 
 async function finishF1Race() {
