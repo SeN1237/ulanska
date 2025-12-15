@@ -365,6 +365,7 @@ try {
 
     // --- WYWOŁANIE FUNKCJI ZAKŁADÓW ---
     await manageMatches(db);
+    await checkF1WeeklyRewards(db); // <--- DODAJ TO
 
     // --- WYWOŁANIE FUNKCJI OBLIGACJI ---
     await processBonds(newPrices);
@@ -407,6 +408,84 @@ try {
       if (i < updatesPerRun) await sleep(intervalSeconds * 1000);
     }
   };
+  
+  // --- F1 WEEKLY PAYOUT LOGIC ---
+async function checkF1WeeklyRewards(db) {
+    const stateRef = db.doc("global/f1_state");
+    const stateDoc = await stateRef.get();
+    
+    const now = admin.firestore.Timestamp.now();
+    let nextReset;
+
+    // Inicjalizacja, jeśli brak dokumentu
+    if (!stateDoc.exists) {
+        // Ustaw następny reset na najbliższą niedzielę 23:59
+        const d = new Date();
+        d.setDate(d.getDate() + (7 - d.getDay())); // Niedziela
+        d.setHours(23, 59, 0, 0);
+        nextReset = admin.firestore.Timestamp.fromDate(d);
+        await stateRef.set({ nextReset: nextReset });
+        return;
+    } else {
+        nextReset = stateDoc.data().nextReset;
+    }
+
+    // Sprawdź czy czas resetu minął
+    if (now > nextReset) {
+        console.log("🏁 F1: Czas na rozdanie nagród tygodniowych!");
+        
+        // 1. Pobierz TOP 3
+        const scoresRef = db.collection("f1_scores");
+        const snapshot = await scoresRef.orderBy("time", "asc").limit(3).get();
+        
+        if (!snapshot.empty) {
+            const batch = db.batch();
+            const prizes = [5000, 2500, 1250]; // Nagrody
+            let rank = 0;
+
+            snapshot.forEach(docSnap => {
+                if (rank < 3) {
+                    const data = docSnap.data();
+                    const prize = prizes[rank];
+                    const userRef = db.collection("uzytkownicy").doc(data.userId);
+
+                    // Wypłata
+                    batch.update(userRef, {
+                        cash: admin.firestore.FieldValue.increment(prize),
+                        totalValue: admin.firestore.FieldValue.increment(prize),
+                        zysk: admin.firestore.FieldValue.increment(prize)
+                    });
+                    
+                    console.log(`🏎️ F1 Nagroda: ${data.name} wygrywa ${prize} zł`);
+                }
+                rank++;
+            });
+            
+            // 2. Wyczyść tabelę wyników (aby zacząć nowy tydzień)
+            // Uwaga: Delete kolekcji w Firestore wymaga usuwania dokument po dokumencie
+            const allScores = await scoresRef.get();
+            allScores.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+
+            // 3. Ustaw nowy czas resetu (kolejna niedziela)
+            const d = new Date();
+            d.setDate(d.getDate() + 7); 
+            d.setHours(23, 59, 0, 0);
+            const newReset = admin.firestore.Timestamp.fromDate(d);
+            
+            batch.update(stateRef, { nextReset: newReset });
+
+            await batch.commit();
+            console.log("✅ F1: Nagrody rozdane, ranking zresetowany.");
+        } else {
+            // Brak graczy, tylko przesuń datę
+            const d = new Date();
+            d.setDate(d.getDate() + 7);
+            await stateRef.update({ nextReset: admin.firestore.Timestamp.fromDate(d) });
+        }
+    }
+}
 
 	// --- ZARZĄDZANIE GRAMI CROSSY ROAD (WIG ROAD) ---
 async function manageCrossyLobbies(db) {
@@ -468,4 +547,3 @@ async function manageCrossyLobbies(db) {
   console.error("Init Error:", e);
   process.exit(1); 
 }
-
