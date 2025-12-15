@@ -2358,18 +2358,35 @@ input:focus, select:focus { border-color: var(--accent-color); }
         opacity: 0.2;
     }
 }
-.f1-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    max-width: 800px;
-    margin: 0 auto;
+/* F1 Styles */
+.f1-wrapper { display: flex; flex-direction: column; align-items: center; max-width: 800px; margin: 0 auto; }
+.hud-box { 
+    background: rgba(0,0,0,0.6); 
+    padding: 5px 10px; 
+    border-radius: 4px; 
+    margin-bottom: 5px; 
+    font-family: 'Courier New', monospace; 
+    font-weight: bold; 
+    color: white; 
+    border-left: 3px solid var(--accent-color);
 }
 
-#f1-canvas {
-    max-width: 100%;
-    height: auto;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
-    /* Zapobiega zaznaczaniu na mobile */
-    touch-action: none; 
+.tire-select-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+.tire-btn {
+    border: 2px solid rgba(255,255,255,0.2);
+    padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #222;
+    color: white;
+    font-weight: bold;
+    transition: transform 0.2s;
+    min-width: 100px;
 }
+.tire-btn:hover { transform: scale(1.05); }
+.tire-btn.soft { border-color: #ff3333; color: #ff3333; }
+.tire-btn.medium { border-color: #ffcc00; color: #ffcc00; }
+.tire-btn.hard { border-color: #ffffff; color: #ffffff; }
+.tire-btn small { display: block; font-size: 0.7em; margin-top: 5px; opacity: 0.8; font-weight: normal; color: #ccc;}
+
+@keyframes blink { 50% { opacity: 0; } }
