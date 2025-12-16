@@ -2420,4 +2420,16 @@ input:focus, select:focus { border-color: var(--accent-color); }
     width: 70px;              /* Nieco większe przyciski */
     height: 70px;
 }
+@keyframes pulse-gold {
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+/* Responsywność dla nowego panelu pływania */
+@media (max-width: 768px) {
+    #swimming-panel .info-grid {
+        grid-template-columns: 1fr; /* Jeden pod drugim na telefonie */
+    }
+}
 @keyframes blink { 50% { opacity: 0; } }
