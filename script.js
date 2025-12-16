@@ -6113,6 +6113,77 @@ function listenToF1Leaderboard() {
 }
 
 // ==========================================
+// === SWIMMING CHAMPIONSHIPS LOGIC ===
+// ==========================================
+
+const SWIMMING_DATA = {
+    day1: {
+        video: "A4wG0pZmRzU",
+        desc: `
+            <p><strong style="color:var(--accent-color)">📅 18.12.2025 (Czwartek)</strong></p>
+            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
+                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 2:</strong> Mężczyzn, 50m dowolny</li>
+                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 8:</strong> Mężczyzn, 100m zmienny</li>
+            </ul>`
+    },
+    day2: {
+        video: "3oy0wjSzTb0",
+        desc: `
+            <p><strong style="color:var(--accent-color)">📅 19.12.2025 (Piątek)</strong></p>
+            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
+                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 18:</strong> Mężczyzn, 50m klasyczny</li>
+            </ul>`
+    },
+    day3: {
+        video: "2vYtO4O0Qgo",
+        desc: `
+            <p><strong style="color:var(--accent-color)">📅 20.12.2025 (Sobota)</strong></p>
+            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
+                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 31:</strong> Mężczyzn, 200m klasyczny</li>
+            </ul>`
+    },
+    day4: {
+        video: "X2Mg2Ed0bFw",
+        desc: `
+            <p><strong style="color:var(--accent-color)">📅 21.12.2025 (Niedziela)</strong></p>
+            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
+                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 41:</strong> Mężczyzn, 50m motylkowy</li>
+            </ul>`
+    }
+};
+
+// Funkcja globalna (przypisana do window), aby HTML mógł ją widzieć
+window.switchSwimmingDay = function(dayKey) {
+    const data = SWIMMING_DATA[dayKey];
+    if (!data) return;
+
+    // 1. Zmiana wideo (podmiana ID w linku embed)
+    const iframe = document.getElementById("swimming-video-frame");
+    if (iframe) {
+        iframe.src = `https://www.youtube.com/embed/${data.video}`;
+    }
+
+    // 2. Zmiana opisu konkurencji
+    const descContainer = document.getElementById("swimming-schedule-content");
+    if (descContainer) {
+        descContainer.innerHTML = data.desc;
+    }
+
+    // 3. Aktualizacja aktywnego przycisku
+    const btns = document.querySelectorAll("#swimming-days-nav .day-tab-btn");
+    btns.forEach(btn => {
+        btn.classList.remove("active");
+    });
+    
+    // Dodaj klasę active do klikniętego przycisku
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add("active");
+    } else if (event && event.target) {
+        event.target.classList.add("active");
+    }
+};
+
+// ==========================================
 // === EFEKT PADAJĄCEGO ŚNIEGU ===
 // ==========================================
 
