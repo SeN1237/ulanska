@@ -564,26 +564,87 @@
 </div>
             
 
-                <div id="tab-game-betting" class="game-tab-content active">
-                    <section id="betting-panel" class="glass-panel">
-                        <div class="panel-head">
-                            <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
-                        </div>
-                        <div id="match-info"><p>Ładowanie oferty...</p></div>
-                        <form id="betting-form" class="hidden mt-10" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; color: var(--accent-color);">Twój typ:</h4>
-                            <select id="bet-team" style="display: none;"></select>
-                            <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
-                            <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" class="full-input" style="width: 100%; margin-bottom: 10px;">
-                            <button type="submit" id="place-bet-button" class="btn-accent" style="width: 100%;">Zatwierdź Zakład</button>
-                        </form>
-                        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
-                        <h3>Twoje Aktywne Kupony</h3>
-                        <div id="active-bets-feed" class="feed-box history-feed mt-10">
-                            <p>...brak aktywnych zakładów...</p>
-                        </div>
-                    </section>
+<div id="tab-game-betting" class="game-tab-content active">
+    
+    <div class="glass-panel" style="border: 1px solid #ffd700; background: rgba(255, 215, 0, 0.1); text-align: center; margin-bottom: 20px; animation: pulse-gold 2s infinite;">
+        <h3 style="margin: 0; color: #ffd700; text-transform: uppercase;">
+            <i class="fa-solid fa-trophy"></i> Event Specjalny: Pływanie
+        </h3>
+        <p style="margin: 5px 0; font-size: 0.95em;">
+            Kto osiągnie <strong>najlepszą skuteczność</strong> w zakładach pływackich, zgarnia <strong style="font-size: 1.1em;">100 000 zł EKSTRA!</strong>
+        </p>
+    </div>
+
+    <section id="betting-panel" class="glass-panel">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
+        </div>
+        <div id="match-info"><p>Ładowanie oferty...</p></div>
+        <form id="betting-form" class="hidden mt-10" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+            <h4 style="margin: 0 0 10px 0; color: var(--accent-color);">Twój typ:</h4>
+            <select id="bet-team" style="display: none;"></select>
+            <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
+            <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" class="full-input" style="width: 100%; margin-bottom: 10px;">
+            <button type="submit" id="place-bet-button" class="btn-accent" style="width: 100%;">Zatwierdź Zakład</button>
+        </form>
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+        <h3>Twoje Aktywne Kupony</h3>
+        <div id="active-bets-feed" class="feed-box history-feed mt-10">
+            <p>...brak aktywnych zakładów...</p>
+        </div>
+    </section>
+
+    <section id="swimming-panel" class="glass-panel" style="border: 1px solid var(--accent-color);">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-person-swimming"></i> Mistrzostwa Polski - Szczecin 2025</h2>
+        </div>
+
+        <div class="betting-days-nav" id="swimming-days-nav" style="justify-content: center; margin-bottom: 20px;">
+            <button class="day-tab-btn active" onclick="switchSwimmingDay('day1')">18.12 (Cz)</button>
+            <button class="day-tab-btn" onclick="switchSwimmingDay('day2')">19.12 (Pt)</button>
+            <button class="day-tab-btn" onclick="switchSwimmingDay('day3')">20.12 (Sb)</button>
+            <button class="day-tab-btn" onclick="switchSwimmingDay('day4')">21.12 (Nd)</button>
+        </div>
+
+        <div class="info-grid">
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px;">
+                <div class="video-container" style="margin-bottom: 15px;">
+                    <iframe id="swimming-video-frame" width="100%" height="250" src="https://www.youtube.com/embed/A4wG0pZmRzU" frameborder="0" allowfullscreen></iframe>
                 </div>
+                <h3 style="color: var(--accent-color); margin-top: 0;">Harmonogram Dnia:</h3>
+                <div id="swimming-schedule-content" style="font-size: 0.95em; line-height: 1.6;">
+                    <p><strong>Konkurencja 2:</strong> Mężczyzn, 50m dowolny</p>
+                    <p><strong>Konkurencja 8:</strong> Mężczyzn, 100m zmienny</p>
+                </div>
+            </div>
+
+            <div>
+                <h3 style="margin-top: 0; text-align: center;">🏆 Top Typerzy Pływania</h3>
+                <div style="overflow-x: auto;">
+                    <table class="betting-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Gracz</th>
+                                <th style="text-align: center;">Skuteczność</th>
+                                <th style="text-align: right;">Wygrana</th>
+                            </tr>
+                        </thead>
+                        <tbody id="swimming-leaderboard">
+                            <tr><td>1</td><td>brzoza</td><td style="text-align:center; color:#ffd700">0%</td><td style="text-align:right">12 500 zł</td></tr>
+                            <tr><td>2</td><td>DariuszZawacki</td><td style="text-align:center; color:#ffd700">85%</td><td style="text-align:right">8 200 zł</td></tr>
+                            <tr><td>3</td><td>Miles Gw</td><td style="text-align:center; color:#ffd700">70%</td><td style="text-align:right">5 000 zł</td></tr>
+                            <tr><td>4</td><td>Mydło</td><td style="text-align:center; color:#ffd700">100%</td><td style="text-align:right">12 500 zł</td></tr>
+                            <tr><td>5</td><td>Nico</td><td style="text-align:center; color:#ffd700">85%</td><td style="text-align:right">8 200 zł</td></tr>
+                            <tr><td>6</td><td>grazka96</td><td style="text-align:center; color:#ffd700">70%</td><td style="text-align:right">5 000 zł</td></tr>
+                            <tr><td colspan="4" style="text-align:center; color:var(--text-muted); font-size:0.8em; padding-top:10px;">Ranking aktualizowany po każdej sesji.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section
+</div>
 
                 <div id="tab-game-casino" class="game-tab-content">
                     <section id="casino-panel" class="glass-panel center-content">
