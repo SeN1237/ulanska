@@ -5914,10 +5914,6 @@ function updateF1Laps() {
         document.getElementById("f1-lap").textContent = `${f1CurrentLap}/${f1TotalLaps}`;
         f1CheckpointStatus = 0; 
         
-        if(dom.audioKaching) {
-             const clone = dom.audioKaching.cloneNode();
-             clone.volume = 0.2; clone.play().catch(()=>{});
-        }
 
         if (f1CurrentLap >= f1TotalLaps) {
             finishF1Race();
