@@ -440,7 +440,7 @@ async function checkF1WeeklyRewards(db) {
         
         if (!snapshot.empty) {
             const batch = db.batch();
-            const prizes = [5000, 2500, 1250]; // Nagrody
+            const prizes = [100000, 50000, 25000]; // Nagrody
             let rank = 0;
 
             snapshot.forEach(docSnap => {
