@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Countdown & Chat</title>
+    <title>Oczekiwanie na Start</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --primary: #00d2ff;
@@ -11,6 +15,7 @@
             --bg-dark: #0f1014;
             --panel-bg: #1a1c23;
             --text-color: #e0e6ed;
+            --green: #00e676;
         }
 
         body {
@@ -27,94 +32,71 @@
             justify-content: center;
         }
 
-        /* --- KONTENER GŁÓWNY --- */
         .main-wrapper {
             width: 90%;
-            max-width: 800px;
+            max-width: 900px;
             display: flex;
             flex-direction: column;
             gap: 30px;
             padding: 40px 0;
         }
 
-        /* --- SEKCJA LICZNIKA --- */
-        .countdown-section {
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 20px;
-        }
-
+        /* --- ODLICZANIE --- */
+        .countdown-section { text-align: center; margin-bottom: 20px; }
+        h1 { font-size: 1.8rem; text-transform: uppercase; letter-spacing: 4px; color: rgba(255,255,255,0.6); margin-bottom: 25px; }
+        
         .timer-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
+            gap: 20px;
         }
 
         .time-card {
             background: var(--panel-bg);
-            padding: 20px 10px;
+            padding: 25px 15px;
             border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.05);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            transition: transform 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+        .time-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .time-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
         }
 
-        .time-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--primary);
-        }
+        .number { display: block; font-size: 3.5rem; font-weight: 800; color: #fff; line-height: 1; }
+        .label { font-size: 0.85rem; text-transform: uppercase; opacity: 0.6; margin-top: 10px; display: block; letter-spacing: 1px; }
 
-        .number {
-            display: block;
-            font-size: 3rem;
-            font-weight: 700;
-            color: var(--primary);
-            font-variant-numeric: tabular-nums; /* Aby cyfry nie skakały */
-        }
-
-        .label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            opacity: 0.7;
-            margin-top: 5px;
-            display: block;
-        }
-
-        /* --- SEKCJA CZATU (PANEL) --- */
+        /* --- CZAT PANEL --- */
         .chat-panel {
             background: var(--panel-bg);
-            border-radius: 15px;
+            border-radius: 16px;
             border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
-            height: 500px; /* Stała wysokość panelu czatu */
+            height: 600px; /* Wysoki panel czatu */
             overflow: hidden;
         }
 
         .chat-header {
-            padding: 15px 20px;
+            padding: 20px;
             background: rgba(0,0,0,0.2);
             border-bottom: 1px solid rgba(255,255,255,0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
-        .status-dot {
-            height: 10px;
-            width: 10px;
-            background-color: #00ff88;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            box-shadow: 0 0 10px #00ff88;
+        .live-indicator {
+            display: flex; align-items: center; gap: 8px; font-weight: bold; letter-spacing: 1px;
+        }
+        .dot {
+            width: 10px; height: 10px; background-color: var(--green);
+            border-radius: 50%; box-shadow: 0 0 10px var(--green);
+            animation: pulse 2s infinite;
         }
 
         .chat-messages {
@@ -123,98 +105,70 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             scroll-behavior: smooth;
         }
-
-        /* Styl paska przewijania */
-        .chat-messages::-webkit-scrollbar { width: 8px; }
+        /* Scrollbar */
+        .chat-messages::-webkit-scrollbar { width: 6px; }
         .chat-messages::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
         .message {
-            background: rgba(255,255,255,0.05);
-            padding: 10px 15px;
-            border-radius: 10px;
-            max-width: 85%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
             font-size: 0.95rem;
-            line-height: 1.4;
-            animation: fadeIn 0.3s ease;
+            line-height: 1.5;
+            animation: slideIn 0.3s ease;
+            border-left: 2px solid transparent;
         }
-
-        .message.admin {
-            background: rgba(0, 210, 255, 0.15);
-            border-left: 3px solid var(--primary);
-            color: #fff;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background: var(--secondary);
-            color: white;
-        }
-
-        .message .time {
-            font-size: 0.7rem;
-            opacity: 0.5;
-            margin-left: 8px;
-        }
+        .message strong { color: var(--primary); cursor: pointer; }
+        .message.my-message { border-left: 2px solid var(--green); background: rgba(0, 230, 118, 0.05); }
+        .stars { color: gold; font-size: 0.8em; margin-left: 4px; }
+        .msg-time { float: right; font-size: 0.75em; opacity: 0.4; margin-left: 10px; margin-top: 4px; }
 
         .chat-input-area {
             padding: 20px;
-            background: rgba(0,0,0,0.2);
-            border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.3);
             display: flex;
             gap: 10px;
+            border-top: 1px solid rgba(255,255,255,0.05);
         }
 
-        input[type="text"] {
+        input {
             flex-grow: 1;
-            padding: 12px 20px;
-            border-radius: 25px;
+            padding: 15px 20px;
+            border-radius: 30px;
             border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.05);
             color: white;
             font-size: 1rem;
             outline: none;
-            transition: border-color 0.3s;
+            transition: 0.3s;
         }
+        input:focus { border-color: var(--primary); background: rgba(0,0,0,0.4); }
 
-        input[type="text"]:focus {
-            border-color: var(--primary);
-        }
-
-        button.send-btn {
-            background: linear-gradient(135deg, var(--secondary), var(--primary));
+        button {
+            padding: 0 30px;
+            border-radius: 30px;
             border: none;
-            padding: 0 25px;
-            border-radius: 25px;
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
             color: white;
             font-weight: bold;
             cursor: pointer;
-            transition: filter 0.3s, transform 0.1s;
+            transition: transform 0.2s, filter 0.2s;
         }
+        button:hover { filter: brightness(1.2); }
+        button:active { transform: scale(0.95); }
 
-        button.send-btn:hover {
-            filter: brightness(1.2);
-        }
-        
-        button.send-btn:active {
-            transform: scale(0.95);
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Responsywność dla telefonów */
         @media (max-width: 600px) {
-            .timer-grid {
-                grid-template-columns: 1fr 1fr; /* 2 kolumny zamiast 4 */
-            }
+            .timer-grid { grid-template-columns: 1fr 1fr; }
             .number { font-size: 2.5rem; }
-            .main-wrapper { width: 95%; padding: 20px 0; }
+            .main-wrapper { width: 95%; padding: 10px 0; }
+            .chat-panel { height: 500px; }
         }
     </style>
 </head>
@@ -223,122 +177,169 @@
     <div class="main-wrapper">
         
         <div class="countdown-section">
-            <h1>Start nowego sezonu za:</h1>
+            <h1>Start Transmisji Za:</h1>
             <div class="timer-grid">
-                <div class="time-card">
-                    <span class="number" id="days">00</span>
-                    <span class="label">Dni</span>
-                </div>
-                <div class="time-card">
-                    <span class="number" id="hours">00</span>
-                    <span class="label">Godzin</span>
-                </div>
-                <div class="time-card">
-                    <span class="number" id="minutes">00</span>
-                    <span class="label">Minut</span>
-                </div>
-                <div class="time-card">
-                    <span class="number" id="seconds">00</span>
-                    <span class="label">Sekund</span>
-                </div>
+                <div class="time-card"><span class="number" id="d">00</span><span class="label">Dni</span></div>
+                <div class="time-card"><span class="number" id="h">00</span><span class="label">Godz</span></div>
+                <div class="time-card"><span class="number" id="m">00</span><span class="label">Min</span></div>
+                <div class="time-card"><span class="number" id="s">00</span><span class="label">Sek</span></div>
             </div>
         </div>
 
         <div class="chat-panel">
             <div class="chat-header">
-                <span><span class="status-dot"></span>Czat Społeczności</span>
-                <small style="opacity: 0.5">Połączenie aktywne</small>
+                <div class="live-indicator"><span class="dot"></span>CZAT NA ŻYWO</div>
+                <div style="font-size: 0.8rem; opacity: 0.6;">Zalogowany jako: Widz</div>
             </div>
             
-            <div class="chat-messages" id="chatMessages">
-                <div class="message admin">
-                    <b>System:</b> Witamy na stronie oczekiwania! Czat jest aktywny.
-                    <span class="time">12:00</span>
-                </div>
+            <div class="chat-messages" id="chat-feed">
+                <div class="message" style="text-align:center; opacity:0.5;">Ładowanie czatu...</div>
             </div>
 
-            <div class="chat-input-area">
-                <input type="text" id="msgInput" placeholder="Napisz wiadomość...">
-                <button class="send-btn" onclick="sendMessage()">WYŚLIJ</button>
-            </div>
+            <form class="chat-input-area" id="chat-form">
+                <input type="text" id="chat-input" placeholder="Napisz wiadomość..." autocomplete="off">
+                <button type="submit">WYŚLIJ</button>
+            </form>
         </div>
 
     </div>
 
     <script>
-        // --- 1. LOGIKA ODLICZANIA ---
+        // --- 1. KONFIGURACJA FIREBASE (Z Twojego pliku script.js) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
+            authDomain: "symulator-gielda.firebaseapp.com",
+            projectId: "symulator-gielda",
+            storageBucket: "symulator-gielda.firebasestorage.app",
+            messagingSenderId: "407270570707",
+            appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
+            measurementId: "G-BXPWNE261F"
+        };
+
+        // Inicjalizacja
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // --- 2. ODLICZANIE (Do Niedzieli 18:00) ---
         function updateTimer() {
             const now = new Date();
             let target = new Date();
-
-            // Ustawiamy cel na najbliższą niedzielę
-            // 0 = Niedziela, 1 = Poniedziałek, ...
-            const currentDay = now.getDay();
-            const daysToSunday = (7 - currentDay) % 7; 
             
-            target.setDate(now.getDate() + daysToSunday);
+            // Oblicz najbliższą niedzielę
+            const day = now.getDay(); // 0 = niedziela
+            const diff = (7 - day) % 7; 
+            target.setDate(now.getDate() + diff);
             target.setHours(18, 0, 0, 0);
 
-            // Jeśli dzisiaj jest niedziela, ale już po 18:00, ustaw na przyszły tydzień
+            // Jeśli jest niedziela po 18, ustaw cel na przyszły tydzień
             if (target < now) {
                 target.setDate(target.getDate() + 7);
             }
 
-            const diff = target - now;
+            const distance = target - now;
 
-            if (diff <= 0) {
-                // Moment startu
-                document.getElementById('days').innerText = "00";
-                document.getElementById('hours').innerText = "00";
-                document.getElementById('minutes').innerText = "00";
-                document.getElementById('seconds').innerText = "00";
-                document.querySelector('h1').innerText = "TRANSMISJA ROZPOCZĘTA!";
-                document.querySelector('.status-dot').style.animation = "pulse 1s infinite";
-                return;
-            }
+            if (distance < 0) return; // Czas minął
 
-            const d = Math.floor(diff / 1000 / 60 / 60 / 24);
-            const h = Math.floor(diff / 1000 / 60 / 60) % 24;
-            const m = Math.floor(diff / 1000 / 60) % 60;
-            const s = Math.floor(diff / 1000) % 60;
+            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
 
-            document.getElementById('days').innerText = d < 10 ? '0' + d : d;
-            document.getElementById('hours').innerText = h < 10 ? '0' + h : h;
-            document.getElementById('minutes').innerText = m < 10 ? '0' + m : m;
-            document.getElementById('seconds').innerText = s < 10 ? '0' + s : s;
+            document.getElementById("d").innerText = d < 10 ? "0" + d : d;
+            document.getElementById("h").innerText = h < 10 ? "0" + h : h;
+            document.getElementById("m").innerText = m < 10 ? "0" + m : m;
+            document.getElementById("s").innerText = s < 10 ? "0" + s : s;
         }
-
         setInterval(updateTimer, 1000);
-        updateTimer(); // Wywołaj raz od razu
+        updateTimer();
 
-        // --- 2. LOGIKA CZATU (PROSTA SYMULACJA) ---
-        const input = document.getElementById('msgInput');
-        const messagesContainer = document.getElementById('chatMessages');
+        // --- 3. OBSŁUGA CZATU (FIRESTORE) ---
+        const chatFeed = document.getElementById("chat-feed");
+        const chatForm = document.getElementById("chat-form");
+        const chatInput = document.getElementById("chat-input");
+        
+        // Identyfikator lokalny (żeby rozróżnić "moje" wiadomości na tej stronie)
+        const myLocalId = "landing_" + Math.random().toString(36).substr(2, 9);
 
-        // Obsługa klawisza Enter
-        input.addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                sendMessage();
-            }
+        // a) ODBIERANIE WIADOMOŚCI
+        // Nasłuchujemy kolekcję "chat_messages" - dokładnie tę samą co w grze
+        db.collection("chat_messages")
+            .orderBy("timestamp", "desc") // Najnowsze na górze w zapytaniu...
+            .limit(50)                    // ...pobieramy 50 ostatnich
+            .onSnapshot((snapshot) => {
+                chatFeed.innerHTML = ""; // Czyścimy przy odświeżeniu
+                
+                // Pobieramy dane i odwracamy kolejność, żeby najnowsze były na dole
+                let messages = [];
+                snapshot.forEach(doc => {
+                    messages.push(doc.data());
+                });
+                messages.reverse(); // Odwracamy, bo chcemy stare na górze, nowe na dole
+
+                messages.forEach(msg => {
+                    const div = document.createElement("div");
+                    const isMe = (msg.authorId === myLocalId); // Sprawdź czy to ja wysłałem z tej strony
+                    
+                    div.className = `message ${isMe ? 'my-message' : ''}`;
+                    
+                    // Formatowanie gwiazdek prestiżu (jeśli wiadomość je ma)
+                    let stars = "";
+                    if (msg.prestigeLevel > 0) {
+                        stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
+                    }
+
+                    // Formatowanie czasu
+                    let timeStr = "";
+                    if (msg.timestamp) {
+                        const date = msg.timestamp.toDate();
+                        timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    }
+
+                    // Bezpieczne wstawianie tekstu (ochrona przed XSS)
+                    // W Twoim kodzie gry używałeś HTML wprost, tu zrobimy bezpieczniej
+                    div.innerHTML = `
+                        <strong>${msg.authorName}</strong>${stars}
+                        <span class="msg-time">${timeStr}</span><br>
+                        ${escapeHtml(msg.text)}
+                    `;
+                    
+                    chatFeed.appendChild(div);
+                });
+
+                // Przewiń na dół
+                chatFeed.scrollTop = chatFeed.scrollHeight;
+            });
+
+        // b) WYSYŁANIE WIADOMOŚCI
+        chatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            // Dodajemy dokument do tej samej kolekcji co gra
+            db.collection("chat_messages").add({
+                text: text,
+                authorName: "Widz",   // Tutaj możesz zmienić nazwę domyślną
+                authorId: myLocalId,  // Używamy ID wygenerowanego wyżej
+                prestigeLevel: 0,     // Widzowie z Landing Page mają 0 prestiżu
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                chatInput.value = ""; // Wyczyść pole po wysłaniu
+            }).catch((error) => {
+                console.error("Błąd wysyłania: ", error);
+                alert("Błąd wysyłania wiadomości. Sprawdź konsolę.");
+            });
         });
 
-        function sendMessage() {
-            const text = input.value.trim();
-            if (text === "") return;
-
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            // Dodaj wiadomość użytkownika
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', 'user');
-            msgDiv.innerHTML = `${text} <span class="time">${time}</span>`;
-            
-            messagesContainer.appendChild(msgDiv);
-            
-            // Auto-scroll na dół
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            input.value = ""; // Wyczyść pole
+        // Funkcja pomocnicza do escapowania HTML
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
     </script>
 </body>
