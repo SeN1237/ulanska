@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oczekiwanie na Start</title>
+    <title>Wig ułańska 3.0</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -78,7 +78,7 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
-            height: 600px; /* Wysoki panel czatu */
+            height: 600px;
             overflow: hidden;
         }
 
@@ -108,7 +108,6 @@
             gap: 12px;
             scroll-behavior: smooth;
         }
-        /* Scrollbar */
         .chat-messages::-webkit-scrollbar { width: 6px; }
         .chat-messages::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -127,17 +126,45 @@
         .stars { color: gold; font-size: 0.8em; margin-left: 4px; }
         .msg-time { float: right; font-size: 0.75em; opacity: 0.4; margin-left: 10px; margin-top: 4px; }
 
-        .chat-input-area {
-            padding: 20px;
+        /* --- NOWA SEKCJA INPUTÓW --- */
+        .chat-controls {
             background: rgba(0,0,0,0.3);
-            display: flex;
-            gap: 10px;
             border-top: 1px solid rgba(255,255,255,0.05);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        input {
+        .nick-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .nick-input {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--green);
+            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 120px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .nick-input:focus { border-color: var(--green); background: rgba(0,0,0,0.4); }
+
+        .chat-input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        input.msg-input {
             flex-grow: 1;
-            padding: 15px 20px;
+            padding: 12px 20px;
             border-radius: 30px;
             border: 1px solid rgba(255,255,255,0.1);
             background: rgba(255,255,255,0.05);
@@ -146,7 +173,7 @@
             outline: none;
             transition: 0.3s;
         }
-        input:focus { border-color: var(--primary); background: rgba(0,0,0,0.4); }
+        input.msg-input:focus { border-color: var(--primary); background: rgba(0,0,0,0.4); }
 
         button {
             padding: 0 30px;
@@ -177,7 +204,7 @@
     <div class="main-wrapper">
         
         <div class="countdown-section">
-            <h1>Start Transmisji Za:</h1>
+            <h1>Nowy Sezon Za:</h1>
             <div class="timer-grid">
                 <div class="time-card"><span class="number" id="d">00</span><span class="label">Dni</span></div>
                 <div class="time-card"><span class="number" id="h">00</span><span class="label">Godz</span></div>
@@ -189,23 +216,28 @@
         <div class="chat-panel">
             <div class="chat-header">
                 <div class="live-indicator"><span class="dot"></span>CZAT NA ŻYWO</div>
-                <div style="font-size: 0.8rem; opacity: 0.6;">Zalogowany jako: Widz</div>
             </div>
             
             <div class="chat-messages" id="chat-feed">
                 <div class="message" style="text-align:center; opacity:0.5;">Ładowanie czatu...</div>
             </div>
 
-            <form class="chat-input-area" id="chat-form">
-                <input type="text" id="chat-input" placeholder="Napisz wiadomość..." autocomplete="off">
-                <button type="submit">WYŚLIJ</button>
-            </form>
+            <div class="chat-controls">
+                <div class="nick-bar">
+                    <label for="nick-input">Twój Nick:</label>
+                    <input type="text" id="nick-input" class="nick-input" placeholder="Gość" maxlength="15">
+                </div>
+                <form class="chat-input-row" id="chat-form">
+                    <input type="text" id="chat-input" class="msg-input" placeholder="Napisz wiadomość..." autocomplete="off">
+                    <button type="submit">WYŚLIJ</button>
+                </form>
+            </div>
         </div>
 
     </div>
 
     <script>
-        // --- 1. KONFIGURACJA FIREBASE (Z Twojego pliku script.js) ---
+        // --- 1. KONFIGURACJA FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
             authDomain: "symulator-gielda.firebaseapp.com",
@@ -216,29 +248,22 @@
             measurementId: "G-BXPWNE261F"
         };
 
-        // Inicjalizacja
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // --- 2. ODLICZANIE (Do Niedzieli 18:00) ---
+        // --- 2. ODLICZANIE (Bez zmian) ---
         function updateTimer() {
             const now = new Date();
             let target = new Date();
-            
-            // Oblicz najbliższą niedzielę
-            const day = now.getDay(); // 0 = niedziela
+            const day = now.getDay(); 
             const diff = (7 - day) % 7; 
             target.setDate(now.getDate() + diff);
             target.setHours(18, 0, 0, 0);
 
-            // Jeśli jest niedziela po 18, ustaw cel na przyszły tydzień
-            if (target < now) {
-                target.setDate(target.getDate() + 7);
-            }
+            if (target < now) target.setDate(target.getDate() + 7);
 
             const distance = target - now;
-
-            if (distance < 0) return; // Czas minął
+            if (distance < 0) return;
 
             const d = Math.floor(distance / (1000 * 60 * 60 * 24));
             const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -253,85 +278,85 @@
         setInterval(updateTimer, 1000);
         updateTimer();
 
-        // --- 3. OBSŁUGA CZATU (FIRESTORE) ---
+        // --- 3. OBSŁUGA CZATU ---
         const chatFeed = document.getElementById("chat-feed");
         const chatForm = document.getElementById("chat-form");
         const chatInput = document.getElementById("chat-input");
+        const nickInput = document.getElementById("nick-input");
         
-        // Identyfikator lokalny (żeby rozróżnić "moje" wiadomości na tej stronie)
+        // Generujemy ID dla tej sesji przeglądarki
         const myLocalId = "landing_" + Math.random().toString(36).substr(2, 9);
 
-        // a) ODBIERANIE WIADOMOŚCI
-        // Nasłuchujemy kolekcję "chat_messages" - dokładnie tę samą co w grze
+        // a) Wczytaj zapamiętany nick przy starcie
+        const savedNick = localStorage.getItem("chatNick");
+        if (savedNick) {
+            nickInput.value = savedNick;
+        }
+
+        // b) Odbieranie wiadomości
         db.collection("chat_messages")
-            .orderBy("timestamp", "desc") // Najnowsze na górze w zapytaniu...
-            .limit(50)                    // ...pobieramy 50 ostatnich
+            .orderBy("timestamp", "desc")
+            .limit(50)
             .onSnapshot((snapshot) => {
-                chatFeed.innerHTML = ""; // Czyścimy przy odświeżeniu
-                
-                // Pobieramy dane i odwracamy kolejność, żeby najnowsze były na dole
+                chatFeed.innerHTML = "";
                 let messages = [];
-                snapshot.forEach(doc => {
-                    messages.push(doc.data());
-                });
-                messages.reverse(); // Odwracamy, bo chcemy stare na górze, nowe na dole
+                snapshot.forEach(doc => messages.push(doc.data()));
+                messages.reverse();
 
                 messages.forEach(msg => {
                     const div = document.createElement("div");
-                    const isMe = (msg.authorId === myLocalId); // Sprawdź czy to ja wysłałem z tej strony
+                    const isMe = (msg.authorId === myLocalId);
                     
                     div.className = `message ${isMe ? 'my-message' : ''}`;
                     
-                    // Formatowanie gwiazdek prestiżu (jeśli wiadomość je ma)
                     let stars = "";
-                    if (msg.prestigeLevel > 0) {
-                        stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
-                    }
+                    if (msg.prestigeLevel > 0) stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
 
-                    // Formatowanie czasu
                     let timeStr = "";
                     if (msg.timestamp) {
                         const date = msg.timestamp.toDate();
                         timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     }
 
-                    // Bezpieczne wstawianie tekstu (ochrona przed XSS)
-                    // W Twoim kodzie gry używałeś HTML wprost, tu zrobimy bezpieczniej
                     div.innerHTML = `
-                        <strong>${msg.authorName}</strong>${stars}
+                        <strong>${escapeHtml(msg.authorName)}</strong>${stars}
                         <span class="msg-time">${timeStr}</span><br>
                         ${escapeHtml(msg.text)}
                     `;
-                    
                     chatFeed.appendChild(div);
                 });
-
-                // Przewiń na dół
                 chatFeed.scrollTop = chatFeed.scrollHeight;
             });
 
-        // b) WYSYŁANIE WIADOMOŚCI
+        // c) Wysyłanie wiadomości
         chatForm.addEventListener("submit", (e) => {
             e.preventDefault();
             const text = chatInput.value.trim();
+            // Pobieramy nick, jeśli pusty -> "Gość"
+            const userNick = nickInput.value.trim() || "Gość";
+
             if (!text) return;
 
-            // Dodajemy dokument do tej samej kolekcji co gra
+            // Zapisujemy nick na przyszłość
+            localStorage.setItem("chatNick", userNick);
+
             db.collection("chat_messages").add({
                 text: text,
-                authorName: "Widz",   // Tutaj możesz zmienić nazwę domyślną
-                authorId: myLocalId,  // Używamy ID wygenerowanego wyżej
-                prestigeLevel: 0,     // Widzowie z Landing Page mają 0 prestiżu
+                authorName: userNick,  // Używamy wpisanego nicku
+                authorId: myLocalId,
+                prestigeLevel: 0,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
-                chatInput.value = ""; // Wyczyść pole po wysłaniu
+                chatInput.value = "";
             }).catch((error) => {
                 console.error("Błąd wysyłania: ", error);
-                alert("Błąd wysyłania wiadomości. Sprawdź konsolę.");
+                // Jeśli błąd permission-denied, to znaczy że reguły nie zostały zaktualizowane
+                if (error.code === 'permission-denied') {
+                    alert("Błąd: Nie masz uprawnień. Upewnij się, że zaktualizowałeś Firestore Rules (krok z poprzedniej wiadomości).");
+                }
             });
         });
 
-        // Funkcja pomocnicza do escapowania HTML
         function escapeHtml(text) {
             if (!text) return "";
             return text
