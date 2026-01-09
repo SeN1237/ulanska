@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wig ułańska 3.0</title>
+    <title>Wig ułańska 3.0 - Oczekiwanie</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <style>
+        /* --- STYLE CSS --- */
         :root {
             --primary: #00d2ff;
             --secondary: #3a7bd5;
@@ -120,13 +121,14 @@
             line-height: 1.5;
             animation: slideIn 0.3s ease;
             border-left: 2px solid transparent;
+            word-wrap: break-word; /* Ważne przy długich słowach */
         }
         .message strong { color: var(--primary); cursor: pointer; }
         .message.my-message { border-left: 2px solid var(--green); background: rgba(0, 230, 118, 0.05); }
         .stars { color: gold; font-size: 0.8em; margin-left: 4px; }
         .msg-time { float: right; font-size: 0.75em; opacity: 0.4; margin-left: 10px; margin-top: 4px; }
 
-        /* --- NOWA SEKCJA INPUTÓW --- */
+        /* --- INPUTY --- */
         .chat-controls {
             background: rgba(0,0,0,0.3);
             border-top: 1px solid rgba(255,255,255,0.05);
@@ -206,10 +208,10 @@
         <div class="countdown-section">
             <h1>Nowy Sezon Za:</h1>
             <div class="timer-grid">
-                <div class="time-card"><span class="number" id="d">00</span><span class="label">Dni</span></div>
-                <div class="time-card"><span class="number" id="h">00</span><span class="label">Godz</span></div>
-                <div class="time-card"><span class="number" id="m">00</span><span class="label">Min</span></div>
-                <div class="time-card"><span class="number" id="s">00</span><span class="label">Sek</span></div>
+                <div class="time-card"><span class="number" id="d">--</span><span class="label">Dni</span></div>
+                <div class="time-card"><span class="number" id="h">--</span><span class="label">Godz</span></div>
+                <div class="time-card"><span class="number" id="m">--</span><span class="label">Min</span></div>
+                <div class="time-card"><span class="number" id="s">--</span><span class="label">Sek</span></div>
             </div>
         </div>
 
@@ -219,7 +221,7 @@
             </div>
             
             <div class="chat-messages" id="chat-feed">
-                <div class="message" style="text-align:center; opacity:0.5;">Ładowanie czatu...</div>
+                <div class="message" style="text-align:center; opacity:0.5;">Łączenie z serwerem...</div>
             </div>
 
             <div class="chat-controls">
@@ -237,33 +239,22 @@
     </div>
 
     <script>
-        // --- 1. KONFIGURACJA FIREBASE ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
-            authDomain: "symulator-gielda.firebaseapp.com",
-            projectId: "symulator-gielda",
-            storageBucket: "symulator-gielda.firebasestorage.app",
-            messagingSenderId: "407270570707",
-            appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
-            measurementId: "G-BXPWNE261F"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        // --- 2. ODLICZANIE (Bez zmian) ---
+        // ==========================================
+        // 1. ODLICZANIE (Musi być na początku!)
+        // ==========================================
         function updateTimer() {
             const now = new Date();
             
-            // --- TUTAJ WPISZ SWOJĄ DATĘ OTWARCIA ---
-            // Format: "RRRR-MM-DDTHH:MM:SS" (Rok-Miesiąc-Dzień T Godzina:Minuta:Sekunda)
+            // --- DATA DOCELOWA ---
+            // Zmień to poniżej, jeśli chcesz inną datę.
+            // Obecnie ustawione na: 13 Stycznia 2026, godz 18:00
             const target = new Date("2026-01-13T18:00:00"); 
-            // ---------------------------------------
+            // ---------------------
 
             const distance = target - now;
 
-            // Jeśli czas minął, wyzeruj licznik
-            if (distance < 0) {
+            // Jeśli czas minął lub data jest zła
+            if (isNaN(distance) || distance < 0) {
                 document.getElementById("d").innerText = "00";
                 document.getElementById("h").innerText = "00";
                 document.getElementById("m").innerText = "00";
@@ -282,85 +273,127 @@
             document.getElementById("s").innerText = s < 10 ? "0" + s : s;
         }
 
-        // --- 3. OBSŁUGA CZATU ---
-        const chatFeed = document.getElementById("chat-feed");
-        const chatForm = document.getElementById("chat-form");
-        const chatInput = document.getElementById("chat-input");
-        const nickInput = document.getElementById("nick-input");
-        
-        // Generujemy ID dla tej sesji przeglądarki
-        const myLocalId = "landing_" + Math.random().toString(36).substr(2, 9);
+        // Uruchamiamy odliczanie od razu, niezależnie od Firebase
+        setInterval(updateTimer, 1000);
+        updateTimer();
 
-        // a) Wczytaj zapamiętany nick przy starcie
-        const savedNick = localStorage.getItem("chatNick");
-        if (savedNick) {
-            nickInput.value = savedNick;
-        }
 
-        // b) Odbieranie wiadomości
-        db.collection("chat_messages")
-            .orderBy("timestamp", "desc")
-            .limit(50)
-            .onSnapshot((snapshot) => {
-                chatFeed.innerHTML = "";
-                let messages = [];
-                snapshot.forEach(doc => messages.push(doc.data()));
-                messages.reverse();
+        // ==========================================
+        // 2. OBSŁUGA CZATU (FIREBASE)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
+            authDomain: "symulator-gielda.firebaseapp.com",
+            projectId: "symulator-gielda",
+            storageBucket: "symulator-gielda.firebasestorage.app",
+            messagingSenderId: "407270570707",
+            appId: "1:407270570707:web:ffd8c24dd1c8a1c137b226",
+            measurementId: "G-BXPWNE261F"
+        };
 
-                messages.forEach(msg => {
-                    const div = document.createElement("div");
-                    const isMe = (msg.authorId === myLocalId);
+        try {
+            // Inicjalizacja
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+
+            // Elementy DOM
+            const chatFeed = document.getElementById("chat-feed");
+            const chatForm = document.getElementById("chat-form");
+            const chatInput = document.getElementById("chat-input");
+            const nickInput = document.getElementById("nick-input");
+            
+            // Generujemy ID dla sesji
+            const myLocalId = "landing_" + Math.random().toString(36).substr(2, 9);
+
+            // Wczytaj zapamiętany nick
+            const savedNick = localStorage.getItem("chatNick");
+            if (savedNick) {
+                nickInput.value = savedNick;
+            }
+
+            // --- ODBIERANIE WIADOMOŚCI ---
+            db.collection("chat_messages")
+                .orderBy("timestamp", "desc")
+                .limit(50)
+                .onSnapshot((snapshot) => {
+                    chatFeed.innerHTML = ""; // Czyścimy "Łączenie..."
                     
-                    div.className = `message ${isMe ? 'my-message' : ''}`;
-                    
-                    let stars = "";
-                    if (msg.prestigeLevel > 0) stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
+                    let messages = [];
+                    snapshot.forEach(doc => messages.push(doc.data()));
+                    messages.reverse(); // Najnowsze na dole
 
-                    let timeStr = "";
-                    if (msg.timestamp) {
-                        const date = msg.timestamp.toDate();
-                        timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    if(messages.length === 0) {
+                        chatFeed.innerHTML = '<div class="message" style="text-align:center; opacity:0.5;">Brak wiadomości. Napisz pierwszy!</div>';
                     }
 
-                    div.innerHTML = `
-                        <strong>${escapeHtml(msg.authorName)}</strong>${stars}
-                        <span class="msg-time">${timeStr}</span><br>
-                        ${escapeHtml(msg.text)}
-                    `;
-                    chatFeed.appendChild(div);
+                    messages.forEach(msg => {
+                        const div = document.createElement("div");
+                        const isMe = (msg.authorId === myLocalId);
+                        
+                        div.className = `message ${isMe ? 'my-message' : ''}`;
+                        
+                        // Gwiazdki prestiżu (opcjonalne)
+                        let stars = "";
+                        if (msg.prestigeLevel > 0) stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
+
+                        // Czas
+                        let timeStr = "";
+                        if (msg.timestamp) {
+                            const date = msg.timestamp.toDate();
+                            timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        }
+
+                        // Bezpieczny HTML
+                        div.innerHTML = `
+                            <strong>${escapeHtml(msg.authorName)}</strong>${stars}
+                            <span class="msg-time">${timeStr}</span><br>
+                            ${escapeHtml(msg.text)}
+                        `;
+                        chatFeed.appendChild(div);
+                    });
+                    
+                    // Auto-scroll na dół
+                    chatFeed.scrollTop = chatFeed.scrollHeight;
+                }, (error) => {
+                    console.error("Błąd pobierania czatu:", error);
+                    chatFeed.innerHTML = `<div class="message" style="color:#ff4444; text-align:center;">
+                        Błąd dostępu do czatu.<br>
+                        Upewnij się, że zaktualizowałeś "Rules" w Firebase Console.
+                        <br><small>${error.code}</small>
+                    </div>`;
                 });
-                chatFeed.scrollTop = chatFeed.scrollHeight;
+
+            // --- WYSYŁANIE WIADOMOŚCI ---
+            chatForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const text = chatInput.value.trim();
+                const userNick = nickInput.value.trim() || "Gość";
+
+                if (!text) return;
+
+                // Zapisz nick
+                localStorage.setItem("chatNick", userNick);
+
+                db.collection("chat_messages").add({
+                    text: text,
+                    authorName: userNick,
+                    authorId: myLocalId,
+                    prestigeLevel: 0,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    chatInput.value = ""; // Wyczyść pole po wysłaniu
+                }).catch((error) => {
+                    console.error("Błąd wysyłania: ", error);
+                    alert("Nie udało się wysłać wiadomości: " + error.code);
+                });
             });
 
-        // c) Wysyłanie wiadomości
-        chatForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            // Pobieramy nick, jeśli pusty -> "Gość"
-            const userNick = nickInput.value.trim() || "Gość";
+        } catch (err) {
+            console.error("Krytyczny błąd Firebase:", err);
+            // Nawet jak tu jest błąd, licznik działa, bo jest w innej funkcji wyżej!
+        }
 
-            if (!text) return;
-
-            // Zapisujemy nick na przyszłość
-            localStorage.setItem("chatNick", userNick);
-
-            db.collection("chat_messages").add({
-                text: text,
-                authorName: userNick,  // Używamy wpisanego nicku
-                authorId: myLocalId,
-                prestigeLevel: 0,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                chatInput.value = "";
-            }).catch((error) => {
-                console.error("Błąd wysyłania: ", error);
-                // Jeśli błąd permission-denied, to znaczy że reguły nie zostały zaktualizowane
-                if (error.code === 'permission-denied') {
-                    alert("Błąd: Nie masz uprawnień. Upewnij się, że zaktualizowałeś Firestore Rules (krok z poprzedniej wiadomości).");
-                }
-            });
-        });
-
+        // Funkcja pomocnicza do usuwania znaków HTML (bezpieczeństwo)
         function escapeHtml(text) {
             if (!text) return "";
             return text
