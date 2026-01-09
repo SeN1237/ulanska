@@ -254,16 +254,22 @@
         // --- 2. ODLICZANIE (Bez zmian) ---
         function updateTimer() {
             const now = new Date();
-            let target = new Date();
-            const day = now.getDay(); 
-            const diff = (7 - day) % 7; 
-            target.setDate(now.getDate() + diff);
-            target.setHours(18, 0, 0, 0);
-
-            if (target < now) target.setDate(target.getDate() + 7);
+            
+            // --- TUTAJ WPISZ SWOJĄ DATĘ OTWARCIA ---
+            // Format: "RRRR-MM-DDTHH:MM:SS" (Rok-Miesiąc-Dzień T Godzina:Minuta:Sekunda)
+            const target = new Date("2026-01-130T18:00:00"); 
+            // ---------------------------------------
 
             const distance = target - now;
-            if (distance < 0) return;
+
+            // Jeśli czas minął, wyzeruj licznik
+            if (distance < 0) {
+                document.getElementById("d").innerText = "00";
+                document.getElementById("h").innerText = "00";
+                document.getElementById("m").innerText = "00";
+                document.getElementById("s").innerText = "00";
+                return;
+            }
 
             const d = Math.floor(distance / (1000 * 60 * 60 * 24));
             const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -275,8 +281,6 @@
             document.getElementById("m").innerText = m < 10 ? "0" + m : m;
             document.getElementById("s").innerText = s < 10 ? "0" + s : s;
         }
-        setInterval(updateTimer, 1000);
-        updateTimer();
 
         // --- 3. OBSŁUGA CZATU ---
         const chatFeed = document.getElementById("chat-feed");
