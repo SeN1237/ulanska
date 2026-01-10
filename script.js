@@ -64,6 +64,7 @@ const GAME_UNLOCKS = {
     'radio': 0,   
     'pvp': 0,  
     'race': 0, // Dostępne dla każdego   
+    'darts': 0,
 
     // Poziom 1 (⭐️)
     'casino': 1,  
@@ -750,6 +751,7 @@ function listenToPortfolioData(userId) {
             const data = docSnap.data();
             portfolio.name = data.name;
             portfolio.cash = data.cash;
+            updateRPGInterface(data); // <--- DODAJ TO
             
             let shares = data.shares || {};
             if(shares['bartcoin'] !== undefined) {
@@ -763,6 +765,7 @@ function listenToPortfolioData(userId) {
             portfolio.prestigeLevel = data.prestigeLevel || 0; 
             updatePortfolioUI();
             checkCryptoAccess();
+            if(window.updateRPGInterface) window.updateRPGInterface(data);
         }
     });
 }
@@ -1212,13 +1215,26 @@ function listenToLeaderboard() {
         let r = 1;
         snap.forEach(d => {
             const u = d.data();
+            
+            // Logika dla ikon podium (złoto, srebro, brąz)
+            let rankClass = '';
+            let rankIcon = r + '.';
+
+            if (r === 1) { rankClass = 'rank-1'; rankIcon = '<i class="fa-solid fa-crown"></i>'; }
+            if (r === 2) { rankClass = 'rank-2'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
+            if (r === 3) { rankClass = 'rank-3'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
+
+            // Generowanie wiersza tabeli
             dom.leaderboardList.innerHTML += `
-                <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
-                    <div onclick="showUserProfile('${d.id}')">
-                        ${r}. ${u.name} ${getPrestigeStars(u.prestigeLevel)}
-                    </div>
-                    <div>${formatujWalute(u.totalValue)}</div>
-                </li>`;
+                <tr class="${d.id === currentUserId ? 'highlight-me' : ''}" onclick="showUserProfile('${d.id}')">
+                    <td class="${rankClass}"><span class="rank-text">${rankIcon}</span></td>
+                    <td>
+                        <div class="user-cell">
+                             ${u.name} ${getPrestigeStars(u.prestigeLevel)}
+                        </div>
+                    </td>
+                    <td style="text-align: right;" class="val-cell">${formatujWalute(u.totalValue)}</td>
+                </tr>`;
             r++;
         });
     });
@@ -6109,115 +6125,1069 @@ function listenToF1Leaderboard() {
 }
 
 // ==========================================
-// === SWIMMING CHAMPIONSHIPS LOGIC ===
+// === DARTS 501 MULTIPLAYER LOGIC ===
 // ==========================================
 
-const SWIMMING_DATA = {
-    day1: {
-        video: "A4wG0pZmRzU",
-        desc: `
-            <p><strong style="color:var(--accent-color)">📅 18.12.2025 (Czwartek)</strong></p>
-            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
-                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 2:</strong> Mężczyzn, 50m dowolny</li>
-                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 8:</strong> Mężczyzn, 100m zmienny</li>
-            </ul>`
-    },
-    day2: {
-        video: "3oy0wjSzTb0",
-        desc: `
-            <p><strong style="color:var(--accent-color)">📅 19.12.2025 (Piątek)</strong></p>
-            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
-                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 18:</strong> Mężczyzn, 50m klasyczny</li>
-            </ul>`
-    },
-    day3: {
-        video: "2vYtO4O0Qgo",
-        desc: `
-            <p><strong style="color:var(--accent-color)">📅 20.12.2025 (Sobota)</strong></p>
-            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
-                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 31:</strong> Mężczyzn, 200m klasyczny</li>
-            </ul>`
-    },
-    day4: {
-        video: "X2Mg2Ed0bFw",
-        desc: `
-            <p><strong style="color:var(--accent-color)">📅 21.12.2025 (Niedziela)</strong></p>
-            <ul style="list-style: none; padding-left: 0; margin-top: 10px; color: #ccc;">
-                <li style="margin-bottom: 8px;">🏊 <strong>Konkurencja 41:</strong> Mężczyzn, 50m motylkowy</li>
-            </ul>`
-    }
+// --- DARTS 501 VARS ---
+let activeDartsId = null;
+let dartsSubscription = null;
+let dartsCanvas, dartsCtx;
+let myDartsTurn = false;
+// ZMIANA: Nowe zmienne do celowania
+let isDartsTraining = false; 
+let dartsAimState = 0; // 0: Idle, 1: Ruch PION (Y), 2: Ruch POZIOM (X), 3: Rzut
+let aimY = 0;
+let aimX = 0;
+let aimSpeed = 8; // Prędkość poruszania się celownika
+let aimDirection = 1; // 1 lub -1
+let dartsAnimFrame = null;
+
+// Konfiguracja tarczy (Promienie w % szerokości)
+const DARTS_CONFIG = {
+    R_BULL_INNER: 0.03, // 50 pkt
+    R_BULL_OUTER: 0.07, // 25 pkt
+    R_RING_INNER: 0.35, // Wnętrze
+    R_TRIPLE: 0.40,     // Potrójne
+    R_RING_OUTER: 0.65, // Zewnętrzne
+    R_DOUBLE: 0.70      // Podwójne (koniec tarczy)
 };
+// Kolejność liczb na tarczy (zgodnie z zegarem od góry)
+const DARTS_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
-// Funkcja globalna (przypisana do window), aby HTML mógł ją widzieć
-window.switchSwimmingDay = function(dayKey) {
-    const data = SWIMMING_DATA[dayKey];
-    if (!data) return;
+document.addEventListener("DOMContentLoaded", () => {
+    const btnCreate = document.getElementById("btn-darts-create");
+    const btnLeave = document.getElementById("btn-darts-leave");
 
-    // 1. Zmiana wideo (podmiana ID w linku embed)
-    const iframe = document.getElementById("swimming-video-frame");
-    if (iframe) {
-        iframe.src = `https://www.youtube.com/embed/${data.video}`;
-    }
+    if (btnCreate) btnCreate.addEventListener("click", createDartsLobby);
+    if (btnLeave) btnLeave.addEventListener("click", leaveDartsGame);
 
-    // 2. Zmiana opisu konkurencji
-    const descContainer = document.getElementById("swimming-schedule-content");
-    if (descContainer) {
-        descContainer.innerHTML = data.desc;
-    }
+    setTimeout(listenToDartsLobbies, 2500);
+// Wewnątrz DOMContentLoaded:
+    const btnDartsTrain = document.getElementById("toggle-training-btn");
+    if (btnDartsTrain) btnDartsTrain.addEventListener("click", toggleDartsMode);
 
-    // 3. Aktualizacja aktywnego przycisku
-    const btns = document.querySelectorAll("#swimming-days-nav .day-tab-btn");
-    btns.forEach(btn => {
-        btn.classList.remove("active");
+    // Obsługa Spacji do celowania
+    document.addEventListener("keydown", (e) => {
+        if ((activeDartsId || isDartsTraining) && !document.getElementById("darts-game-view").classList.contains("hidden")) {
+            if (e.code === "Space") {
+                e.preventDefault(); // Blokuj przewijanie strony
+                handleDartInput();
+            }
+        }
     });
+});
+
+// --- LOBBY SYSTEM ---
+function listenToDartsLobbies() {
+    const q = query(collection(db, "darts_lobbies"), where("status", "in", ["open", "active"]));
     
-    // Dodaj klasę active do klikniętego przycisku
-    if (event && event.currentTarget) {
-        event.currentTarget.classList.add("active");
-    } else if (event && event.target) {
-        event.target.classList.add("active");
-    }
+    onSnapshot(q, (snap) => {
+        const listEl = document.getElementById("darts-list");
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        
+        if (snap.empty) {
+            listEl.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Brak aktywnych gier.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const isFull = r.players.length >= 2; // Max 2 graczy (PvP)
+            const isIngame = r.players.some(p => p.id === currentUserId);
+            
+            if (isIngame && activeDartsId !== docSnap.id) {
+                enterDartsGame(docSnap.id);
+            }
+
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${formatujWalute(r.entryFee)}</strong>
+                    <span style="color:${r.status==='active'?'var(--red)':'var(--green)'}">${r.status==='active'?'GRA':'OTWARTY'}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Host: ${r.hostName}</div>
+                <div style="font-size:0.9em;">Graczy: ${r.players.length} / 2</div>
+                <button class="btn-accent" style="margin-top:5px;" 
+                    onclick="joinDartsLobby('${docSnap.id}', ${r.entryFee})" 
+                    ${(isFull || r.status !== 'open') ? 'disabled' : ''}>
+                    ${r.status === 'active' ? 'WRÓĆ' : 'GRAJ'}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+async function createDartsLobby() {
+    const amount = parseFloat(document.getElementById("darts-create-amount").value);
+    if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków!");
+            
+            t.update(uRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+            
+            const ref = doc(collection(db, "darts_lobbies"));
+            t.set(ref, {
+                hostId: currentUserId,
+                hostName: portfolio.name,
+                entryFee: amount,
+                status: "open",
+                turnIndex: 0,
+                currentThrows: [], // Rzuty w aktualnej turze (max 3)
+                createdAt: serverTimestamp(),
+                players: [{ 
+                    id: currentUserId, 
+                    name: portfolio.name, 
+                    score: 501,
+                    throwsHistory: [] 
+                }]
+            });
+        });
+        showMessage("Tarcza przygotowana!", "success");
+    } catch (e) { showMessage(e.message, "error"); }
+}
+
+window.joinDartsLobby = async function(id, fee) {
+    if (portfolio.cash < fee) return showMessage("Nie stać Cię!", "error");
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "darts_lobbies", id);
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const docSnap = await t.get(ref);
+            const uDoc = await t.get(uRef);
+            
+            if (!docSnap.exists()) throw new Error("Gra nie istnieje.");
+            const data = docSnap.data();
+            
+            if (data.status !== 'open') throw new Error("Gra już trwa!");
+            if (data.players.length >= 2) throw new Error("Pełna sala!");
+            
+            const newPlayers = [...data.players, { 
+                id: currentUserId, 
+                name: portfolio.name, 
+                score: 501,
+                throwsHistory: []
+            }];
+            
+            t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
+            t.update(ref, { players: newPlayers, status: "active" }); // Start gry od razu po dołączeniu 2. gracza
+        });
+    } catch (e) { showMessage(e.message, "error"); }
 };
 
-// ==========================================
-// === EFEKT PADAJĄCEGO ŚNIEGU ===
-// ==========================================
+// --- GAME LOGIC ---
 
-function createSnowflake() {
-    const snow = document.createElement("div");
-    snow.classList.add("snowflake");
+function enterDartsGame(id) {
+    activeDartsId = id;
+    document.getElementById("darts-lobby-view").classList.add("hidden");
+    document.getElementById("darts-game-view").classList.remove("hidden");
     
-    // Możesz użyć różnych znaków: ❄, ❅, ❆, •
-    snow.textContent = Math.random() > 0.5 ? "❄" : "•"; 
+    dartsCanvas = document.getElementById("darts-canvas");
+    dartsCtx = dartsCanvas.getContext("2d");
     
-    // Losowa pozycja startowa (oś X)
-    snow.style.left = Math.random() * 100 + "vw";
-    
-    // Losowa prędkość spadania (od 3s do 8s)
-    const duration = Math.random() * 5 + 3; 
-    snow.style.animationDuration = duration + "s";
-    
-    // Losowa wielkość (od 10px do 25px)
-    const size = Math.random() * 15 + 10;
-    snow.style.fontSize = size + "px";
-    
-    // Losowa przezroczystość
-    snow.style.opacity = Math.random() * 0.5 + 0.3;
+    // Reset i obsługa inputu
+    dartsAimState = 0; 
+    const newCanvas = dartsCanvas.cloneNode(true);
+    dartsCanvas.parentNode.replaceChild(newCanvas, dartsCanvas);
+    dartsCanvas = newCanvas;
+    dartsCtx = dartsCanvas.getContext("2d");
+    dartsCanvas.addEventListener("click", handleDartInput);
 
-    document.body.appendChild(snow);
+    if (dartsSubscription) dartsSubscription();
+    
+    // --- NOWA LOGIKA LISTENERA ---
+    if (!isDartsTraining && id) {
+        let lastMoveTime = 0; // Pamięć ostatniego rzutu
 
-    // Usuń płatek z DOM po zakończeniu animacji, żeby nie zapychać pamięci
-    setTimeout(() => {
-        snow.remove();
-    }, duration * 1000);
+        dartsSubscription = onSnapshot(doc(db, "darts_lobbies", id), (snap) => {
+            if (!snap.exists()) { leaveDartsGame(); return; }
+            const data = snap.data();
+            
+            // Sprawdź czy jest nowy rzut w polu 'lastMove'
+            if (data.lastMove && data.lastMove.timestamp > lastMoveTime) {
+                lastMoveTime = data.lastMove.timestamp;
+                
+                // Jeśli to rzut PRZECIWNIKA, pokaż go na ekranie (animacja)
+                if (data.lastMove.playerId !== currentUserId) {
+                    showThrowToast(data.lastMove);
+                }
+            }
+
+            updateDartsUI(data);
+        });
+    } else if (isDartsTraining) {
+        document.getElementById("darts-turn-info").textContent = "TRYB TRENINGOWY";
+        document.getElementById("darts-pot-display").textContent = "BRAK";
+    }
+    
+    if (dartsAnimFrame) cancelAnimationFrame(dartsAnimFrame);
+    renderDartsLoop();
+}
+
+function renderDartsLoop() {
+    if ((!activeDartsId && !isDartsTraining) || document.getElementById("darts-game-view").classList.contains("hidden")) return;
+
+    const w = dartsCanvas.width;
+    const h = dartsCanvas.height;
+
+    // 1. Rysuj Tarczę (bazowa funkcja)
+    drawDartboard(); 
+
+    // 2. Logika Celowania (Animacja)
+    if (myDartsTurn || isDartsTraining) {
+        dartsCtx.lineWidth = 2;
+        
+        // ETAP 1: Ruch PIONOWY (Y)
+        if (dartsAimState === 1) {
+            aimY += aimSpeed * aimDirection;
+            if (aimY > h || aimY < 0) aimDirection *= -1;
+            
+            // Rysuj linię poziomą poruszającą się góra/dół
+            dartsCtx.strokeStyle = "#00e676"; // Jasny zielony
+            dartsCtx.beginPath();
+            dartsCtx.moveTo(0, aimY);
+            dartsCtx.lineTo(w, aimY);
+            dartsCtx.stroke();
+            
+            document.getElementById("darts-instruction").textContent = "KLIKNIJ aby zablokować PION";
+        }
+        // ETAP 2: Ruch POZIOMY (X)
+        else if (dartsAimState === 2) {
+            // Rysuj zablokowaną linię Y (szarą)
+            dartsCtx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+            dartsCtx.beginPath();
+            dartsCtx.moveTo(0, aimY);
+            dartsCtx.lineTo(w, aimY);
+            dartsCtx.stroke();
+
+            // Animuj X
+            aimX += aimSpeed * aimDirection;
+            if (aimX > w || aimX < 0) aimDirection *= -1;
+
+            // Rysuj linię pionową poruszającą się lewo/prawo
+            dartsCtx.strokeStyle = "#00e676";
+            dartsCtx.beginPath();
+            dartsCtx.moveTo(aimX, 0);
+            dartsCtx.lineTo(aimX, h);
+            dartsCtx.stroke();
+            
+            document.getElementById("darts-instruction").textContent = "KLIKNIJ aby zablokować POZIOM (RZUT)";
+        } 
+        else if (dartsAimState === 0) {
+            document.getElementById("darts-instruction").textContent = "SPACJA / KLIK: Start Celowania";
+        }
+    } else {
+         document.getElementById("darts-instruction").textContent = "Czekaj na swoją kolej...";
+    }
+
+    dartsAnimFrame = requestAnimationFrame(renderDartsLoop);
+}
+
+function leaveDartsGame() {
+    activeDartsId = null;
+    isDartsTraining = false;
+    if (dartsSubscription) dartsSubscription();
+    if (dartsAnimFrame) cancelAnimationFrame(dartsAnimFrame); // STOP ANIMACJI
+    
+    document.getElementById("darts-lobby-view").classList.remove("hidden");
+    document.getElementById("darts-game-view").classList.add("hidden");
 }
 
 
+function updateDartsUI(data) {
+    const potDisplay = document.getElementById("darts-pot-display");
+    const turnInfo = document.getElementById("darts-turn-info");
+    const list = document.getElementById("darts-players-list");
+    const hint = document.getElementById("darts-checkout-hint");
+    
+    // Aktualizacja puli nagród
+    if(potDisplay) potDisplay.textContent = formatujWalute(data.entryFee * data.players.length);
+    
+    // Status Tury (kto rzuca)
+    const currentPlayer = data.players[data.turnIndex];
+    myDartsTurn = (currentPlayer && currentPlayer.id === currentUserId);
+    
+    if (turnInfo) {
+        if (data.status === 'finished') {
+            const winner = data.players.find(p => p.score === 0) || currentPlayer;
+            turnInfo.innerHTML = `KONIEC! Wygrał: <span style="color:var(--green)">${winner.name}</span>`;
+            myDartsTurn = false;
+        } else if (data.status === 'open') {
+            turnInfo.textContent = "Oczekiwanie na przeciwnika...";
+            myDartsTurn = false;
+        } else {
+            turnInfo.textContent = myDartsTurn ? 
+                `TWOJA KOLEJ! (Rzut ${data.currentThrows.length + 1}/3)` : 
+                `Rzuca: ${currentPlayer.name}`;
+            turnInfo.style.color = myDartsTurn ? "var(--green)" : "#ffd700";
+        }
+    }
 
-// Uruchomienie efektu (generowanie płatka co 200ms)
-// Możesz zmienić 200 na mniejszą liczbę (więcej śniegu) lub większą (mniej śniegu)
-document.addEventListener("DOMContentLoaded", () => {
-    // Sprawdzamy, czy użytkownik nie wyłączył efektów (opcjonalne)
-    // Jeśli chcesz, żeby padało zawsze, zostaw tylko setInterval
-    setInterval(createSnowflake, 200);
-});
+    // --- NAPRAWA TABELI WYNIKÓW ---
+    if (list) {
+        // 1. Budujemy HTML w zmiennej (zamiast wstawiać po kawałku)
+        let rowsHTML = "";
+
+        data.players.forEach((p, idx) => {
+            const isActive = (idx === data.turnIndex);
+            // Pokazuj rzuty tylko dla aktywnego gracza
+            const lastThrows = (isActive ? data.currentThrows : []).map(t => t.str).join(" | ");
+            
+            // Podświetlenie jeśli to Ty
+            const isMe = (p.id === currentUserId);
+            const nameStyle = isActive ? "color: var(--accent-color); font-weight:bold;" : "color: #ccc;";
+
+            rowsHTML += `
+                <tr class="${isActive ? 'darts-row-active' : ''}">
+                    <td>
+                        <div style="${nameStyle}">
+                            ${p.name} ${isMe ? '(Ty)' : ''} ${isActive ? '🎯' : ''}
+                        </div>
+                        <div class="darts-throws-dots" style="font-size: 0.8em; color: #888; height: 20px;">
+                            ${lastThrows}
+                        </div>
+                    </td>
+                    <td style="text-align:center; vertical-align: middle;">
+                        ${isActive ? data.currentThrows.length : 0}/3
+                    </td>
+                    <td style="text-align:right; font-size:1.5em; font-weight:bold; color:${p.score <= 170 ? 'var(--green)' : 'white'}; vertical-align: middle;">
+                        ${p.score}
+                    </td>
+                </tr>
+            `;
+
+            // Podpowiedź (Checkout Hint) - tylko jeśli to Twoja tura
+            if(isMe && isActive && hint) {
+                 hint.textContent = p.score <= 170 ? getCheckoutHint(p.score) : "";
+            } else if (isMe && hint) {
+                 hint.textContent = "";
+            }
+        });
+
+        // 2. Wstawiamy cały HTML raz
+        list.innerHTML = rowsHTML;
+    }
+}
+function isMyMe(id) { return id === currentUserId; }
+
+
+function toggleDartsMode() {
+    const btn = document.getElementById("toggle-training-btn");
+    
+    if (activeDartsId) {
+        showMessage("Nie możesz zmienić trybu podczas meczu online!", "error");
+        return;
+    }
+
+    isDartsTraining = !isDartsTraining;
+    
+    if (isDartsTraining) {
+        btn.textContent = "Tryb: TRENING (Solo)";
+        btn.style.background = "var(--green)";
+        btn.style.color = "black";
+        enterDartsGame(null); // Wejście bez ID lobby
+    } else {
+        btn.textContent = "Tryb: RANKINGOWY";
+        btn.style.background = "#444";
+        btn.style.color = "white";
+        leaveDartsGame();
+    }
+}
+
+// --- RYSOWANIE TARCZY ---
+function drawDartboard() {
+    const w = dartsCanvas.width;
+    const h = dartsCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = w / 2; // Promień maksymalny
+
+    dartsCtx.clearRect(0, 0, w, h);
+    
+    // Funkcja pomocnicza do koła
+    const circle = (rad, color, stroke) => {
+        dartsCtx.beginPath();
+        dartsCtx.arc(cx, cy, rad * r, 0, Math.PI * 2);
+        dartsCtx.fillStyle = color;
+        dartsCtx.fill();
+        if(stroke) { dartsCtx.stroke(); }
+    };
+
+    // 1. Tło (Border)
+    circle(1.0, "#000"); // Obramowanie tarczy
+
+    // 2. Sektory (Slices)
+    for (let i = 0; i < 20; i++) {
+        const angleStart = (i * 18) - 9; // Przesunięcie o połowę sektora (-9 deg), żeby 20 była na górze
+        const radStart = (angleStart - 90) * (Math.PI / 180); // Canvas 0 is at 3 o'clock
+        const radEnd = (angleStart + 18 - 90) * (Math.PI / 180);
+        
+        // Kolory (Alternating)
+        const isBlack = (i % 2 === 0);
+        const color1 = isBlack ? "#000" : "#ffdfbf"; // Zwykłe pola (czarny / beż)
+        const color2 = isBlack ? "#e74c3c" : "#2ecc71"; // Specjalne (czerwony / zielony)
+        
+        // Cały klin
+        dartsCtx.beginPath();
+        dartsCtx.moveTo(cx, cy);
+        dartsCtx.arc(cx, cy, DARTS_CONFIG.R_DOUBLE * r, radStart, radEnd);
+        dartsCtx.fillStyle = color1;
+        dartsCtx.fill();
+        dartsCtx.stroke();
+
+        // Double Ring
+        dartsCtx.beginPath();
+        dartsCtx.arc(cx, cy, DARTS_CONFIG.R_DOUBLE * r, radStart, radEnd);
+        dartsCtx.arc(cx, cy, DARTS_CONFIG.R_RING_OUTER * r, radEnd, radStart, true);
+        dartsCtx.fillStyle = color2;
+        dartsCtx.fill();
+        dartsCtx.stroke();
+
+        // Triple Ring
+        dartsCtx.beginPath();
+        dartsCtx.arc(cx, cy, DARTS_CONFIG.R_TRIPLE * r, radStart, radEnd);
+        dartsCtx.arc(cx, cy, DARTS_CONFIG.R_RING_INNER * r, radEnd, radStart, true);
+        dartsCtx.fillStyle = color2;
+        dartsCtx.fill();
+        dartsCtx.stroke();
+    }
+
+    // 3. Bulls
+    circle(DARTS_CONFIG.R_BULL_OUTER, "#2ecc71", true); // 25
+    circle(DARTS_CONFIG.R_BULL_INNER, "#e74c3c", true); // 50
+
+    // 4. Numery (Tekst)
+    dartsCtx.font = "bold 20px Arial";
+    dartsCtx.fillStyle = "white";
+    dartsCtx.textAlign = "center";
+    dartsCtx.textBaseline = "middle";
+
+    for (let i = 0; i < 20; i++) {
+        const angle = (i * 18) - 90; // 0 is top (20)
+        const rad = angle * (Math.PI / 180);
+        const dist = r * 0.85; // Pozycja tekstu
+        
+        const tx = cx + Math.cos(rad) * dist;
+        const ty = cy + Math.sin(rad) * dist;
+        
+        dartsCtx.fillText(DARTS_NUMBERS[i], tx, ty);
+    }
+}
+
+// --- LOGIKA RZUTU ---
+// --- LOGIKA RZUTU (NOWA) ---
+async function handleDartInput() {
+    // Funkcja wywoływana spacją lub kliknięciem w canvas
+    if (!myDartsTurn && !isDartsTraining) return;
+
+    const w = dartsCanvas.width;
+    const h = dartsCanvas.height;
+
+    // --- MASZYNA STANÓW CELOWANIA ---
+
+    if (dartsAimState === 0) {
+        // STAN 0 -> 1: Start celowania PIONOWEGO
+        dartsAimState = 1;
+        aimY = h / 2; 
+        aimDirection = 1;
+        aimSpeed = 6; 
+    } 
+    else if (dartsAimState === 1) {
+        // STAN 1 -> 2: Zablokowanie PIONU, start POZIOMU
+        dartsAimState = 2;
+        aimX = w / 2;
+        aimDirection = 1;
+        aimSpeed = 6 + (Math.random() * 2); // Lekka losowość dla trudności
+    } 
+    else if (dartsAimState === 2) {
+        // STAN 2 -> 3: RZUT (Zablokowanie obu)
+        dartsAimState = 3; 
+        
+        // Finalne koordynaty to aktualne aimX i aimY
+        const hitData = calculateDartHit(aimX, aimY);
+        showThrowToast(hitData);
+
+        if (isDartsTraining) {
+            // W treningu nie wysyłamy do bazy
+            const instr = document.getElementById("darts-instruction");
+            if(instr) instr.textContent = `TRAFIENIE: ${hitData.text}`;
+            
+            // Szybki reset w treningu
+            setTimeout(() => { dartsAimState = 0; }, 800);
+        } else {
+            // W grze online wysyłamy do bazy Firebase
+            await submitThrow(hitData);
+            
+            // Reset celownika po krótkiej pauzie
+            setTimeout(() => { dartsAimState = 0; }, 500);
+        }
+    }
+}
+
+function calculateDartHit(x, y) {
+    const w = dartsCanvas.width;
+    const cx = w / 2;
+    const cy = w / 2;
+    const r = w / 2;
+
+    const dx = x - cx;
+    const dy = y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const distNorm = dist / r; // 0.0 do 1.0
+
+    // Kąt w stopniach (0 na górze)
+    let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    angle += 90; // Przesunięcie 0 na górę
+    if (angle < 0) angle += 360;
+
+    // 1. Sprawdź Miss
+    if (distNorm > DARTS_CONFIG.R_DOUBLE) {
+        return { score: 0, mult: 1, text: "MISS", str: "0" };
+    }
+
+    // 2. Sprawdź Bull
+    if (distNorm < DARTS_CONFIG.R_BULL_INNER) return { score: 50, mult: 1, text: "BULLSEYE", str: "BULL" };
+    if (distNorm < DARTS_CONFIG.R_BULL_OUTER) return { score: 25, mult: 1, text: "25", str: "25" };
+
+    // 3. Sprawdź Sektor
+    // Sektor ma 18 stopni. 20 jest na górze (kąt 351-9).
+    // Przesuwamy o 9 stopni, żeby index 0 zaczynał się od 0 stopni.
+    const sliceAngle = 360 / 20;
+    const adjustedAngle = (angle + (sliceAngle / 2)) % 360;
+    const sliceIndex = Math.floor(adjustedAngle / sliceAngle);
+    const baseScore = DARTS_NUMBERS[sliceIndex];
+
+    let multiplier = 1;
+    let textPrefix = "";
+
+    // Sprawdź Pierścienie
+    if (distNorm > DARTS_CONFIG.R_RING_INNER && distNorm < DARTS_CONFIG.R_TRIPLE) {
+        multiplier = 3;
+        textPrefix = "TRIPLE ";
+    } else if (distNorm > DARTS_CONFIG.R_RING_OUTER && distNorm < DARTS_CONFIG.R_DOUBLE) {
+        multiplier = 2;
+        textPrefix = "DOUBLE ";
+    }
+
+    const totalScore = baseScore * multiplier;
+    return {
+        score: totalScore,
+        mult: multiplier,
+        text: `${textPrefix}${baseScore}`,
+        str: `${multiplier > 1 ? (multiplier===3?'T':'D') : ''}${baseScore}`
+    };
+}
+
+function showThrowToast(hit) {
+    const el = document.getElementById("darts-last-throw");
+    el.textContent = hit.text;
+    el.classList.remove("hidden");
+    
+    // Reset animacji
+    el.style.animation = 'none';
+    el.offsetHeight; /* trigger reflow */
+    el.style.animation = null; 
+    
+    if (hit.mult === 3 || hit.score === 50) {
+        el.style.color = "var(--red)";
+        if(dom.audioKaching) { 
+             const clone = dom.audioKaching.cloneNode(); 
+             clone.volume = 0.3; clone.play().catch(()=>{}); 
+        }
+    } else {
+        el.style.color = "#ffd700";
+    }
+}
+
+async function submitThrow(hit) {
+    if(!activeDartsId) return;
+
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "darts_lobbies", activeDartsId);
+            const data = (await t.get(ref)).data();
+            
+            if(data.status !== 'active') return;
+
+            const pIdx = data.turnIndex;
+            const player = data.players[pIdx];
+            
+            // Walidacja
+            if (player.id !== currentUserId) return;
+
+            const currentThrows = data.currentThrows || [];
+            
+            // LOGIKA 501
+            let newScore = player.score - hit.score;
+            let isBust = false;
+            let isWin = false;
+
+            if (newScore < 0) {
+                isBust = true;
+            } else if (newScore === 1) {
+                isBust = true;
+            } else if (newScore === 0) {
+                if (hit.mult === 2 || hit.score === 50) isWin = true;
+                else isBust = true;
+            }
+
+            let updatedThrows = [...currentThrows, hit];
+            let turnEnded = false;
+
+            // Obiekt z danymi ostatniego ruchu (dla animacji u przeciwnika)
+            const moveData = {
+                text: isBust ? "BUST!" : hit.text,
+                mult: hit.mult,
+                score: hit.score,
+                playerId: currentUserId,
+                timestamp: Date.now() // Unikalny znacznik czasu
+            };
+
+            if (isBust) {
+                turnEnded = true;
+                // Przy BUST wynik wraca do stanu sprzed tury.
+                // Aby to obliczyć, musimy dodać punkty z obecnych rzutów (bo one były odejmowane na bieżąco? 
+                // W tej logice odejmujemy dopiero teraz. 
+                // Jeśli jest Bust, po prostu NIE aktualizujemy wyniku gracza o ten rzut, 
+                // A COFAMY punkty z poprzednich rzutów TEJ TURY.
+                let pointsToRecover = 0;
+                currentThrows.forEach(th => pointsToRecover += th.score);
+                newScore = player.score + pointsToRecover; 
+            } else if (isWin) {
+                turnEnded = true;
+            }
+
+            // Aplikacja wyniku
+            player.score = newScore;
+
+            if (updatedThrows.length >= 3 || turnEnded) {
+                // KONIEC TURY
+                let nextIndex = (data.turnIndex + 1) % data.players.length;
+                
+                if (isWin) {
+                    data.status = 'finished';
+                    // Wypłata (skrócona wersja, pełna jest w Twoim kodzie)
+                    const pot = data.entryFee * data.players.length;
+                    const wRef = doc(db, "uzytkownicy", player.id);
+                    const wData = (await t.get(wRef)).data();
+                    t.update(wRef, { 
+                        cash: wData.cash + pot, 
+                        zysk: (wData.zysk||0) + (pot - data.entryFee),
+                        totalValue: calculateTotalValue(wData.cash + pot, wData.shares)
+                    });
+                }
+                
+                t.update(ref, {
+                    players: data.players,
+                    turnIndex: nextIndex,
+                    currentThrows: [], 
+                    status: data.status,
+                    lastMove: moveData // <--- WAŻNE: Zapisujemy rzut tutaj
+                });
+            } else {
+                // KONTINUUACJA TURY
+                t.update(ref, {
+                    players: data.players,
+                    currentThrows: updatedThrows,
+                    lastMove: moveData // <--- WAŻNE: I tutaj też
+                });
+            }
+        });
+    } catch(e) { console.error(e); }
+}
+
+// Podpowiedzi do kończenia (Checkout Chart - uproszczony)
+function getCheckoutHint(score) {
+    if (score > 170) return "";
+    // Przykłady
+    if (score === 170) return "T20 T20 BULL";
+    if (score === 167) return "T20 T19 BULL";
+    if (score === 164) return "T20 T18 BULL";
+    if (score === 161) return "T20 T17 BULL";
+    if (score === 160) return "T20 T20 D20";
+    if (score === 100) return "T20 D20";
+    if (score === 60) return "20 D20";
+    if (score === 50) return "10 D20 (lub BULL)";
+    if (score === 40) return "D20";
+    if (score === 32) return "D16";
+    if (score === 24) return "D12";
+    if (score === 16) return "D8";
+    if (score === 8) return "D4";
+    if (score === 4) return "D2";
+    if (score === 2) return "D1";
+    return "Celuj w Double!";
+};
+
+// ======================================================
+// MODUŁ RPG (KARIERA REKINA BIZNESU)
+// ======================================================
+
+// Konfiguracja fuch
+const JOBS_DATA = {
+    'ulotki': { time: 10, reward: 50, name: "Ulotki" },
+    'flip':   { time: 60, reward: 300, name: "Flip Mieszkania" },
+    'krypto': { time: 300, reward: 1500, name: "Kopanie Krypto" }
+};
+
+let rpgTimer = null; 
+
+// Funkcja aktualizująca interfejs RPG (wywoływana z onSnapshot)
+window.updateRPGInterface = function(data) {
+    const rpgPanel = document.getElementById('rpg-panel');
+    // Nawet jak panel jest zamknięty, chcemy sprawdzić Level Up, więc usuwamy 'if(!rpgPanel) return'
+    
+    const rpg = data.rpg || { level: 1, xp: 0, stats: { analytics: 1, charisma: 1, luck: 1 } };
+    
+    // --- 1. Obliczanie Levela ---
+    const currentLvl = rpg.level || 1;
+    const currentXp = rpg.xp || 0;
+    const xpNeeded = currentLvl * 100; // Wzór na wymagane XP
+
+    // --- AUTOMATYCZNY LEVEL UP ---
+    // Jeśli masz więcej XP niż trzeba, wywołaj funkcję awansu
+    if (currentXp >= xpNeeded) {
+        performLevelUp(auth.currentUser.uid, xpNeeded, currentLvl);
+        return; // Przerywamy odświeżanie UI, bo zaraz zmienią się dane
+    }
+
+    // --- 2. Aktualizacja UI (tylko jeśli panel istnieje) ---
+    if (rpgPanel) {
+        // Statystyki
+        const elLevel = document.getElementById('rpg-level-display');
+        if(elLevel) elLevel.innerText = `Poziom ${currentLvl}`;
+        
+        const elStats = ['analytics', 'charisma', 'luck'];
+        elStats.forEach(stat => {
+            const el = document.getElementById(`stat-${stat}`);
+            if(el) el.innerText = rpg.stats?.[stat] || 1;
+        });
+
+        // Pasek XP
+        const xpPercent = Math.min(100, (currentXp / xpNeeded) * 100);
+        const xpFill = document.getElementById('xp-fill');
+        const xpText = document.getElementById('xp-text');
+        
+        if(xpFill) xpFill.style.width = `${xpPercent}%`;
+        if(xpText) xpText.innerText = `${currentXp} / ${xpNeeded} XP`;
+
+        // Koszt ulepszenia
+        const totalStats = (rpg.stats?.analytics||1) + (rpg.stats?.charisma||1) + (rpg.stats?.luck||1);
+        const cost = totalStats * 50;
+        const costEl = document.getElementById('upgrade-cost');
+        if(costEl) costEl.innerText = cost;
+
+        checkActiveJob(data);
+    }
+};
+
+// NOWA FUNKCJA: Obsługa Awansu (Dodaj to zaraz pod updateRPGInterface)
+window.performLevelUp = async function(uid, xpCost, oldLevel) {
+    console.log("🚀 LEVEL UP! Wbijanie poziomu...");
+    const userRef = doc(db, "uzytkownicy", uid);
+
+    try {
+        await updateDoc(userRef, {
+            "rpg.level": increment(1),      // Zwiększ poziom
+            "rpg.xp": increment(-xpCost),   // Odejmij zużyte XP (reszta przechodzi na nowy poziom)
+            "cash": increment(1000 * oldLevel) // BONUS KASY za awans! (1000 * poziom)
+        });
+
+        // Efekty (Dźwięk + Powiadomienie)
+        const audio = new Audio('kaching.mp3');
+        audio.play().catch(()=>{});
+        
+        // Jeśli masz system powiadomień
+        if(window.showNotification) {
+            showNotification(`🎉 AWANS! Poziom ${oldLevel + 1} (+${1000 * oldLevel} PLN)`, "positive");
+        } else {
+            alert(`🎉 AWANS! Wbiłeś poziom ${oldLevel + 1}!\nOtrzymujesz bonus: ${1000 * oldLevel} PLN`);
+        }
+
+    } catch (e) {
+        console.error("Błąd podczas levelowania:", e);
+    }
+};
+
+// Funkcja otwierająca panele
+window.showPanel = function(id) {
+    const panel = document.getElementById(id);
+    if(panel) panel.classList.remove('hidden');
+};
+
+// Przełączanie zakładek (Fuchy / Arena)
+window.switchRpgTab = function(tabName) {
+    const jobsTab = document.getElementById('tab-jobs');
+    const arenaTab = document.getElementById('tab-arena');
+    const btnJobs = document.getElementById('btn-tab-jobs');
+    const btnArena = document.getElementById('btn-tab-arena');
+
+    if(!jobsTab || !arenaTab) return; 
+
+    if (tabName === 'jobs') {
+        jobsTab.classList.remove('hidden');
+        arenaTab.classList.add('hidden');
+        if(btnJobs) {
+            btnJobs.style.background = 'var(--accent-gradient)';
+            btnJobs.style.color = 'white';
+        }
+        if(btnArena) {
+            btnArena.style.background = '#333';
+            btnArena.style.color = 'gray';
+        }
+    } else {
+        jobsTab.classList.add('hidden');
+        arenaTab.classList.remove('hidden');
+        if(btnJobs) {
+            btnJobs.style.background = '#333';
+            btnJobs.style.color = 'gray';
+        }
+        if(btnArena) {
+            btnArena.style.background = 'var(--red)';
+            btnArena.style.color = 'white';
+        }
+        if(window.loadArenaOpponents) window.loadArenaOpponents();
+    }
+};
+
+// Rozpoczęcie Pracy
+window.startJob = async function(jobId) {
+    if (!auth.currentUser) return;
+    const jobConfig = JOBS_DATA[jobId];
+    if (!jobConfig) return;
+
+    const endTime = new Date();
+    endTime.setSeconds(endTime.getSeconds() + jobConfig.time);
+
+    try {
+        const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+        await updateDoc(userRef, {
+            "rpg.currentJob": {
+                id: jobId,
+                endTime: Timestamp.fromDate(endTime),
+                startedAt: Timestamp.now()
+            }
+        });
+        showNotification(`💼 Rozpoczęto: ${jobConfig.name}`, "info");
+    } catch (e) {
+        // Tworzenie profilu RPG jeśli nie istnieje
+        const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+        await setDoc(userRef, { 
+            rpg: { 
+                level: 1, xp: 0, 
+                stats: { analytics: 1, charisma: 1, luck: 1 },
+                currentJob: { id: jobId, endTime: Timestamp.fromDate(endTime) }
+            } 
+        }, { merge: true });
+    }
+};
+
+// Timer Pracy
+function checkActiveJob(data) {
+    const jobContainer = document.getElementById('active-job-display');
+    const listContainer = document.getElementById('jobs-list');
+    
+    if (!jobContainer || !listContainer) return;
+
+    if (data.rpg && data.rpg.currentJob) {
+        jobContainer.classList.remove('hidden');
+        listContainer.classList.add('hidden');
+        
+        const now = new Date();
+        const end = data.rpg.currentJob.endTime.toDate();
+        const totalDuration = JOBS_DATA[data.rpg.currentJob.id].time;
+        const diff = (end - now) / 1000;
+
+        if (diff <= 0) {
+            finishJob(data.rpg.currentJob.id);
+        } else {
+            const progress = 100 - ((diff / totalDuration) * 100);
+            const bar = document.getElementById('job-timer-bar');
+            const txt = document.getElementById('job-timer-text');
+            if(bar) bar.style.width = `${progress}%`;
+            if(txt) txt.innerText = `Pozostało: ${Math.ceil(diff)}s`;
+            
+            if(rpgTimer) clearTimeout(rpgTimer);
+            rpgTimer = setTimeout(() => checkActiveJob(data), 1000);
+        }
+    } else {
+        jobContainer.classList.add('hidden');
+        listContainer.classList.remove('hidden');
+        if(rpgTimer) clearTimeout(rpgTimer);
+    }
+}
+
+// Zakończenie pracy
+async function finishJob(jobId) {
+    const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+    const jobConfig = JOBS_DATA[jobId];
+
+    try {
+        await updateDoc(userRef, {
+            "rpg.currentJob": null,
+            "cash": increment(jobConfig.reward),
+            "rpg.xp": increment(10), 
+            "totalValue": increment(jobConfig.reward)
+        });
+
+        if(document.getElementById('audio-kaching')) document.getElementById('audio-kaching').play().catch(()=>{});
+        showNotification(`💰 Zarobiono ${jobConfig.reward} PLN!`, "positive");
+    } catch (e) { console.error(e); }
+}
+
+// Ulepszanie statystyk
+window.upgradeStat = async function(statName) {
+    if (!auth.currentUser) return;
+    const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const sfDoc = await transaction.get(userRef);
+            if (!sfDoc.exists()) throw "Brak dokumentu!";
+            
+            const data = sfDoc.data();
+            const rpg = data.rpg || { stats: { analytics: 1, charisma: 1, luck: 1 } };
+            const currentStat = (rpg.stats && rpg.stats[statName]) ? rpg.stats[statName] : 1;
+            
+            const totalStats = (rpg.stats?.analytics||1) + (rpg.stats?.charisma||1) + (rpg.stats?.luck||1);
+            const cost = totalStats * 50;
+
+            if (data.cash < cost) throw "Za mało kasy!";
+
+            const newStats = { ...(rpg.stats || {analytics:1, charisma:1, luck:1}), [statName]: currentStat + 1 };
+            
+            transaction.update(userRef, {
+                "cash": data.cash - cost,
+                "rpg.stats": newStats
+            });
+        });
+        showNotification("Ulepszono statystyki! 🔥", "positive");
+    } catch (e) {
+        showNotification(e === "Za mało kasy!" ? "Brak środków!" : "Błąd", "error");
+    }
+};
+
+// ARENA PvP - Ładowanie listy z Cooldownem
+window.loadArenaOpponents = async function() {
+    const listDiv = document.getElementById('arena-opponents-list');
+    if (!listDiv) return;
+
+    listDiv.innerHTML = '<p style="text-align:center; color:#888;">📡 Skanowanie rynku...</p>';
+
+    try {
+        // 1. Pobierz dane o SOBIE, żeby sprawdzić czas ostatniego ataku
+        const myDocRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+        const mySnap = await getDoc(myDocRef);
+        const myData = mySnap.data();
+        
+        // Oblicz czy jest cooldown
+        const lastAttack = myData.rpg?.lastAttackTime?.toDate() || new Date(0); // Data 0 jeśli brak wpisu
+        const now = new Date();
+        const diffMs = now - lastAttack;
+        const cooldownMs = 60 * 60 * 1000; // 1 godzina w milisekundach
+        
+        const isCooldown = diffMs < cooldownMs;
+        const minutesLeft = isCooldown ? Math.ceil((cooldownMs - diffMs) / 60000) : 0;
+
+        // 2. Pobierz listę rywali
+        const q = query(collection(db, "uzytkownicy"), orderBy("cash", "desc"), limit(10));
+        const querySnapshot = await getDocs(q);
+        
+        let html = '';
+        
+        // Jeśli jest cooldown, wyświetl info na górze
+        if (isCooldown) {
+            html += `<div style="background:rgba(255,0,0,0.2); padding:10px; border-radius:5px; text-align:center; margin-bottom:10px; border:1px solid var(--red);">
+                🛑 Odpocznij! Następna debata za: <strong>${minutesLeft} min</strong>
+            </div>`;
+        }
+
+        querySnapshot.forEach((docSnap) => {
+            const enemy = docSnap.data();
+            if (auth.currentUser && docSnap.id === auth.currentUser.uid) return;
+
+            const enemyLvl = enemy.rpg?.level || 1;
+            const enemyCharisma = enemy.rpg?.stats?.charisma || 1;
+            let name = enemy.email ? enemy.email.split('@')[0] : "Anonim";
+            if(enemy.name) name = enemy.name;
+
+            // Logika przycisku (zablokowany jeśli cooldown)
+            const btnState = isCooldown ? `disabled style="background:#444; color:#888; cursor:not-allowed;"` : `style="background:var(--red); color:white; cursor:pointer;" onclick="attackPlayer('${docSnap.id}', '${name}', ${enemyCharisma})"`;
+            const btnText = isCooldown ? `⏳ ${minutesLeft}m` : 'ATAKUJ';
+
+            html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; background:#222; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid #444;">😈</div>
+                    <div>
+                        <strong style="color:var(--text-main); display:block;">${name}</strong>
+                        <div style="font-size:0.75em; color:var(--text-muted);">Lvl ${enemyLvl} | Bajera: ???</div>
+                    </div>
+                </div>
+                <button ${btnState} class="btn-action-pvp">
+                    ${btnText}
+                </button>
+            </div>`;
+        });
+
+        listDiv.innerHTML = html || '<p style="text-align:center;">Brak rywali.</p>';
+    } catch (e) { console.error(e); }
+};
+
+// ARENA PvP - Walka z zapisem czasu
+window.attackPlayer = async function(enemyId, enemyName, enemyCharisma) {
+    // 1. Sprawdzenie ponowne (bezpieczeństwo)
+    const myDocRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+    const mySnap = await getDoc(myDocRef);
+    const myData = mySnap.data();
+
+    const lastAttack = myData.rpg?.lastAttackTime?.toDate() || new Date(0);
+    const now = new Date();
+    if ((now - lastAttack) < 3600000) {
+        alert("Musisz odpocząć przed kolejną debatą!");
+        return;
+    }
+
+    if(!confirm(`Czy na pewno chcesz wyzwać gracza ${enemyName}?`)) return;
+    
+    const myCharisma = myData.rpg?.stats?.charisma || 1;
+    const myLuck = myData.rpg?.stats?.luck || 1;
+    
+    const myRoll = Math.floor(Math.random() * 20) + 1;
+    const enemyRoll = Math.floor(Math.random() * 20) + 1;
+    
+    const isCrit = (Math.random() * 100) < (myLuck * 2); 
+    let myScore = myCharisma + myRoll;
+    if (isCrit) myScore += myCharisma; 
+    
+    const enemyScore = enemyCharisma + enemyRoll;
+    
+    if (myScore > enemyScore) {
+        const reward = 100 * (myData.rpg?.level || 1); 
+        
+        // Zapisujemy wygraną ORAZ czas ataku
+        await updateDoc(myDocRef, { 
+            "cash": increment(reward), 
+            "rpg.xp": increment(20),
+            "rpg.lastAttackTime": Timestamp.now() // <--- TU ZAPISUJEMY CZAS
+        });
+
+        if(document.getElementById('audio-kaching')) document.getElementById('audio-kaching').play().catch(()=>{});
+        alert(`🏆 WYGRANA!\nTy: ${myScore} vs ${enemyName}: ${enemyScore}\nZyskujesz: ${reward} PLN!`);
+    } else {
+        // Przy przegranej TEŻ zapisujemy czas (żeby nie można było próbować do skutku)
+        await updateDoc(myDocRef, { 
+            "rpg.lastAttackTime": Timestamp.now() 
+        });
+        alert(`💀 PORAŻKA...\nTy: ${myScore} vs ${enemyName}: ${enemyScore}\nMusisz odczekać godzinę, żeby spróbować ponownie.`);
+    }
+
+    // Odśwież widok, żeby zablokować przyciski
+    if(window.loadArenaOpponents) window.loadArenaOpponents();
+};
