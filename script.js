@@ -6829,7 +6829,6 @@ function getCheckoutHint(score) {
 // MODUŁ RPG (KARIERA REKINA BIZNESU)
 // ======================================================
 
-// Konfiguracja fuch
 const JOBS_DATA = {
     'ulotki': { time: 10, reward: 50, name: "Ulotki" },
     'flip':   { time: 60, reward: 300, name: "Flip Mieszkania" },
@@ -6837,24 +6836,26 @@ const JOBS_DATA = {
 };
 
 let rpgTimer = null; 
+let isLevelingUp = false; // <--- BLOKADA PRZED MULTI-AWANSEM
 
-// Funkcja aktualizująca interfejs RPG (wywoływana z onSnapshot)
+// Funkcja aktualizująca interfejs RPG
 window.updateRPGInterface = function(data) {
     const rpgPanel = document.getElementById('rpg-panel');
-    // Nawet jak panel jest zamknięty, chcemy sprawdzić Level Up, więc usuwamy 'if(!rpgPanel) return'
     
+    // Pobieramy dane bezpiecznie
     const rpg = data.rpg || { level: 1, xp: 0, stats: { analytics: 1, charisma: 1, luck: 1 } };
     
     // --- 1. Obliczanie Levela ---
     const currentLvl = rpg.level || 1;
     const currentXp = rpg.xp || 0;
-    const xpNeeded = currentLvl * 100; // Wzór na wymagane XP
+    const xpNeeded = currentLvl * 100; 
 
-    // --- AUTOMATYCZNY LEVEL UP ---
-    // Jeśli masz więcej XP niż trzeba, wywołaj funkcję awansu
-    if (currentXp >= xpNeeded) {
+    // --- AUTOMATYCZNY LEVEL UP (Z ZABEZPIECZENIEM) ---
+    // Sprawdzamy czy mamy dość XP ORAZ czy proces już nie trwa (!isLevelingUp)
+    if (currentXp >= xpNeeded && !isLevelingUp) {
+        isLevelingUp = true; // Włączamy blokadę natychmiast
         performLevelUp(auth.currentUser.uid, xpNeeded, currentLvl);
-        return; // Przerywamy odświeżanie UI, bo zaraz zmienią się dane
+        return; 
     }
 
     // --- 2. Aktualizacja UI (tylko jeśli panel istnieje) ---
@@ -6887,31 +6888,33 @@ window.updateRPGInterface = function(data) {
     }
 };
 
-// NOWA FUNKCJA: Obsługa Awansu (Dodaj to zaraz pod updateRPGInterface)
+// Funkcja wykonująca awans
 window.performLevelUp = async function(uid, xpCost, oldLevel) {
-    console.log("🚀 LEVEL UP! Wbijanie poziomu...");
+    console.log("🚀 LEVEL UP! Przetwarzanie...");
     const userRef = doc(db, "uzytkownicy", uid);
 
     try {
         await updateDoc(userRef, {
-            "rpg.level": increment(1),      // Zwiększ poziom
-            "rpg.xp": increment(-xpCost),   // Odejmij zużyte XP (reszta przechodzi na nowy poziom)
-            "cash": increment(1000 * oldLevel) // BONUS KASY za awans! (1000 * poziom)
+            "rpg.level": increment(1),      
+            "rpg.xp": increment(-xpCost),   
+            "cash": increment(1000 * oldLevel) 
         });
 
-        // Efekty (Dźwięk + Powiadomienie)
         const audio = new Audio('kaching.mp3');
         audio.play().catch(()=>{});
         
-        // Jeśli masz system powiadomień
         if(window.showNotification) {
             showNotification(`🎉 AWANS! Poziom ${oldLevel + 1} (+${1000 * oldLevel} PLN)`, "positive");
-        } else {
-            alert(`🎉 AWANS! Wbiłeś poziom ${oldLevel + 1}!\nOtrzymujesz bonus: ${1000 * oldLevel} PLN`);
-        }
+        } 
 
     } catch (e) {
-        console.error("Błąd podczas levelowania:", e);
+        console.error("Błąd levelowania:", e);
+    } finally {
+        // Zwalniamy blokadę dopiero po zakończeniu operacji (sukces lub błąd)
+        // Dajemy małe opóźnienie, żeby baza zdążyła się zsynchronizować
+        setTimeout(() => {
+            isLevelingUp = false; 
+        }, 1000);
     }
 };
 
@@ -6921,7 +6924,7 @@ window.showPanel = function(id) {
     if(panel) panel.classList.remove('hidden');
 };
 
-// Przełączanie zakładek (Fuchy / Arena)
+// Przełączanie zakładek
 window.switchRpgTab = function(tabName) {
     const jobsTab = document.getElementById('tab-jobs');
     const arenaTab = document.getElementById('tab-arena');
@@ -6956,7 +6959,7 @@ window.switchRpgTab = function(tabName) {
     }
 };
 
-// Rozpoczęcie Pracy
+// Praca
 window.startJob = async function(jobId) {
     if (!auth.currentUser) return;
     const jobConfig = JOBS_DATA[jobId];
@@ -6976,7 +6979,6 @@ window.startJob = async function(jobId) {
         });
         showNotification(`💼 Rozpoczęto: ${jobConfig.name}`, "info");
     } catch (e) {
-        // Tworzenie profilu RPG jeśli nie istnieje
         const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
         await setDoc(userRef, { 
             rpg: { 
@@ -6988,7 +6990,6 @@ window.startJob = async function(jobId) {
     }
 };
 
-// Timer Pracy
 function checkActiveJob(data) {
     const jobContainer = document.getElementById('active-job-display');
     const listContainer = document.getElementById('jobs-list');
@@ -7023,7 +7024,6 @@ function checkActiveJob(data) {
     }
 }
 
-// Zakończenie pracy
 async function finishJob(jobId) {
     const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
     const jobConfig = JOBS_DATA[jobId];
@@ -7041,7 +7041,6 @@ async function finishJob(jobId) {
     } catch (e) { console.error(e); }
 }
 
-// Ulepszanie statystyk
 window.upgradeStat = async function(statName) {
     if (!auth.currentUser) return;
     const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
@@ -7081,27 +7080,22 @@ window.loadArenaOpponents = async function() {
     listDiv.innerHTML = '<p style="text-align:center; color:#888;">📡 Skanowanie rynku...</p>';
 
     try {
-        // 1. Pobierz dane o SOBIE, żeby sprawdzić czas ostatniego ataku
         const myDocRef = doc(db, "uzytkownicy", auth.currentUser.uid);
         const mySnap = await getDoc(myDocRef);
         const myData = mySnap.data();
         
-        // Oblicz czy jest cooldown
-        const lastAttack = myData.rpg?.lastAttackTime?.toDate() || new Date(0); // Data 0 jeśli brak wpisu
+        const lastAttack = myData.rpg?.lastAttackTime?.toDate() || new Date(0);
         const now = new Date();
         const diffMs = now - lastAttack;
-        const cooldownMs = 60 * 60 * 1000; // 1 godzina w milisekundach
+        const cooldownMs = 60 * 60 * 1000; 
         
         const isCooldown = diffMs < cooldownMs;
         const minutesLeft = isCooldown ? Math.ceil((cooldownMs - diffMs) / 60000) : 0;
 
-        // 2. Pobierz listę rywali
         const q = query(collection(db, "uzytkownicy"), orderBy("cash", "desc"), limit(10));
         const querySnapshot = await getDocs(q);
         
         let html = '';
-        
-        // Jeśli jest cooldown, wyświetl info na górze
         if (isCooldown) {
             html += `<div style="background:rgba(255,0,0,0.2); padding:10px; border-radius:5px; text-align:center; margin-bottom:10px; border:1px solid var(--red);">
                 🛑 Odpocznij! Następna debata za: <strong>${minutesLeft} min</strong>
@@ -7117,7 +7111,6 @@ window.loadArenaOpponents = async function() {
             let name = enemy.email ? enemy.email.split('@')[0] : "Anonim";
             if(enemy.name) name = enemy.name;
 
-            // Logika przycisku (zablokowany jeśli cooldown)
             const btnState = isCooldown ? `disabled style="background:#444; color:#888; cursor:not-allowed;"` : `style="background:var(--red); color:white; cursor:pointer;" onclick="attackPlayer('${docSnap.id}', '${name}', ${enemyCharisma})"`;
             const btnText = isCooldown ? `⏳ ${minutesLeft}m` : 'ATAKUJ';
 
@@ -7130,9 +7123,7 @@ window.loadArenaOpponents = async function() {
                         <div style="font-size:0.75em; color:var(--text-muted);">Lvl ${enemyLvl} | Bajera: ???</div>
                     </div>
                 </div>
-                <button ${btnState} class="btn-action-pvp">
-                    ${btnText}
-                </button>
+                <button ${btnState} class="btn-action-pvp">${btnText}</button>
             </div>`;
         });
 
@@ -7140,9 +7131,7 @@ window.loadArenaOpponents = async function() {
     } catch (e) { console.error(e); }
 };
 
-// ARENA PvP - Walka z zapisem czasu
 window.attackPlayer = async function(enemyId, enemyName, enemyCharisma) {
-    // 1. Sprawdzenie ponowne (bezpieczeństwo)
     const myDocRef = doc(db, "uzytkownicy", auth.currentUser.uid);
     const mySnap = await getDoc(myDocRef);
     const myData = mySnap.data();
@@ -7170,24 +7159,16 @@ window.attackPlayer = async function(enemyId, enemyName, enemyCharisma) {
     
     if (myScore > enemyScore) {
         const reward = 100 * (myData.rpg?.level || 1); 
-        
-        // Zapisujemy wygraną ORAZ czas ataku
         await updateDoc(myDocRef, { 
             "cash": increment(reward), 
             "rpg.xp": increment(20),
-            "rpg.lastAttackTime": Timestamp.now() // <--- TU ZAPISUJEMY CZAS
+            "rpg.lastAttackTime": Timestamp.now()
         });
-
         if(document.getElementById('audio-kaching')) document.getElementById('audio-kaching').play().catch(()=>{});
         alert(`🏆 WYGRANA!\nTy: ${myScore} vs ${enemyName}: ${enemyScore}\nZyskujesz: ${reward} PLN!`);
     } else {
-        // Przy przegranej TEŻ zapisujemy czas (żeby nie można było próbować do skutku)
-        await updateDoc(myDocRef, { 
-            "rpg.lastAttackTime": Timestamp.now() 
-        });
-        alert(`💀 PORAŻKA...\nTy: ${myScore} vs ${enemyName}: ${enemyScore}\nMusisz odczekać godzinę, żeby spróbować ponownie.`);
+        await updateDoc(myDocRef, { "rpg.lastAttackTime": Timestamp.now() });
+        alert(`💀 PORAŻKA...\nTy: ${myScore} vs ${enemyName}: ${enemyScore}\nOdpocznij godzinę.`);
     }
-
-    // Odśwież widok, żeby zablokować przyciski
     if(window.loadArenaOpponents) window.loadArenaOpponents();
 };
