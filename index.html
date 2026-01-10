@@ -240,42 +240,56 @@
 
     <script>
         // ==========================================
-        // 1. ODLICZANIE (Musi być na początku!)
+        // 1. ODLICZANIE (AUTOMATYCZNA NIEDZIELA 18:00)
         // ==========================================
-        function updateTimer() {
-            const now = new Date();
-            
-            // --- DATA DOCELOWA ---
-            // Zmień to poniżej, jeśli chcesz inną datę.
-            // Obecnie ustawione na: 13 Stycznia 2026, godz 18:00
-            const target = new Date("2026-01-13T18:00:00"); 
-            // ---------------------
+        function startCountdown() {
+            function updateTimer() {
+                const now = new Date();
+                let target = new Date();
 
-            const distance = target - now;
+                // Logika: Znajdź najbliższą niedzielę
+                const currentDay = now.getDay(); // 0 = Niedziela, 1 = Poniedziałek...
+                
+                // Oblicz ile dni brakuje do niedzieli (0)
+                // Jeśli dziś niedziela (0), to diff = 0. Jeśli pon (1), diff = 6.
+                let daysToSunday = (7 - currentDay) % 7;
+                
+                target.setDate(now.getDate() + daysToSunday);
+                target.setHours(18, 0, 0, 0);
 
-            // Jeśli czas minął lub data jest zła
-            if (isNaN(distance) || distance < 0) {
-                document.getElementById("d").innerText = "00";
-                document.getElementById("h").innerText = "00";
-                document.getElementById("m").innerText = "00";
-                document.getElementById("s").innerText = "00";
-                return;
+                // Jeśli jest niedziela, ale już po 18:00, celujemy w przyszły tydzień
+                if (target < now) {
+                    target.setDate(target.getDate() + 7);
+                }
+
+                const distance = target - now;
+
+                // Zabezpieczenie przed błędami
+                if (distance < 0) return;
+
+                const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+                // Wstawianie do HTML (z sprawdzeniem czy elementy istnieją)
+                try {
+                    document.getElementById("d").innerText = d < 10 ? "0" + d : d;
+                    document.getElementById("h").innerText = h < 10 ? "0" + h : h;
+                    document.getElementById("m").innerText = m < 10 ? "0" + m : m;
+                    document.getElementById("s").innerText = s < 10 ? "0" + s : s;
+                } catch (e) {
+                    console.error("Błąd licznika - brakuje elementów HTML o id: d, h, m lub s", e);
+                }
             }
 
-            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((distance % (1000 * 60)) / 1000);
-
-            document.getElementById("d").innerText = d < 10 ? "0" + d : d;
-            document.getElementById("h").innerText = h < 10 ? "0" + h : h;
-            document.getElementById("m").innerText = m < 10 ? "0" + m : m;
-            document.getElementById("s").innerText = s < 10 ? "0" + s : s;
+            // Uruchom od razu i powtarzaj co sekundę
+            updateTimer();
+            setInterval(updateTimer, 1000);
         }
 
-        // Uruchamiamy odliczanie od razu, niezależnie od Firebase
-        setInterval(updateTimer, 1000);
-        updateTimer();
+        // Uruchomienie licznika
+        startCountdown();
 
 
         // ==========================================
@@ -291,117 +305,96 @@
             measurementId: "G-BXPWNE261F"
         };
 
+        // Inicjalizacja Firebase w bezpiecznym bloku
         try {
-            // Inicjalizacja
             firebase.initializeApp(firebaseConfig);
             const db = firebase.firestore();
 
-            // Elementy DOM
             const chatFeed = document.getElementById("chat-feed");
             const chatForm = document.getElementById("chat-form");
             const chatInput = document.getElementById("chat-input");
             const nickInput = document.getElementById("nick-input");
             
-            // Generujemy ID dla sesji
+            // Generujemy ID sesji
             const myLocalId = "landing_" + Math.random().toString(36).substr(2, 9);
 
-            // Wczytaj zapamiętany nick
+            // Wczytaj nick
             const savedNick = localStorage.getItem("chatNick");
-            if (savedNick) {
+            if (savedNick && nickInput) {
                 nickInput.value = savedNick;
             }
 
-            // --- ODBIERANIE WIADOMOŚCI ---
+            // Odbieranie wiadomości
             db.collection("chat_messages")
                 .orderBy("timestamp", "desc")
                 .limit(50)
                 .onSnapshot((snapshot) => {
-                    chatFeed.innerHTML = ""; // Czyścimy "Łączenie..."
-                    
+                    if(!chatFeed) return;
+                    chatFeed.innerHTML = ""; 
                     let messages = [];
                     snapshot.forEach(doc => messages.push(doc.data()));
-                    messages.reverse(); // Najnowsze na dole
+                    messages.reverse();
 
                     if(messages.length === 0) {
-                        chatFeed.innerHTML = '<div class="message" style="text-align:center; opacity:0.5;">Brak wiadomości. Napisz pierwszy!</div>';
+                        chatFeed.innerHTML = '<div class="message" style="text-align:center; opacity:0.5;">Brak wiadomości.</div>';
                     }
 
                     messages.forEach(msg => {
                         const div = document.createElement("div");
                         const isMe = (msg.authorId === myLocalId);
-                        
                         div.className = `message ${isMe ? 'my-message' : ''}`;
                         
-                        // Gwiazdki prestiżu (opcjonalne)
                         let stars = "";
                         if (msg.prestigeLevel > 0) stars = `<span class="stars">${'⭐️'.repeat(msg.prestigeLevel)}</span>`;
-
-                        // Czas
+                        
                         let timeStr = "";
                         if (msg.timestamp) {
                             const date = msg.timestamp.toDate();
                             timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                         }
 
-                        // Bezpieczny HTML
-                        div.innerHTML = `
-                            <strong>${escapeHtml(msg.authorName)}</strong>${stars}
-                            <span class="msg-time">${timeStr}</span><br>
-                            ${escapeHtml(msg.text)}
-                        `;
+                        div.innerHTML = `<strong>${escapeHtml(msg.authorName)}</strong>${stars} <span class="msg-time">${timeStr}</span><br>${escapeHtml(msg.text)}`;
                         chatFeed.appendChild(div);
                     });
-                    
-                    // Auto-scroll na dół
                     chatFeed.scrollTop = chatFeed.scrollHeight;
                 }, (error) => {
-                    console.error("Błąd pobierania czatu:", error);
-                    chatFeed.innerHTML = `<div class="message" style="color:#ff4444; text-align:center;">
-                        Błąd dostępu do czatu.<br>
-                        Upewnij się, że zaktualizowałeś "Rules" w Firebase Console.
-                        <br><small>${error.code}</small>
-                    </div>`;
+                    console.log("Czat offline lub brak uprawnień:", error.code);
+                    if(chatFeed) chatFeed.innerHTML = '<div class="message" style="text-align:center; opacity:0.5;">Czat niedostępny (Brak uprawnień).</div>';
                 });
 
-            // --- WYSYŁANIE WIADOMOŚCI ---
-            chatForm.addEventListener("submit", (e) => {
-                e.preventDefault();
-                const text = chatInput.value.trim();
-                const userNick = nickInput.value.trim() || "Gość";
+            // Wysyłanie
+            if(chatForm) {
+                chatForm.addEventListener("submit", (e) => {
+                    e.preventDefault();
+                    const text = chatInput.value.trim();
+                    const userNick = nickInput.value.trim() || "Gość";
 
-                if (!text) return;
+                    if (!text) return;
 
-                // Zapisz nick
-                localStorage.setItem("chatNick", userNick);
+                    localStorage.setItem("chatNick", userNick);
 
-                db.collection("chat_messages").add({
-                    text: text,
-                    authorName: userNick,
-                    authorId: myLocalId,
-                    prestigeLevel: 0,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                }).then(() => {
-                    chatInput.value = ""; // Wyczyść pole po wysłaniu
-                }).catch((error) => {
-                    console.error("Błąd wysyłania: ", error);
-                    alert("Nie udało się wysłać wiadomości: " + error.code);
+                    db.collection("chat_messages").add({
+                        text: text,
+                        authorName: userNick,
+                        authorId: myLocalId,
+                        prestigeLevel: 0,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    }).then(() => {
+                        chatInput.value = "";
+                    }).catch((error) => {
+                        console.error("Błąd wysyłania:", error);
+                        alert("Błąd wysyłania. Sprawdź konsolę.");
+                    });
                 });
-            });
+            }
 
         } catch (err) {
-            console.error("Krytyczny błąd Firebase:", err);
-            // Nawet jak tu jest błąd, licznik działa, bo jest w innej funkcji wyżej!
+            console.error("Firebase Error:", err);
         }
 
-        // Funkcja pomocnicza do usuwania znaków HTML (bezpieczeństwo)
         function escapeHtml(text) {
             if (!text) return "";
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
