@@ -252,7 +252,7 @@
                 
                 // Oblicz ile dni brakuje do niedzieli (0)
                 // Jeśli dziś niedziela (0), to diff = 0. Jeśli pon (1), diff = 6.
-                let daysToSunday = (7 - currentDay) % 7;
+                let daysToSunday = (2 - currentDay) % 7;
                 
                 target.setDate(now.getDate() + daysToSunday);
                 target.setHours(18, 0, 0, 0);
