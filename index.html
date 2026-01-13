@@ -259,6 +259,7 @@
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
                 <button class="game-nav-btn" data-game-tab="daily"><i class="fa-solid fa-calendar-check"></i> Daily Spin</button>
                 <button class="game-nav-btn" data-game-tab="f1"><i class="fa-solid fa-car-side"></i> F1 Time Attack</button>
+                <button class="game-nav-btn" data-game-tab="ludo"><i class="fa-solid fa-chess-board"></i> Chińczyk</button>
                 <button class="game-nav-btn" data-game-tab="exam"><i class="fa-solid fa-graduation-cap"></i> Sesja (Exam)</button>
                 <button class="game-nav-btn" data-game-tab="skijump"><i class="fa-solid fa-snowflake"></i> Skoki (DSJ)</button>
                 <button class="game-nav-btn" data-game-tab="darts"><i class="fa-solid fa-bullseye"></i> Darts 501</button>
@@ -277,6 +278,43 @@
             </div>
 
             <div class="games-content-container">
+            
+            <div id="tab-game-ludo" class="game-tab-content">
+    <section id="ludo-panel" class="glass-panel center-content">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-chess-board"></i> Chińczyk (Ludo) - Max 4</h2>
+        </div>
+
+        <div id="ludo-lobby-view">
+            <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
+                <input type="number" id="ludo-create-amount" class="dark-input" placeholder="Wpisowe (np. 500)" min="100">
+                <button id="btn-ludo-create" class="btn-accent">STWÓRZ STÓŁ</button>
+            </div>
+            <h3>Dostępne Stoły</h3>
+            <div id="ludo-list" class="race-list-container">
+                <p style="color:var(--text-muted)">Brak gier...</p>
+            </div>
+        </div>
+
+        <div id="ludo-game-view" class="hidden">
+            <div class="race-header-info">
+                <button id="btn-ludo-leave" class="btn-sell"><i class="fa-solid fa-arrow-left"></i> Wyjdź</button>
+                <div class="ludo-status-bar">
+                    <div id="ludo-turn-info" style="font-size: 1.2rem; font-weight: bold; color: gold;">Tura: ---</div>
+                    <div id="ludo-dice-display" class="ludo-dice">🎲</div>
+                </div>
+                <button id="btn-ludo-roll" class="btn-green" style="padding: 10px 30px;">RZUĆ!</button>
+            </div>
+
+            <div class="ludo-wrapper">
+                <div id="ludo-board" class="ludo-board">
+                    </div>
+            </div>
+            
+            <div id="ludo-players-legend" class="mt-10" style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;"></div>
+        </div>
+    </section>
+</div>
             
             <div id="tab-game-darts" class="game-tab-content">
     <section id="darts-panel" class="glass-panel">
