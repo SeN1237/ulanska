@@ -7172,3 +7172,485 @@ window.attackPlayer = async function(enemyId, enemyName, enemyCharisma) {
     }
     if(window.loadArenaOpponents) window.loadArenaOpponents();
 };
+
+// ==========================================
+// === LUDO (CHIŃCZYK) - WERSJA CLASSIC RULES ===
+// ==========================================
+
+// IDEALNA MAPA 40 PÓL (Grid 11x11)
+const LUDO_FULL_MAP = [
+    // --- SEKCJA CZERWONA (0-9) ---
+    {r:5, c:2}, {r:5, c:3}, {r:5, c:4}, {r:5, c:5}, 
+    {r:4, c:5}, {r:3, c:5}, {r:2, c:5}, {r:1, c:5},
+    {r:1, c:6}, {r:1, c:7},
+
+    // --- SEKCJA ZIELONA (10-19) ---
+    {r:2, c:7}, {r:3, c:7}, {r:4, c:7}, {r:5, c:7}, 
+    {r:5, c:8}, {r:5, c:9}, {r:5, c:10}, {r:5, c:11},
+    {r:6, c:11}, {r:7, c:11},
+
+    // --- SEKCJA ŻÓŁTA (20-29) ---
+    {r:7, c:10}, {r:7, c:9}, {r:7, c:8}, {r:7, c:7}, 
+    {r:8, c:7}, {r:9, c:7}, {r:10, c:7}, {r:11, c:7},
+    {r:11, c:6}, {r:11, c:5},
+
+    // --- SEKCJA NIEBIESKA (30-39) ---
+    {r:10, c:5}, {r:9, c:5}, {r:8, c:5}, {r:7, c:5}, 
+    {r:7, c:4}, {r:7, c:3}, {r:7, c:2}, {r:7, c:1},
+    {r:6, c:1}, {r:5, c:1}
+];
+
+// Ścieżki zwycięstwa (Domy - 4 pola: 40, 41, 42, 43)
+const LUDO_WIN_PATHS = {
+    'red':    [{r:6, c:2}, {r:6, c:3}, {r:6, c:4}, {r:6, c:5}],
+    'green':  [{r:2, c:6}, {r:3, c:6}, {r:4, c:6}, {r:5, c:6}],
+    'yellow': [{r:6, c:10}, {r:6, c:9}, {r:6, c:8}, {r:6, c:7}],
+    'blue':   [{r:10, c:6}, {r:9, c:6}, {r:8, c:6}, {r:7, c:6}]
+};
+
+const BASE_COORDS = {
+    'red':    [{r:2,c:2}, {r:2,c:3}, {r:3,c:2}, {r:3,c:3}],
+    'green':  [{r:2,c:9}, {r:2,c:10},{r:3,c:9}, {r:3,c:10}],
+    'yellow': [{r:9,c:9}, {r:9,c:10},{r:10,c:9},{r:10,c:10}],
+    'blue':   [{r:9,c:2}, {r:9,c:3}, {r:10,c:2},{r:10,c:3}]
+};
+
+const LUDO_OFFSETS = { 'red': 0, 'green': 10, 'yellow': 20, 'blue': 30 };
+const LUDO_COLORS = ['red', 'green', 'yellow', 'blue'];
+
+let activeLudoId = null;
+let ludoUnsubscribe = null;
+let ludoBoardState = null;
+
+// --- LISTENERS ---
+document.addEventListener("DOMContentLoaded", () => {
+    const btnCreate = document.getElementById("btn-ludo-create");
+    const btnLeave = document.getElementById("btn-ludo-leave");
+    const btnRoll = document.getElementById("btn-ludo-roll");
+
+    if (btnCreate) btnCreate.addEventListener("click", createLudoLobby);
+    if (btnLeave) btnLeave.addEventListener("click", leaveLudoGame);
+    if (btnRoll) btnRoll.addEventListener("click", rollLudoDice);
+
+    if(typeof GAME_UNLOCKS !== 'undefined') GAME_UNLOCKS['ludo'] = 0;
+    setTimeout(listenToLudoLobbies, 3000);
+});
+
+// --- LOBBY SYSTEM ---
+function listenToLudoLobbies() {
+    const q = query(collection(db, "ludo_lobbies"), where("status", "in", ["open", "playing"]));
+    onSnapshot(q, (snap) => {
+        const listEl = document.getElementById("ludo-list");
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        
+        if (snap.empty) {
+            listEl.innerHTML = "<p style='grid-column:1/-1; text-align:center;'>Brak aktywnych stołów.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const count = r.players.length;
+            const isIngame = r.players.some(p => p.id === currentUserId);
+            
+            if (isIngame && activeLudoId !== docSnap.id) enterLudoGame(docSnap.id);
+
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${formatujWalute(r.entryFee)}</strong>
+                    <span style="color:${r.status==='playing'?'var(--red)':'var(--green)'}">${r.status==='playing'?'GRA':'OTWARTY'}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Host: ${r.hostName}</div>
+                <div style="font-size:0.9em;">Graczy: ${count} / 4</div>
+                <button class="btn-accent" style="margin-top:5px;" onclick="joinLudoLobby('${docSnap.id}', ${r.entryFee})" ${(count>=4 || r.status !== 'open') ? 'disabled' : ''}>
+                    ${r.status === 'playing' ? 'WRÓĆ' : 'DOŁĄCZ'}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+async function createLudoLobby() {
+    const amount = parseFloat(document.getElementById("ludo-create-amount").value);
+    if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków!");
+            t.update(uRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+            
+            const ref = doc(collection(db, "ludo_lobbies"));
+            t.set(ref, {
+                hostId: currentUserId,
+                hostName: portfolio.name,
+                entryFee: amount,
+                status: "open",
+                turnIndex: 0,
+                lastDice: 0,
+                players: [{ id: currentUserId, name: portfolio.name, color: 'red', pawns: [-1, -1, -1, -1] }]
+            });
+        });
+        showMessage("Stół utworzony!", "success");
+    } catch (e) { showMessage(e.message, "error"); }
+}
+
+window.joinLudoLobby = async function(id, fee) {
+    if (portfolio.cash < fee) return showMessage("Nie stać Cię!", "error");
+    try {
+        await runTransaction(db, async (t) => {
+            const ref = doc(db, "ludo_lobbies", id);
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const docSnap = await t.get(ref);
+            const uDoc = await t.get(uRef);
+            
+            if (!docSnap.exists()) throw new Error("Gra nie istnieje.");
+            const data = docSnap.data();
+            
+            if (data.players.some(p => p.id === currentUserId)) return;
+            if (data.status !== 'open') throw new Error("Gra już trwa!");
+            if (data.players.length >= 4) throw new Error("Stół pełny!");
+
+            const color = LUDO_COLORS[data.players.length];
+            const newPlayers = [...data.players, { id: currentUserId, name: portfolio.name, color: color, pawns: [-1, -1, -1, -1] }];
+
+            t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
+            
+            let status = data.status;
+            if (newPlayers.length >= 2) status = 'playing'; 
+            
+            t.update(ref, { players: newPlayers, status: status });
+        });
+    } catch (e) { showMessage(e.message, "error"); }
+};
+
+// --- GAME LOGIC ---
+function enterLudoGame(id) {
+    activeLudoId = id;
+    document.getElementById("ludo-lobby-view").classList.add("hidden");
+    document.getElementById("ludo-game-view").classList.remove("hidden");
+    if (ludoUnsubscribe) ludoUnsubscribe();
+    
+    ludoUnsubscribe = onSnapshot(doc(db, "ludo_lobbies", id), (snap) => {
+        if (!snap.exists()) { leaveLudoGame(); return; }
+        ludoBoardState = snap.data();
+        renderLudoBoard(ludoBoardState);
+        updateLudoUI(ludoBoardState);
+    });
+}
+
+function leaveLudoGame() {
+    activeLudoId = null;
+    if (ludoUnsubscribe) ludoUnsubscribe();
+    document.getElementById("ludo-lobby-view").classList.remove("hidden");
+    document.getElementById("ludo-game-view").classList.add("hidden");
+}
+
+function updateLudoUI(data) {
+    const turnPlayer = data.players[data.turnIndex];
+    const isMyTurn = turnPlayer.id === currentUserId;
+    const btnRoll = document.getElementById("btn-ludo-roll");
+    const info = document.getElementById("ludo-turn-info");
+    const diceDisplay = document.getElementById("ludo-dice-display");
+
+    info.textContent = `Tura: ${turnPlayer.name} (${turnPlayer.color.toUpperCase()})`;
+    info.style.color = isMyTurn ? "var(--green)" : "white";
+    diceDisplay.textContent = data.lastDice === 0 ? "🎲" : data.lastDice;
+
+    if (isMyTurn && data.lastDice === 0) {
+        btnRoll.classList.remove("hidden");
+        btnRoll.disabled = false;
+    } else {
+        btnRoll.classList.add("hidden");
+    }
+
+    const legend = document.getElementById("ludo-players-legend");
+    legend.innerHTML = data.players.map(p => 
+        `<div style="color:${getColorHex(p.color)}; font-weight:bold;">${p.id === currentUserId ? '(Ty) ' : ''}${p.name}</div>`
+    ).join("");
+}
+
+async function rollLudoDice() {
+    if(!activeLudoId) return;
+    const roll = Math.floor(Math.random() * 6) + 1;
+    document.getElementById("ludo-dice-display").textContent = roll;
+    
+    try {
+        await updateDoc(doc(db, "ludo_lobbies", activeLudoId), { lastDice: roll });
+        setTimeout(() => checkAutoSkip(roll), 1000);
+    } catch(e) { console.error(e); }
+}
+
+async function checkAutoSkip(roll) {
+    if(!ludoBoardState) return;
+    const me = ludoBoardState.players.find(p => p.id === currentUserId);
+    
+    // Sprawdź czy jest jakikolwiek ruch
+    const hasMove = me.pawns.some((_, idx) => canMovePawn(idx, me.pawns, roll));
+    
+    if (!hasMove) {
+        showNotification(`Brak ruchu! (Wyrzucono: ${roll})`, "error");
+        setTimeout(async () => { await nextLudoTurn(); }, 1500);
+    }
+}
+
+async function nextLudoTurn() {
+    const nextIdx = (ludoBoardState.turnIndex + 1) % ludoBoardState.players.length;
+    await updateDoc(doc(db, "ludo_lobbies", activeLudoId), { turnIndex: nextIdx, lastDice: 0 });
+}
+
+// --- LOGIKA RUCHU (ZASADY) ---
+// Zmieniono: przyjmuje wszystkie pionki gracza, żeby sprawdzić kolizje w domku
+function canMovePawn(pawnIdx, playerPawns, roll) {
+    const currentPos = playerPawns[pawnIdx];
+
+    // 1. Wyjście z bazy tylko na 6
+    if (currentPos === -1) return roll === 6;
+
+    const target = currentPos + roll;
+
+    // 2. Nie można wyjść poza koniec toru (43 to ostatnie pole)
+    if (target > 43) return false;
+
+    // 3. OCHRONA DOMKU (Pola 40, 41, 42, 43)
+    // Jeśli idziemy do domku, nie możemy stanąć na własnym pionku
+    if (target >= 40) {
+        const isOccupiedByMe = playerPawns.some((pos, idx) => idx !== pawnIdx && pos === target);
+        if (isOccupiedByMe) return false;
+    }
+
+    return true;
+}
+
+// --- RENDER PLANSZY ---
+function renderLudoBoard(data) {
+    const board = document.getElementById("ludo-board");
+    if (!board) return;
+    board.innerHTML = "";
+
+    // 1. Rysuj Ścieżkę (0-39)
+    LUDO_FULL_MAP.forEach((pos, idx) => {
+        let cls = 'cell-safe'; 
+        let content = '';
+
+        if (idx === 0) { cls = 'cell-red'; content = '★'; }
+        else if (idx === 10) { cls = 'cell-green'; content = '★'; }
+        else if (idx === 20) { cls = 'cell-yellow'; content = '★'; }
+        else if (idx === 30) { cls = 'cell-blue'; content = '★'; }
+        
+        createCell(board, pos.r, pos.c, cls, content);
+    });
+
+    // 2. Rysuj Pola Domku (Zwycięstwa)
+    Object.keys(LUDO_WIN_PATHS).forEach(color => {
+        LUDO_WIN_PATHS[color].forEach((pos, i) => {
+            createCell(board, pos.r, pos.c, `cell-${color}`);
+        });
+    });
+
+    // 3. Bazy
+    createHomeBase(board, 'red', 1, 1);
+    createHomeBase(board, 'green', 1, 8);
+    createHomeBase(board, 'blue', 8, 1); 
+    createHomeBase(board, 'yellow', 8, 8);
+    
+    // 4. Środek (Trofeum)
+    const center = document.createElement("div");
+    center.className = "ludo-home ludo-center";
+    center.textContent = "🏆";
+    center.style.gridRow = "5 / span 3";
+    center.style.gridColumn = "5 / span 3";
+    board.appendChild(center);
+
+    // 5. Rysuj Pionki
+    data.players.forEach((p, pIdx) => {
+        p.pawns.forEach((progress, pawnIdx) => {
+            const pawn = document.createElement("div");
+            pawn.className = `ludo-pawn pawn-${p.color}`;
+            
+            let r, c;
+            
+            if (progress === -1) {
+                // W bazie
+                const base = BASE_COORDS[p.color][pawnIdx];
+                r = base.r; c = base.c;
+            } else if (progress < 40) {
+                // Na torze
+                const offset = LUDO_OFFSETS[p.color];
+                const realIdx = (offset + progress) % 40;
+                const pos = LUDO_FULL_MAP[realIdx];
+                r = pos.r; c = pos.c;
+            } else {
+                // W domku (40, 41, 42, 43)
+                const winIdx = progress - 40; 
+                // Zabezpieczenie wizualne (żeby nie wyszło poza tablicę)
+                if (winIdx < 4) {
+                    const pos = LUDO_WIN_PATHS[p.color][winIdx];
+                    r = pos.r; c = pos.c;
+                } else {
+                    // Jeśli jakimś cudem 44 (stara wersja), daj na środek
+                    r=6; c=6;
+                }
+            }
+
+            pawn.style.gridRow = r;
+            pawn.style.gridColumn = c;
+
+            // Logika klikania
+            const isMyTurn = data.players[data.turnIndex].id === currentUserId;
+            const isMe = p.id === currentUserId;
+            
+            // Tutaj przekazujemy p.pawns do funkcji sprawdzającej
+            if (isMe && isMyTurn && data.lastDice > 0 && canMovePawn(pawnIdx, p.pawns, data.lastDice)) {
+                pawn.classList.add("clickable-pawn");
+                pawn.onclick = () => handlePawnClick(pIdx, pawnIdx);
+            }
+            
+            board.appendChild(pawn);
+        });
+    });
+}
+
+function createCell(board, r, c, cls, content='') {
+    const div = document.createElement("div");
+    div.className = `ludo-cell ${cls}`;
+    div.style.gridRow = r;
+    div.style.gridColumn = c;
+    if(content) {
+        div.style.color = "rgba(255,255,255,0.7)";
+        div.style.fontSize = "20px";
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.justifyContent = "center";
+        div.textContent = content;
+    }
+    board.appendChild(div);
+}
+
+function createHomeBase(board, color, r, c) {
+    const div = document.createElement("div");
+    div.className = `ludo-home home-${color}`;
+    div.style.gridRow = `${r} / span 4`;
+    div.style.gridColumn = `${c} / span 4`;
+    board.appendChild(div);
+}
+
+// --- OBSŁUGA RUCHU I KOLIZJI ---
+async function handlePawnClick(pIdx, pawnIdx) {
+    if(!activeLudoId || !ludoBoardState) return;
+    const data = ludoBoardState;
+    const player = data.players[pIdx];
+
+    if(player.id !== currentUserId || data.turnIndex !== pIdx || data.lastDice === 0) return;
+
+    // Sprawdź poprawność ruchu (przekazujemy tablicę pionków)
+    if(!canMovePawn(pawnIdx, player.pawns, data.lastDice)) {
+        showNotification("Ruch niedozwolony (zajęte pole lub koniec toru).", "error");
+        return;
+    }
+
+    const currentPos = player.pawns[pawnIdx];
+    let newPos;
+    if (currentPos === -1) newPos = 0; // Wyjście na start
+    else newPos = currentPos + data.lastDice;
+
+    // Kopiuj stan graczy (Deep Copy)
+    const newPlayers = JSON.parse(JSON.stringify(data.players)); 
+    newPlayers[pIdx].pawns[pawnIdx] = newPos;
+
+    // --- ZBIJANIE (Tylko na torze 0-39) ---
+    let collisionOccurred = false;
+    let msg = "";
+
+    if (newPos < 40) {
+        const myOffset = LUDO_OFFSETS[player.color];
+        const myAbsIdx = (myOffset + newPos) % 40;
+
+        // Bezpieczne pola?
+        const isSafeSpot = (myAbsIdx % 10 === 0);
+
+        if (!isSafeSpot) {
+            newPlayers.forEach((opp, oIdx) => {
+                if (oIdx === pIdx) return;
+                opp.pawns.forEach((oppPos, oppPIndex) => {
+                    if (oppPos !== -1 && oppPos < 40) {
+                        const oppOffset = LUDO_OFFSETS[opp.color];
+                        const oppAbsIdx = (oppOffset + oppPos) % 40;
+
+                        if (oppAbsIdx === myAbsIdx) {
+                            newPlayers[oIdx].pawns[oppPIndex] = -1; // Zbicie
+                            collisionOccurred = true;
+                            msg = `Zbiłeś gracza ${opp.name}!`;
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    // --- WARUNEK ZWYCIĘSTWA ---
+    // Wszystkie 4 pionki muszą być w domku (>=40)
+    // Ponieważ canMovePawn blokuje wyjście poza 43, wystarczy sprawdzić >=40
+    const allHome = newPlayers[pIdx].pawns.every(pos => pos >= 40);
+
+    if (allHome) {
+        await updateDoc(doc(db, "ludo_lobbies", activeLudoId), { players: newPlayers, lastDice: 0 });
+        endLudoGame(player);
+        return;
+    }
+
+    let nextTurn = data.turnIndex;
+    // Bonusowy rzut za 6 lub zbicie
+    if (data.lastDice === 6 || collisionOccurred) {
+        msg = msg ? msg + " Rzucasz dalej!" : "Szóstka! Rzucasz dalej.";
+    } else {
+        nextTurn = (data.turnIndex + 1) % data.players.length;
+    }
+
+    if(msg) showNotification(msg, "news");
+
+    await updateDoc(doc(db, "ludo_lobbies", activeLudoId), {
+        players: newPlayers,
+        lastDice: 0,
+        turnIndex: nextTurn
+    });
+}
+
+async function endLudoGame(winner) {
+    const pot = ludoBoardState.entryFee * ludoBoardState.players.length;
+    await updateDoc(doc(db, "ludo_lobbies", activeLudoId), { status: "finished", winnerId: winner.id });
+
+    if (winner.id === currentUserId) {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            const profit = pot - ludoBoardState.entryFee;
+            t.update(uRef, {
+                cash: d.cash + pot,
+                zysk: (d.zysk || 0) + profit,
+                totalValue: calculateTotalValue(d.cash + pot, d.shares)
+            });
+        });
+        if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+        alert(`WYGRAŁEŚ! Zgarniasz ${formatujWalute(pot)}`);
+    } else {
+        alert(`Wygrał ${winner.name}.`);
+    }
+    leaveLudoGame();
+}
+
+function getColorHex(color) {
+    switch(color) {
+        case 'red': return '#ff2a6d';
+        case 'green': return '#00ffa3';
+        case 'blue': return '#00f0ff';
+        case 'yellow': return '#ffd700';
+        default: return '#fff';
+    }
+}
