@@ -1378,7 +1378,10 @@ function listenToActiveBets(userId) {
                     </div>
                 </div>`;
             dom.activeBetsFeed.insertAdjacentHTML('beforeend', html);
-        });
+        }); // 1. Koniec snap.forEach
+    
+    }); // 2. <--- TEGO BRAKOWAŁO: Koniec onSnapshot
+}
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
