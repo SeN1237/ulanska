@@ -1498,9 +1498,16 @@ function renderBettingPanel() {
                 <small style="color:var(--accent-color); font-weight:bold; font-size:0.9em;">${odds.toFixed(2)}</small>
             </button>`;
 
+        // --- DEFINICJA ZMIENNYCH POMOCNICZYCH ---
         const hasDraw = !match.teamC && (match.oddsDraw && match.oddsDraw > 1.0);
+        
+        // Sprawdzamy, czy istnieją kolejne drużyny w bazie
         const hasTeamC = match.teamC && match.oddsC;
+        const hasTeamD = match.teamD && match.oddsD; // <-- Dodane
+        const hasTeamE = match.teamE && match.oddsE; // <-- Dodane
+        const hasTeamF = match.teamF && match.oddsF; // <-- Dodane
 
+        // --- GENEROWANIE PRZYCISKÓW ---
         let oddsHtml = `<div class="odds-btn-group">
             ${createBtn('teamA', match.oddsA, match.teamA)}
             
@@ -1509,6 +1516,9 @@ function renderBettingPanel() {
             ${createBtn('teamB', match.oddsB, match.teamB)}
             
             ${hasTeamC ? createBtn('teamC', match.oddsC, match.teamC) : ''}
+            ${hasTeamD ? createBtn('teamD', match.oddsD, match.teamD) : ''}
+            ${hasTeamE ? createBtn('teamE', match.oddsE, match.teamE) : ''}
+            ${hasTeamF ? createBtn('teamF', match.oddsF, match.teamF) : ''}
         </div>`;
 
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
