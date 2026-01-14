@@ -1342,23 +1342,27 @@ function listenToActiveBets(userId) {
             const bet = d.data();
             if (bet.status !== 'pending') return; 
 
+            // --- POPRAWKA: Wyciąganie nazwy z nawiasu [Nazwa] ---
+            // Twój system zapisuje zakłady jako: "Drużyna A vs B [Wybrana Drużyna]"
+            // Dzięki temu zawsze trafimy w dobrą nazwę, nawet jak jest to Team E.
+            
             let pickedTeamName = "???";
-            let cleanTitle = (bet.matchTitle || "").split(" [")[0]; 
-            let teams = cleanTitle.split(" vs ");
-
-             if (bet.betOn === 'draw') {
-                pickedTeamName = "REMIS";
-            } else if (teams.length >= 2) {
-                // POPRAWKA: Dodana obsługa kolejnych drużyn (C, D, E, F)
-                if (bet.betOn === 'teamA') pickedTeamName = teams[0] ? teams[0].trim() : '???';
-                if (bet.betOn === 'teamB') pickedTeamName = teams[1] ? teams[1].trim() : '???';
-                if (bet.betOn === 'teamC') pickedTeamName = teams[2] ? teams[2].trim() : '???';
-                if (bet.betOn === 'teamD') pickedTeamName = teams[3] ? teams[3].trim() : '???';
-                if (bet.betOn === 'teamE') pickedTeamName = teams[4] ? teams[4].trim() : '???';
-                if (bet.betOn === 'teamF') pickedTeamName = teams[5] ? teams[5].trim() : '???';
+            
+            // 1. Próbujemy znaleźć tekst w nawiasie kwadratowym (to co wybrał gracz)
+            const nameInBrackets = (bet.matchTitle || "").match(/\[(.*?)\]/);
+            
+            if (nameInBrackets && nameInBrackets[1]) {
+                pickedTeamName = nameInBrackets[1];
             } else {
-                pickedTeamName = bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość';
+                // Fallback (zabezpieczenie dla starych zakładów bez nawiasu)
+                if (bet.betOn === 'draw') pickedTeamName = "REMIS";
+                else if (bet.betOn === 'teamA') pickedTeamName = "Gospodarz";
+                else if (bet.betOn === 'teamB') pickedTeamName = "Gość";
+                else pickedTeamName = bet.betOn;
             }
+
+            // Czyścimy tytuł meczu (usuwamy nawias z końcówki, żeby ładnie wyglądało)
+            let cleanTitle = (bet.matchTitle || "").split(" [")[0]; 
 
             const html = `
                 <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
@@ -1375,8 +1379,6 @@ function listenToActiveBets(userId) {
                 </div>`;
             dom.activeBetsFeed.insertAdjacentHTML('beforeend', html);
         });
-    });
-}
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
