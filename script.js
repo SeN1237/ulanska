@@ -1351,10 +1351,6 @@ function listenToActiveBets(userId) {
             } else if (teams.length >= 2) {
                 if (bet.betOn === 'teamA') pickedTeamName = teams[0].trim();
                 if (bet.betOn === 'teamB') pickedTeamName = teams[1].trim();                                                                      
-				if (bet.betOn === 'teamC') pickedTeamName = teams[2].trim();                                                                      
-				if (bet.betOn === 'teamD') pickedTeamName = teams[3].trim();                                                                      
-				if (bet.betOn === 'teamE') pickedTeamName = teams[4].trim();                                                                      
-				if (bet.betOn === 'teamF') pickedTeamName = teams[5].trim();
             } else {
                 pickedTeamName = bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość';
             }
