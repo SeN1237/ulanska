@@ -7343,7 +7343,7 @@ window.joinLudoLobby = async function(id, fee) {
             t.update(uRef, { cash: uDoc.data().cash - fee, totalValue: calculateTotalValue(uDoc.data().cash - fee, uDoc.data().shares) });
             
             let status = data.status;
-            if (newPlayers.length >= 2) status = 'playing'; 
+            if (newPlayers.length >= 4) status = 'playing'; 
             
             t.update(ref, { players: newPlayers, status: status });
         });
