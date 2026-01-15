@@ -1209,14 +1209,41 @@ async function onSendMessage(e) {
     setTimeout(() => isChatCooldown = false, 15000);
 }
 
+// --- ZMODYFIKOWANA FUNKCJA RANKINGU ---
 function listenToLeaderboard() {
-    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("prestigeLevel", "desc"), orderBy("totalValue", "desc"), limit(10)), snap => {
+    // WPISZ TUTAJ ID OSZUSTÓW (TE DŁUGIE CIĄGI ZNAKÓW Z BAZY DANYCH)
+    const CHEATERS_LIST = [
+        "E3JFtneImRQy9O1NpexJPskVcLg2", 
+        "xoZQ3N7kneMTENBaUaaIKF7yzBi2"
+    ];
+
+    // Pobieramy 20 graczy zamiast 10, żeby po wyrzuceniu oszustów nadal mieć pełną "dychę"
+    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("prestigeLevel", "desc"), orderBy("totalValue", "desc"), limit(20)), snap => {
         dom.leaderboardList.innerHTML = "";
-        let r = 1;
+        
+        // Pobieramy elementy tabeli oszustów (dodane w HTML)
+        const cheatersList = document.getElementById("cheaters-list");
+        const cheatersPanel = document.getElementById("cheaters-panel");
+        
+        if (cheatersList) cheatersList.innerHTML = "";
+
+        let honestPlayers = [];
+        let cheaters = [];
+
         snap.forEach(d => {
             const u = d.data();
-            
-            // Logika dla ikon podium (złoto, srebro, brąz)
+            // Sprawdzamy czy ID gracza jest na czarnej liście
+            if (CHEATERS_LIST.includes(d.id) || CHEATERS_LIST.includes(u.email)) {
+                cheaters.push({ id: d.id, ...u });
+            } else {
+                honestPlayers.push({ id: d.id, ...u });
+            }
+        });
+
+        // 1. RENDEROWANIE UCZCIWYCH (TOP 10)
+        // Bierzemy tylko pierwszych 10 uczciwych
+        honestPlayers.slice(0, 10).forEach((u, index) => {
+            let r = index + 1;
             let rankClass = '';
             let rankIcon = r + '.';
 
@@ -1224,9 +1251,8 @@ function listenToLeaderboard() {
             if (r === 2) { rankClass = 'rank-2'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
             if (r === 3) { rankClass = 'rank-3'; rankIcon = '<i class="fa-solid fa-medal"></i>'; }
 
-            // Generowanie wiersza tabeli
             dom.leaderboardList.innerHTML += `
-                <tr class="${d.id === currentUserId ? 'highlight-me' : ''}" onclick="showUserProfile('${d.id}')">
+                <tr class="${u.id === currentUserId ? 'highlight-me' : ''}" onclick="showUserProfile('${u.id}')">
                     <td class="${rankClass}"><span class="rank-text">${rankIcon}</span></td>
                     <td>
                         <div class="user-cell">
@@ -1235,8 +1261,31 @@ function listenToLeaderboard() {
                     </td>
                     <td style="text-align: right;" class="val-cell">${formatujWalute(u.totalValue)}</td>
                 </tr>`;
-            r++;
         });
+
+        // 2. RENDEROWANIE OSZUSTÓW
+        if (cheaters.length > 0 && cheatersPanel && cheatersList) {
+            cheatersPanel.classList.remove("hidden"); // Pokazujemy panel oszustów
+            
+            cheaters.forEach(u => {
+                cheatersList.innerHTML += `
+                    <tr onclick="showUserProfile('${u.id}')" style="background: rgba(255, 42, 109, 0.05);">
+                        <td style="color: var(--red); font-weight: bold; letter-spacing: 1px;">
+                            <i class="fa-solid fa-skull"></i> HAŃBA
+                        </td>
+                        <td>
+                            <div class="user-cell" style="text-decoration: line-through; color: var(--text-muted);">
+                                 ${u.name}
+                            </div>
+                        </td>
+                        <td style="text-align: right; color: var(--red); font-family: monospace;">
+                            ${formatujWalute(u.totalValue)}
+                        </td>
+                    </tr>`;
+            });
+        } else if (cheatersPanel) {
+            cheatersPanel.classList.add("hidden"); // Ukrywamy panel jak nie ma oszustów
+        }
     });
 }
 
