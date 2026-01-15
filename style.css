@@ -4445,3 +4445,9 @@ select:focus {
 @media (max-width: 600px) {
     .ludo-board { transform: scale(0.8); transform-origin: top center; }
 }
+
+/* Styl dla wierszy oszustów po najechaniu */
+#cheaters-list tr:hover td {
+    background: rgba(255, 42, 109, 0.2) !important;
+    cursor: not-allowed;
+}
