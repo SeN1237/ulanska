@@ -12,6 +12,12 @@
     <script type="module" src="script.js"></script>
     <link rel="icon" type="image/png" href="favicon.png">
     <script src="https://www.youtube.com/iframe_api"></script> 
+    
+    <script src="https://unpkg.com/mapillary-js@4.1.0/dist/mapillary.js"></script>
+    <link href="https://unpkg.com/mapillary-js@4.1.0/dist/mapillary.css" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -99,6 +105,9 @@
             <button class="nav-btn" data-view="info">
                 <i class="fa-solid fa-circle-info"></i> INFO & ZASADY
             </button>
+            <button onclick="document.getElementById('geo-panel').classList.remove('hidden');" class="nav-btn">
+    <i class="fa-solid fa-location-dot"></i> GeoUłan
+</button>
         </nav>
 
         <div id="view-market" class="view-section active">
@@ -1388,5 +1397,31 @@
 <div id="rpg-panel" class="glass-panel hidden" style="position:fixed; top:5%; left:50%; transform:translateX(-50%); width:95%; max-width:900px; height:85vh; overflow-y:auto; z-index:9999; background: rgba(10, 10, 25, 0.98); border: 2px solid var(--accent-color); box-shadow: 0 0 50px rgba(0,0,0,0.8);">
     
     </div>
+    <div id="geo-panel" class="glass-panel hidden" style="position:fixed; top:2%; left:50%; transform:translateX(-50%); width:98%; height:95vh; z-index:9999; display:flex; flex-direction:column; background: #050510;">
+    <div class="panel-header" style="padding:10px; display:flex; gap:10px; align-items:center; background: rgba(0,0,0,0.5);">
+        <button onclick="startFreeGeo('warszawa')" class="main-btn">Warszawa</button>
+        <button onclick="startFreeGeo('bydgoszcz')" class="main-btn">Bydgoszcz</button>
+        <button onclick="startFreeGeo('polska')" class="main-btn">Polska</button>
+        <button onclick="startFreeGeo('swiat')" class="main-btn">Świat</button>
+        <button onclick="document.getElementById('geo-panel').classList.add('hidden')" class="close-btn" style="margin-left:auto;">&times;</button>
+    </div>
+
+    <div style="display:flex; flex:1; position:relative; overflow:hidden;">
+        <div id="mly" style="flex:1; background:#000;"></div>
+        
+        <div id="geo-map-box" style="position:absolute; bottom:20px; right:20px; width:300px; height:220px; border:2px solid var(--accent-color); z-index:1000; background:rgba(0,0,0,0.8); transition: 0.3s;">
+            <div id="leaf-map" style="width:100%; height:180px;"></div>
+            <button id="geo-check-btn" class="main-btn" style="width:100%; border-radius:0;">ZATWIERDŹ LOKALIZACJĘ</button>
+        </div>
+    </div>
+</div>
+<div id="geo-leaderboard" style="background: rgba(0,0,0,0.8); padding: 15px; border-top: 1px solid var(--accent-color); color: white;">
+    <h3 style="color: var(--accent-color); margin-bottom: 10px; font-size: 1rem;">
+        <i class="fa-solid fa-trophy"></i> TOP 5 LOKALNYCH GEOGRAFÓW
+    </h3>
+    <div id="geo-ranking-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 0.85em;">
+        Ładowanie rankingu...
+    </div>
+</div>
 </body>
 </html>
