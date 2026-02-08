@@ -7723,3 +7723,181 @@ function getColorHex(color) {
         default: return '#fff';
     }
 }
+//----geogess
+
+// --- SEKCJA: GEOGUESSR FINAL (Z poprawką Nicku i Zoomu) ---
+
+let mlyViewer, leafMap, leafMarker;
+let targetLatLng = null;
+let currentGeoCategory = 'polska';
+
+// 1. TWÓJ TOKEN MAPILLARY (Podmień na własny!)
+const MLY_TOKEN = 'MLY|26263112423283626|08dee0e9c27095dff1e38c4a50a26b19'; 
+
+// 2. KONFIGURACJA OBSZARÓW
+const geoConfig = {
+    warszawa:   { lat: 52.2297, lng: 21.0122, spread: 0.08 },
+    bydgoszcz:  { lat: 53.1235, lng: 18.0084, spread: 0.05 },
+    polska:     { lat: 52.06,   lng: 19.47,   spread: 3.5  },
+    swiat:      { lat: 20.0,    lng: 0.0,     spread: 60.0 }
+};
+
+window.startFreeGeo = async function(category) {
+    currentGeoCategory = category;
+    const config = geoConfig[category];
+    
+    if (typeof loadGeoRanking === 'function') loadGeoRanking();
+
+    // Losowanie współrzędnych
+    const randomLat = config.lat + (Math.random() - 0.5) * config.spread;
+    const randomLng = config.lng + (Math.random() - 0.5) * config.spread;
+
+    const bboxSize = 0.01; 
+    const url = `https://graph.mapillary.com/images?access_token=${MLY_TOKEN}&fields=id,geometry&bbox=${randomLng-bboxSize},${randomLat-bboxSize},${randomLng+bboxSize},${randomLat+bboxSize}&limit=1`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.data || data.data.length === 0) return startFreeGeo(category);
+
+        const imageId = data.data[0].id;
+
+        // Inicjalizacja Viewera (Z uciszeniem błędów mesh)
+        if (!mlyViewer) {
+            mlyViewer = new mapillary.Viewer({
+                container: 'mly',
+                accessToken: MLY_TOKEN,
+                component: { 
+                    cover: false, 
+                    direction: true,
+                    imagePlane: true,
+                    mouse: true,
+                    touch: true,
+                    tag: false,    // Wyłączone tagi (błędy mesh)
+                    popup: false   // Wyłączone popupy
+                }
+            });
+
+            mlyViewer.on('image', (e) => {
+                targetLatLng = e.image.lngLat;
+            });
+        }
+
+        mlyViewer.moveTo(imageId).catch(() => startFreeGeo(category));
+
+        // Inicjalizacja mapy z widocznymi przyciskami Zoom
+        const mapCenter = [config.lat, config.lng];
+        const mapZoom = category === 'swiat' ? 2 : (category === 'polska' ? 6 : 13);
+
+        if (!leafMap) {
+            leafMap = L.map('leaf-map', { 
+                zoomControl: true // Przyciski +/-
+            }).setView(mapCenter, mapZoom);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafMap);
+
+            leafMap.on('click', (e) => {
+                if (leafMarker) leafMap.removeLayer(leafMarker);
+                leafMarker = L.marker(e.latlng).addTo(leafMap);
+            });
+
+} else {
+    leafMap.setView(mapCenter, mapZoom);
+    // DODAJ TO: Czyści mapę ze starych linii i markerów przed nową rundą
+    leafMap.eachLayer((layer) => {
+        if (!!layer.toGeoJSON) leafMap.removeLayer(layer);
+    });
+    // Ponowne dodanie warstwy mapy (bo eachLayer ją usunie)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafMap);
+    leafMarker = null; 
+}
+
+    } catch (err) {
+        console.error("Błąd Geo:", err);
+    }
+};
+
+// Funkcja sprawdzania i zapisu
+document.getElementById('geo-check-btn').onclick = async function() {
+    const btn = document.getElementById('geo-check-btn');
+
+    // Jeśli przycisk jest w trybie "Następna runda", zresetuj grę
+    if (btn.innerText === "NASTĘPNA RUNDA") {
+        btn.innerText = "STRZELAJ!";
+        startFreeGeo(currentGeoCategory);
+        return;
+    }
+
+    if (!leafMarker || !targetLatLng) return alert("Zaznacz punkt na mapie!");
+
+    const guess = leafMarker.getLatLng();
+    const target = [targetLatLng.lat, targetLatLng.lng];
+    const dist = leafMap.distance(guess, target) / 1000;
+    
+    // Rysowanie linii i pokazanie celu
+    const targetMarker = L.marker(target, {
+        icon: L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41]
+        })
+    }).addTo(leafMap).bindPopup("Tu był cel!").openPopup();
+
+    const polyline = L.polyline([guess, target], {color: 'var(--accent-color)', dashArray: '5, 10'}).addTo(leafMap);
+    
+    // Automatyczne dopasowanie widoku mapy, aby widzieć oba punkty
+    leafMap.fitBounds(L.latLngBounds([guess, target]), { padding: [50, 50] });
+
+    let scoreMultiplier = 10; 
+    if (currentGeoCategory === 'polska') scoreMultiplier = 2;
+    if (currentGeoCategory === 'swiat') scoreMultiplier = 0.5;
+    let score = Math.max(0, Math.floor(5000 - (dist * scoreMultiplier)));
+    
+    alert(`Dystans: ${dist.toFixed(2)} km. Wynik: ${score} pkt!`);
+
+    // Zmiana przycisku na tryb kontynuacji
+    btn.innerText = "NASTĘPNA RUNDA";
+
+    try {
+        const userRef = doc(db, "uzytkownicy", auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        let finalName = "Inwestor";
+        if (userSnap.exists()) {
+            finalName = userSnap.data().name || "Inwestor"; 
+        }
+
+        await addDoc(collection(db, "geo_leaderboard"), {
+            nick: String(finalName),
+            score: Number(score),
+            category: String(currentGeoCategory),
+            timestamp: serverTimestamp()
+        });
+        
+        if (score > 100) {
+            const reward = score * 5;
+            await updateDoc(userRef, { cash: increment(reward) });
+            if (window.showNotification) showNotification(`Zarobiłeś ${reward} PLN!`, "news");
+        }
+        
+    } catch (e) {
+        console.error("Błąd zapisu:", e);
+    }
+};
+
+async function loadGeoRanking() {
+    try {
+        const q = query(collection(db, "geo_leaderboard"), orderBy("score", "desc"), limit(5));
+        const snap = await getDocs(q);
+        const container = document.getElementById('geo-ranking-list');
+        if (!container) return;
+        
+        container.innerHTML = snap.docs.map(doc => {
+            const d = doc.data();
+            return `<div style="border-bottom:1px solid #333; padding:4px 0;">
+                <span style="color:var(--accent-color)">${d.nick}</span>: ${d.score} pkt
+            </div>`;
+        }).join('') || "Brak wyników.";
+    } catch (e) { console.error(e); }
+}
