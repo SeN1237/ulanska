@@ -4451,3 +4451,15 @@ select:focus {
     background: rgba(255, 42, 109, 0.2) !important;
     cursor: not-allowed;
 }
+
+/* Stylizacja przycisków Zoom na mapie Geo */
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+    background-color: rgba(20, 20, 35, 0.8) !important;
+    color: var(--accent-color) !important;
+    border: 1px solid var(--accent-color) !important;
+}
+
+.leaflet-control-zoom {
+    border: none !important;
+    margin-bottom: 45px !important; /* Przesunięcie nad przycisk "Strzelaj" */
+}
