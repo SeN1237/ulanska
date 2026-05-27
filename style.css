@@ -1128,3 +1128,31 @@ select { appearance: none; cursor: pointer; }
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+/* ======== CHAT ======== */
+.chat-msg {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    word-break: break-word;
+    animation: toastIn 0.2s ease;
+}
+
+.chat-msg .chat-user {
+    color: var(--gold);
+    font-weight: 700;
+    margin-right: 8px;
+}
+
+.chat-msg .chat-text {
+    color: var(--text);
+}
+
+.chat-msg .chat-time {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    float: right;
+    margin-top: 2px;
+}
