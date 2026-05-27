@@ -35,7 +35,7 @@ let player = {
     prestigeLevel: 0, stats: { totalTrades: 0, gamesPlayed: 0 }
 };
 
-let currentUserId = null, unsubscribePortfolio = null, unsubscribeLeaderboard = null, unsubscribeHistory = null, isMuted = false;
+let currentUserId = null, unsubscribePortfolio = null, unsubscribeLeaderboard = null, unsubscribeChat = null, isMuted = false;
 const dom = {}; // DOM REFS
 
 // --- UTILS ---
@@ -85,10 +85,16 @@ function updateUI() {
 }
 
 // Globalne Helpersy dla gier (zapobiegają duplikacji transakcji Firebase)
+let lastActionTime = 0; // SYSTEM ANTYSPAMOWY
+
 async function deductBet(amount) {
+    if (Date.now() - lastActionTime < 1000) { showMessage('Zwolnij! Odczekaj sekundę.', 'error'); return false; }
     if (isNaN(amount) || amount <= 0) { showMessage('Podaj stawkę!', 'error'); return false; }
     if (!currentUserId) { showMessage('Zaloguj się!', 'error'); return false; }
     if (amount > player.cash) { showMessage('Brak środków!', 'error'); return false; }
+    
+    lastActionTime = Date.now(); // Zapisanie czasu po poprawnym kliknięciu
+    
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, 'uzytkownicy', currentUserId);
@@ -192,6 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-multi-stand')?.addEventListener('click', multiStand);
     document.getElementById('btn-leave-bj-table')?.addEventListener('click', leaveMultiTable);
 
+    // Podpięcie Czatu
+    document.getElementById('btn-chat-send')?.addEventListener('click', sendChatMessage);
+    document.getElementById('chat-input')?.addEventListener('keypress', e => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
     // Nav & Auth
     document.querySelectorAll('.nav-btn[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
     document.getElementById('login-form')?.addEventListener('submit', onLogin);
@@ -276,12 +287,12 @@ onAuthStateChanged(auth, user => {
         currentUserId = user.uid;
         document.getElementById('auth-container').classList.add('hidden');
         document.getElementById('casino-container').classList.remove('hidden');
-        listenToPortfolio(user.uid); listenToLeaderboard(); listenToHistory();
+        listenToPortfolio(user.uid); listenToLeaderboard(); listenToChat(); // Włącz czat
     } else {
         currentUserId = null;
         if (unsubscribePortfolio) unsubscribePortfolio();
         if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-        if (unsubscribeHistory) unsubscribeHistory();
+        if (unsubscribeChat) unsubscribeChat(); // Wyłącz czat
         document.getElementById('casino-container').classList.add('hidden');
         document.getElementById('auth-container').classList.remove('hidden');
     }
@@ -297,50 +308,76 @@ function listenToPortfolio(uid) {
         }
     });
 }
+// Ranking
 function listenToLeaderboard() {
     const q = query(collection(db, 'uzytkownicy'), limit(50));
     unsubscribeLeaderboard = onSnapshot(q, snap => {
         const list = document.getElementById('leaderboard-list');
         if (!list) return; list.innerHTML = '';
         let players = []; snap.forEach(docSnap => players.push({ id: docSnap.id, ...docSnap.data() }));
-        
-        // --- NOWE SORTOWANIE RANKINGU ---
         players.sort((a, b) => {
-            const lvlA = Number(a.prestigeLevel || 0);
-            const lvlB = Number(b.prestigeLevel || 0);
-            
-            // 1. Najpierw sprawdzamy poziom (kto ma wyższy, ten jest wyżej)
-            if (lvlB !== lvlA) {
-                return lvlB - lvlA;
-            }
-            // 2. Jeśli poziomy są równe, decyduje ilość gotówki
+            const lvlA = Number(a.prestigeLevel || 0); const lvlB = Number(b.prestigeLevel || 0);
+            if (lvlB !== lvlA) return lvlB - lvlA;
             return Number(b.cash) - Number(a.cash);
         });
-        // ---------------------------------
-        
         players.slice(0, 20).forEach((d, idx) => {
             const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
             const rankText = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
             const isMe = d.id === currentUserId;
             const row = document.createElement('div');
             row.className = 'leaderboard-row' + (isMe ? ' my-rank' : '');
-            
             row.innerHTML = `<span class="lb-rank ${rankClass}">${rankText}</span><span class="lb-name"><i class="fa-solid fa-user-circle" style="margin-right:8px; opacity:0.6;"></i>${d.name} <span class="lb-stars">${getVipBadge(d.prestigeLevel)}</span></span><span class="lb-val">${formatujWalute(d.cash)}</span>`;
             list.appendChild(row);
         });
     });
 }
-function listenToHistory() {
-    const q = query(collection(db, 'historia_kasyna'), orderBy('timestamp', 'desc'), limit(20));
-    unsubscribeHistory = onSnapshot(q, snap => {
-        if (!dom.globalHistoryFeed) return; dom.globalHistoryFeed.innerHTML = '';
-        snap.forEach(docSnap => {
-            const d = docSnap.data();
-            const row = document.createElement('div'); row.className = 'history-row';
-            row.innerHTML = `<span class="h-col h-user">${d.userName}</span><span class="h-col h-type ${d.profit>0 ? 'h-win' : 'h-loss'}">${d.game}</span><span class="h-col">${d.profit>0 ? '+' : ''}${formatujWalute(d.profit)}</span><span class="h-col h-val">${formatujWalute(d.bet)}</span>`;
-            dom.globalHistoryFeed.appendChild(row);
+
+// ==========================================
+// SYSTEM CZATU I ANTYSPAM CZATOWY
+// ==========================================
+let lastChatTime = 0;
+
+function listenToChat() {
+    const q = query(collection(db, 'chat_messages'), orderBy('timestamp', 'desc'), limit(40));
+    unsubscribeChat = onSnapshot(q, snap => {
+        const box = document.getElementById('chat-messages');
+        if (!box) return;
+        box.innerHTML = '';
+        let msgs = [];
+        snap.forEach(docSnap => msgs.push(docSnap.data()));
+        // Odwracamy, by najnowsze były na dole
+        msgs.reverse().forEach(d => {
+            const div = document.createElement('div');
+            div.className = 'chat-msg';
+            const time = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+            div.innerHTML = `<span class="chat-time">${time}</span><span class="chat-user">${d.authorName}:</span><span class="chat-text">${d.text}</span>`;
+            box.appendChild(div);
         });
+        box.scrollTop = box.scrollHeight; // Zjeżdża ekranem na sam dół czatu
     });
+}
+
+async function sendChatMessage() {
+    if (!currentUserId) return showMessage('Musisz być zalogowany!', 'error');
+    if (Date.now() - lastChatTime < 3000) return showMessage('Zwolnij! Nie spamuj na czacie (3 sek. przerwy).', 'error');
+    
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || text.length > 200) return;
+    
+    lastChatTime = Date.now();
+    input.value = '';
+    
+    try {
+        await addDoc(collection(db, 'chat_messages'), {
+            authorId: currentUserId,
+            authorName: player.name,
+            text: text,
+            timestamp: serverTimestamp()
+        });
+    } catch (e) {
+        showMessage('Błąd wysyłania: ' + e.message, 'error');
+    }
 }
 async function saveGameResult(game, bet, profit, extra = {}) {
     if (!currentUserId) return;
@@ -1059,42 +1096,6 @@ function resetRD() {
     renderPokerCard('rd-card-2', null, true);
     renderPokerCard('rd-card-mid', null, true);
 }
-window.switchView = switchView;
-
-window.commitSpin = commitSpin;
-window.selectBetType = selectBetType;
-
-window.revealMine = revealMine;
-window.cashoutMines = cashoutMines;
-window.joinMultiTable = joinMultiTable;
-window.toggleHold = toggleHold;
-
-window.selectDiceChoice = selectDiceChoice;
-
-window.selectKeno = selectKeno;
-
-window.selectWheelSegment = selectWheelSegment;
-
-window.playScratch = playScratch;
-
-window.selectHorse = selectHorse;
-
-window.pickPenaltySide = pickPenaltySide;
-
-window.pickThreeCard = pickThreeCard;
-
-window.makeHiloChoice = makeHiloChoice;
-
-window.placeBaccaratBet = placeBaccaratBet;
-
-window.placeDragonTigerBet = placeDragonTigerBet;
-
-window.placeSicBoBet = placeSicBoBet;
-
-window.selectRouletteNumber = selectRouletteNumber;
-window.joinMultiTable = joinMultiTable;
-window.leaveMultiTable = leaveMultiTable;
-
 // ============================================
 // BLACKJACK MULTIPLAYER (Live)
 // ============================================
@@ -1430,3 +1431,39 @@ function exitRoomUI() {
     document.getElementById('bj-multi-controls')?.classList.add('hidden');
     document.getElementById('bj-multi-lobby')?.classList.remove('hidden');
 }
+
+window.switchView = switchView;
+
+window.commitSpin = commitSpin;
+window.selectBetType = selectBetType;
+
+window.revealMine = revealMine;
+window.cashoutMines = cashoutMines;
+window.joinMultiTable = joinMultiTable;
+window.toggleHold = toggleHold;
+
+window.selectDiceChoice = selectDiceChoice;
+
+window.selectKeno = selectKeno;
+
+window.selectWheelSegment = selectWheelSegment;
+
+window.playScratch = playScratch;
+
+window.selectHorse = selectHorse;
+
+window.pickPenaltySide = pickPenaltySide;
+
+window.pickThreeCard = pickThreeCard;
+
+window.makeHiloChoice = makeHiloChoice;
+
+window.placeBaccaratBet = placeBaccaratBet;
+
+window.placeDragonTigerBet = placeDragonTigerBet;
+
+window.placeSicBoBet = placeSicBoBet;
+
+window.selectRouletteNumber = selectRouletteNumber;
+window.joinMultiTable = joinMultiTable;
+window.leaveMultiTable = leaveMultiTable;
