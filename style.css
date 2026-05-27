@@ -280,7 +280,7 @@ body::before {
 
 #vip-badge { color: var(--gold); font-size: 0.85rem; }
 
-#logout-button, #mute-button {
+#logout-button, #mute-button, #btn-header-ranking {
     background: rgba(255,255,255,0.05);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -290,7 +290,7 @@ body::before {
     transition: all 0.2s;
 }
 
-#logout-button:hover, #mute-button:hover {
+#logout-button:hover, #mute-button:hover, #btn-header-ranking:hover {
     border-color: var(--gold);
     color: var(--gold);
 }
