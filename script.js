@@ -363,7 +363,32 @@ window.commitSpin = async function () {
 
 // Blackjack skrót
 let bjDeck=[], bjPlayer=[], bjDealer=[], bjActive=false, bjBet=0;
-function getBjScore(h) { let s=0, a=0; h.forEach(c=>{s+=c.value; if(c.rank==='A')a++;}); while(s>21&&a>0){s-=10;a--;} return s; }
+function getBjScore(hand) {
+    let score = 0;
+    let aces = 0;
+
+    hand.forEach(card => {
+
+        if (['J', 'Q', 'K'].includes(card.rank)) {
+            score += 10;
+        }
+        else if (card.rank === 'A') {
+            score += 11;
+            aces++;
+        }
+        else {
+            score += parseInt(card.rank);
+        }
+
+    });
+
+    while (score > 21 && aces > 0) {
+        score -= 10;
+        aces--;
+    }
+
+    return score;
+}
 function upBjUI(rev) {
     document.getElementById('bj-player-cards').innerHTML = bjPlayer.map(c=>createCardHTML(c)).join('');
     document.getElementById('bj-dealer-cards').innerHTML = bjDealer.map((c,i)=>createCardHTML(c, i===1&&!rev)).join('');
