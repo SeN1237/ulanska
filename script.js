@@ -88,7 +88,7 @@ function updateUI() {
 let lastActionTime = 0; // SYSTEM ANTYSPAMOWY
 
 async function deductBet(amount) {
-    if (Date.now() - lastActionTime < 1000) { showMessage('Zwolnij! Odczekaj sekundę.', 'error'); return false; }
+    if (Date.now() - lastActionTime < 5000) { showMessage('Zwolnij! Odczekaj sekundę.', 'error'); return false; }
     if (isNaN(amount) || amount <= 0) { showMessage('Podaj stawkę!', 'error'); return false; }
     if (!currentUserId) { showMessage('Zaloguj się!', 'error'); return false; }
     if (amount > player.cash) { showMessage('Brak środków!', 'error'); return false; }
