@@ -11,7 +11,7 @@ import {
 import {
     getFirestore, doc, setDoc, onSnapshot, updateDoc,
     collection, addDoc, query, orderBy, limit, Timestamp,
-    serverTimestamp, getDocs, runTransaction, increment, getDoc
+    serverTimestamp, getDocs, runTransaction, increment, getDoc, deleteField
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
 // --- FIREBASE CONFIG ---
@@ -103,20 +103,50 @@ async function deductBet(amount) {
 
 async function addWin(winAmount, betAmount, gameName, winMsg) {
     const profit = winAmount - betAmount;
+    let didPrestige = false; // flaga informująca, czy gracz właśnie awansował
+    
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, 'uzytkownicy', currentUserId);
             const d = (await t.get(ref)).data();
-            t.update(ref, { cash: d.cash + winAmount, zysk: (d.zysk || 0) + profit });
-            player.cash = d.cash + winAmount;
+            
+            let finalCash = d.cash + winAmount;
+            let finalPrestige = d.prestigeLevel || 0;
+            
+            // --- SYSTEM PRESTIŻU (AWANS PRZY 250 000) ---
+            if (finalCash >= 250000) {
+                finalPrestige += 1;
+                finalCash = 10000;
+                didPrestige = true;
+            }
+            // ---------------------------------------------
+            
+            t.update(ref, { 
+                cash: finalCash, 
+                zysk: (d.zysk || 0) + profit,
+                prestigeLevel: finalPrestige
+            });
+            
+            player.cash = finalCash;
+            player.prestigeLevel = finalPrestige;
         });
+        
         updateUI();
-        if (winAmount > 0) { if(winMsg) showNotification(`${gameName}: ${winMsg}`, 'news', 'positive'); playSound('win'); }
-        else { playSound('lose'); }
+        
+        // Specjalne powiadomienie w przypadku awansu
+        if (didPrestige) {
+            showNotification(`🚀 AWANS! Osiągnąłeś poziom ${player.prestigeLevel}! Twoje saldo zresetowano do 10 000 ułan lir.`, 'news', 'positive');
+            playSound('win');
+        } else if (winAmount > 0) { 
+            if(winMsg) showNotification(`${gameName}: ${winMsg}`, 'news', 'positive'); 
+            playSound('win'); 
+        } else { 
+            playSound('lose'); 
+        }
+        
         await saveGameResult(gameName, betAmount, profit);
     } catch(e) { console.error(e); }
 }
-
 function buildDeck() {
     const suits = ['♥', '♦', '♣', '♠'], ranks = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
     const values = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
@@ -149,6 +179,18 @@ window.switchView = function (viewId) {
 document.addEventListener('DOMContentLoaded', () => {
     // Cache DOM
     ['header-cash', 'username', 'vip-badge', 'lobby-cash', 'lobby-username', 'lobby-total', 'lobby-profit', 'lobby-level', 'lobby-games', 'lobby-vip', 'auth-message', 'global-history-feed', 'personal-history-feed'].forEach(id => dom[id.replace(/-([a-z])/g, g => g[1].toUpperCase())] = document.getElementById(id));
+    
+    // Podpięcie Blackjack Multiplayer
+    document.querySelector('.nav-btn[data-view="bj_multi"]')?.addEventListener('click', () => {
+        switchView('bj_multi');
+        listenToMultiLobby();
+    });
+    document.getElementById('btn-start-multi-game')?.addEventListener('click', startMultiGame);
+    document.getElementById('btn-create-bj-table')?.addEventListener('click', createMultiTable);
+    document.getElementById('btn-multi-bet')?.addEventListener('click', placeMultiBet);
+    document.getElementById('btn-multi-hit')?.addEventListener('click', multiHit);
+    document.getElementById('btn-multi-stand')?.addEventListener('click', multiStand);
+    document.getElementById('btn-leave-bj-table')?.addEventListener('click', leaveMultiTable);
 
     // Nav & Auth
     document.querySelectorAll('.nav-btn[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
@@ -261,15 +303,29 @@ function listenToLeaderboard() {
         const list = document.getElementById('leaderboard-list');
         if (!list) return; list.innerHTML = '';
         let players = []; snap.forEach(docSnap => players.push({ id: docSnap.id, ...docSnap.data() }));
-        players.sort((a, b) => Number(b.cash) - Number(a.cash));
+        
+        // --- NOWE SORTOWANIE RANKINGU ---
+        players.sort((a, b) => {
+            const lvlA = Number(a.prestigeLevel || 0);
+            const lvlB = Number(b.prestigeLevel || 0);
+            
+            // 1. Najpierw sprawdzamy poziom (kto ma wyższy, ten jest wyżej)
+            if (lvlB !== lvlA) {
+                return lvlB - lvlA;
+            }
+            // 2. Jeśli poziomy są równe, decyduje ilość gotówki
+            return Number(b.cash) - Number(a.cash);
+        });
+        // ---------------------------------
+        
         players.slice(0, 20).forEach((d, idx) => {
             const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
             const rankText = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
             const isMe = d.id === currentUserId;
             const row = document.createElement('div');
-            row.className = 'leaderboard-row' + (isMe ? ' style="border-color:var(--gold)"' : '');
-            if (isMe) row.style.borderColor = 'var(--gold)';
-            row.innerHTML = `<span class="lb-rank ${rankClass}">${rankText}</span><span class="lb-name">${d.name} <span class="lb-stars">${getVipBadge(d.prestigeLevel)}</span></span><span class="lb-val">${formatujWalute(d.cash)}</span>`;
+            row.className = 'leaderboard-row' + (isMe ? ' my-rank' : '');
+            
+            row.innerHTML = `<span class="lb-rank ${rankClass}">${rankText}</span><span class="lb-name"><i class="fa-solid fa-user-circle" style="margin-right:8px; opacity:0.6;"></i>${d.name} <span class="lb-stars">${getVipBadge(d.prestigeLevel)}</span></span><span class="lb-val">${formatujWalute(d.cash)}</span>`;
             list.appendChild(row);
         });
     });
@@ -560,18 +616,50 @@ async function playSlots() {
 }
 
 let crashActive = false, crashMult = 1.0, crashTimer, crashTarget;
+
 async function actionCrash() {
     const btn = document.getElementById('btn-crash-action'), amount = parseInt(document.getElementById('crash-amount').value);
+    
     if (!crashActive) {
         if (!await deductBet(amount)) return;
-        crashActive = true; crashMult = 1.0; crashTarget = 1.0 + Math.random() * Math.random() * 10;
-        btn.textContent = 'WYPŁAĆ ZYSK'; document.getElementById('crash-status').textContent = 'Lot trwa...'; document.getElementById('crash-multiplier').style.color = 'var(--gold)';
+        crashActive = true; 
+        crashMult = 1.0; 
+        
+        // --- ZMIANA LOGIKI CRASHA (MNIEJSZA DOCHODOWOŚĆ) ---
+        // 1. 10% szans na to, że rakieta wybuchnie natychmiast
+        if (Math.random() < 0.10) {
+            crashTarget = 1.0;
+        } else {
+            // 2. Znacznie zmniejszamy maksymalny pułap i częstotliwość wysokich lotów
+            // Math.pow(..., 3) sprawia, że wyniki mocno ciążą ku dołowi
+            crashTarget = 1.0 + Math.pow(Math.random(), 3) * 4; 
+        }
+        // --------------------------------------------------
+
+        btn.textContent = 'WYPŁAĆ ZYSK'; 
+        document.getElementById('crash-status').textContent = 'Lot trwa...'; 
+        document.getElementById('crash-multiplier').style.color = 'var(--gold)';
+        
         crashTimer = setInterval(async () => {
-            crashMult += 0.01; document.getElementById('crash-multiplier').textContent = crashMult.toFixed(2) + 'x';
-            if (crashMult >= crashTarget) { clearInterval(crashTimer); crashActive = false; document.getElementById('crash-status').textContent = 'CRASH!'; btn.textContent = '🚀 POSTAW ZAKŁAD'; document.getElementById('crash-multiplier').style.color = 'var(--red)'; await addWin(0, amount, 'Crash', null); }
+            // Zmniejszony przyrost (0.005 zamiast 0.01) gra na nerwach gracza
+            crashMult += 0.005; 
+            document.getElementById('crash-multiplier').textContent = crashMult.toFixed(2) + 'x';
+            
+            if (crashMult >= crashTarget) { 
+                clearInterval(crashTimer); 
+                crashActive = false; 
+                document.getElementById('crash-status').textContent = 'CRASH!'; 
+                btn.textContent = '🚀 POSTAW ZAKŁAD'; 
+                document.getElementById('crash-multiplier').style.color = 'var(--red)'; 
+                await addWin(0, amount, 'Crash', null); 
+            }
         }, 50);
     } else {
-        clearInterval(crashTimer); crashActive = false; btn.textContent = '🚀 POSTAW ZAKŁAD'; document.getElementById('crash-status').textContent = 'Wypłacono!'; await addWin(amount * crashMult, amount, 'Crash', `Wypłacono x${crashMult.toFixed(2)}`);
+        clearInterval(crashTimer); 
+        crashActive = false; 
+        btn.textContent = '🚀 POSTAW ZAKŁAD'; 
+        document.getElementById('crash-status').textContent = 'Wypłacono!'; 
+        await addWin(amount * crashMult, amount, 'Crash', `Wypłacono x${crashMult.toFixed(2)}`);
     }
 }
 
@@ -978,7 +1066,7 @@ window.selectBetType = selectBetType;
 
 window.revealMine = revealMine;
 window.cashoutMines = cashoutMines;
-
+window.joinMultiTable = joinMultiTable;
 window.toggleHold = toggleHold;
 
 window.selectDiceChoice = selectDiceChoice;
@@ -1004,3 +1092,341 @@ window.placeDragonTigerBet = placeDragonTigerBet;
 window.placeSicBoBet = placeSicBoBet;
 
 window.selectRouletteNumber = selectRouletteNumber;
+window.joinMultiTable = joinMultiTable;
+window.leaveMultiTable = leaveMultiTable;
+
+// ============================================
+// BLACKJACK MULTIPLAYER (Live)
+// ============================================
+
+var currentRoomId = null;
+var unsubMultiLobby = null;
+var unsubRoom = null;
+var isRoomHost = false;
+
+// 1. LOBBY (Lista stołów)
+function listenToMultiLobby() {
+    const list = document.getElementById('bj-tables-list');
+    if (!list) return;
+    
+    // Zatrzymujemy poprzedni nasłuch, jeśli istnieje
+    if (unsubMultiLobby) unsubMultiLobby();
+    
+    // Nasłuchujemy zmian w kolekcji stolików
+    unsubMultiLobby = onSnapshot(collection(db, 'stoliki_bj'), snap => {
+        if (!currentRoomId) { // Odświeżamy listę tylko jeśli nie jesteśmy przy stole
+            list.innerHTML = '';
+            let count = 0;
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                count++;
+                
+                const row = document.createElement('div');
+                row.className = 'history-row';
+                
+                // Wrzucamy do środka tylko teksty (bez przycisku)
+                row.innerHTML = `
+                    <span class="h-col h-user">Stół: ${data.hostName}</span>
+                    <span class="h-col h-type">Graczy: ${Object.keys(data.players || {}).length}/4</span>
+                    <span class="h-col h-val">${data.status === 'waiting' ? '🟢 Otwarte' : '🔴 W Grze'}</span>
+                `;
+                
+                // --- KULOODPORNE TWORZENIE PRZYCISKU ---
+                const joinBtn = document.createElement('button');
+                joinBtn.className = 'btn-accent';
+                joinBtn.style.cssText = 'padding: 4px 10px; font-size: 0.8rem;';
+                joinBtn.textContent = 'DOŁĄCZ';
+                // Przypinamy funkcję bezpośrednio do obiektu przycisku (nie potrzebuje window.!)
+                joinBtn.addEventListener('click', () => {
+                    joinMultiTable(docSnap.id);
+                });
+                
+                // Doklejamy przycisk do wiersza
+                row.appendChild(joinBtn);
+                list.appendChild(row);
+            });
+            if (count === 0) {
+                list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Brak otwartych stołów. Stwórz własny!</p>';
+            }
+        }
+    });
+}
+
+// 2. TWORZENIE STOŁU
+async function createMultiTable() {
+    if (!currentUserId) return showMessage('Musisz być zalogowany!', 'error');
+    
+    try {
+        const newRoomRef = await addDoc(collection(db, 'stoliki_bj'), {
+            hostId: currentUserId,
+            hostName: player.name,
+            status: 'waiting', // waiting, betting, playing, finished
+            dealerCards: [],
+            deck: [],
+            players: {
+                [currentUserId]: { name: player.name, cards: [], bet: 0, status: 'waiting', score: 0 }
+            },
+            timestamp: serverTimestamp()
+        });
+        isRoomHost = true;
+        currentRoomId = newRoomRef.id;
+        enterRoomUI();
+        listenToRoom();
+    } catch (e) {
+        showMessage('Błąd przy tworzeniu stołu: ' + e.message, 'error');
+    }
+}
+
+// 3. DOŁĄCZANIE DO STOŁU
+async function joinMultiTable(roomId) {
+    if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+    
+    try {
+        const roomRef = doc(db, 'stoliki_bj', roomId);
+        const roomData = (await getDoc(roomRef)).data();
+        
+        if (roomData.status !== 'waiting') return showMessage('Gra już trwa na tym stole!', 'error');
+        if (Object.keys(roomData.players || {}).length >= 4) return showMessage('Stół jest pełny!', 'error');
+
+        await updateDoc(roomRef, {
+            [`players.${currentUserId}`]: { name: player.name, cards: [], bet: 0, status: 'waiting', score: 0 }
+        });
+        
+        isRoomHost = false;
+        currentRoomId = roomId;
+        enterRoomUI();
+        listenToRoom();
+    } catch (e) {
+        showMessage('Błąd dołączania: ' + e.message, 'error');
+    }
+}
+
+// 4. WYCHODZENIE ZE STOŁU (Wzmocnione)
+async function leaveMultiTable() {
+    // Jeśli nie ma pokoju, po prostu resetujemy UI
+    if (!currentRoomId || !currentUserId) {
+        exitRoomUI();
+        listenToMultiLobby();
+        return;
+    }
+    
+    try {
+        const roomRef = doc(db, 'stoliki_bj', currentRoomId);
+        
+        if (isRoomHost) {
+            await updateDoc(roomRef, { status: 'closed' });
+        } else {
+            await updateDoc(roomRef, {
+                [`players.${currentUserId}`]: deleteField()
+            });
+        }
+    } catch (e) {
+        console.warn('Pokój mógł już zostać usunięty lub zamknięty.');
+    }
+    
+    // Zatrzymujemy nasłuch starego stołu
+    if (unsubRoom) { 
+        unsubRoom(); 
+        unsubRoom = null; 
+    }
+    
+    // Resetujemy zmienne lokalne
+    currentRoomId = null;
+    isRoomHost = false;
+    
+    // Wymuszamy wyjście z UI i powrót do nasłuchiwania lobby
+    exitRoomUI();
+    listenToMultiLobby();
+}
+
+// 4b. START GRY (Tylko Host)
+async function startMultiGame() {
+    if (!isRoomHost || !currentRoomId) return;
+    try {
+        // Zmieniamy status stołu, aby przejść do fazy obstawiania
+        await updateDoc(doc(db, 'stoliki_bj', currentRoomId), {
+            status: 'betting'
+        });
+    } catch (e) {
+        showMessage('Błąd startu gry: ' + e.message, 'error');
+    }
+}
+
+// --- AKCJE GRACZA MULTIPLAYER ---
+async function placeMultiBet() {
+    if (!currentRoomId || !currentUserId) return;
+    const amount = parseInt(document.getElementById('bj-multi-amount').value);
+    
+    // deductBet to Twoja funkcja - pobiera kasę z konta
+    if (!await deductBet(amount)) return; 
+
+    try {
+        await updateDoc(doc(db, 'stoliki_bj', currentRoomId), {
+            [`players.${currentUserId}.bet`]: amount,
+            [`players.${currentUserId}.status`]: 'ready' // Gracz gotowy do gry
+        });
+    } catch (e) { showMessage('Błąd zakładu: ' + e.message, 'error'); }
+}
+
+async function multiHit() {
+    if (!currentRoomId || !currentUserId) return;
+    const roomRef = doc(db, 'stoliki_bj', currentRoomId);
+    
+    // Pobieramy aktualny stan talii
+    const roomData = (await getDoc(roomRef)).data();
+    let myCards = roomData.players[currentUserId].cards;
+    let deck = roomData.deck;
+    
+    myCards.push(deck.pop());
+    let score = getBjScore(myCards);
+    
+    let updates = { [`players.${currentUserId}.cards`]: myCards, deck: deck };
+    if (score >= 21) updates[`players.${currentUserId}.status`] = 'finished'; // Fura lub Oczko
+    
+    await updateDoc(roomRef, updates);
+}
+
+async function multiStand() {
+    if (!currentRoomId || !currentUserId) return;
+    await updateDoc(doc(db, 'stoliki_bj', currentRoomId), {
+        [`players.${currentUserId}.status`]: 'finished'
+    });
+}
+
+// 5. NASŁUCHIWANIE I SILNIK GRY (LIVE)
+function listenToRoom() {
+    if (!currentRoomId) return;
+    if (unsubRoom) unsubRoom();
+    
+    unsubRoom = onSnapshot(doc(db, 'stoliki_bj', currentRoomId), snap => {
+        if (!snap.exists()) {
+            showMessage('Stół został usunięty.', 'error');
+            return leaveMultiTable();
+        }
+        const data = snap.data();
+        if (data.status === 'closed') {
+            showMessage('Host zamknął stół.', 'info');
+            return leaveMultiTable();
+        }
+
+        // --- 1. ZARZĄDZANIE STARTEM (Tylko Host) ---
+        const startBtn = document.getElementById('btn-start-multi-game');
+        if (startBtn) {
+            if (isRoomHost && data.status === 'waiting') startBtn.classList.remove('hidden');
+            else startBtn.classList.add('hidden');
+        }
+
+        // --- 2. SILNIK GRY HOSTA (Automatyczny Krupier) ---
+        if (isRoomHost) {
+            const allPlayers = Object.values(data.players || {});
+            
+            // Faza 1: Rozdanie kart (gdy wszyscy postawili)
+            if (data.status === 'betting' && allPlayers.length > 0 && allPlayers.every(p => p.status === 'ready')) {
+                let newDeck = buildDeck();
+                let updates = { status: 'playing', deck: newDeck, dealerCards: [newDeck.pop(), newDeck.pop()] };
+                for (let uid of Object.keys(data.players)) {
+                    updates[`players.${uid}.cards`] = [newDeck.pop(), newDeck.pop()];
+                    updates[`players.${uid}.status`] = 'playing';
+                }
+                updateDoc(doc(db, 'stoliki_bj', currentRoomId), updates);
+            }
+            
+            // Faza 2: Tura Krupiera (gdy wszyscy gracze skończyli dobierać)
+            if (data.status === 'playing' && allPlayers.length > 0 && allPlayers.every(p => p.status === 'finished')) {
+                let currentDealerCards = [...data.dealerCards];
+                let currentDeck = [...data.deck];
+                let dScore = getBjScore(currentDealerCards);
+                
+                while (dScore < 17) { currentDealerCards.push(currentDeck.pop()); dScore = getBjScore(currentDealerCards); }
+                updateDoc(doc(db, 'stoliki_bj', currentRoomId), {
+                    status: 'resolving', dealerCards: currentDealerCards, deck: currentDeck
+                });
+            }
+            
+            // Faza 3: Reset Stołu (gdy wszyscy odebrali nagrody)
+            if (data.status === 'resolving' && allPlayers.length > 0 && allPlayers.every(p => p.status === 'rewarded')) {
+                let updates = { status: 'waiting', dealerCards: [], deck: [] };
+                for (let uid of Object.keys(data.players)) {
+                    updates[`players.${uid}.cards`] = []; updates[`players.${uid}.bet`] = 0; updates[`players.${uid}.status`] = 'waiting';
+                }
+                setTimeout(() => { updateDoc(doc(db, 'stoliki_bj', currentRoomId), updates); }, 4000); // 4 sek. na wyniki
+            }
+        }
+
+        // --- 3. ODBIERANIE NAGRÓD (Każdy gracz osobno) ---
+        const myData = data.players?.[currentUserId];
+        if (data.status === 'resolving' && myData && myData.status === 'finished') {
+            const pScore = getBjScore(myData.cards);
+            const dScore = getBjScore(data.dealerCards);
+            let winAmt = 0; let msg = '';
+            
+            if (pScore > 21) { msg = 'Fura! (Bust)'; }
+            else if (dScore > 21 || pScore > dScore) { winAmt = myData.bet * 2; msg = 'Wygrana!'; }
+            else if (pScore === dScore) { winAmt = myData.bet; msg = 'Remis (Zwrot)'; }
+            else { msg = 'Krupier wygrywa'; }
+            
+            addWin(winAmt, myData.bet, 'BJ Live', msg).then(() => {
+                updateDoc(doc(db, 'stoliki_bj', currentRoomId), { [`players.${currentUserId}.status`]: 'rewarded' });
+            });
+        }
+
+        // --- 4. RENDEROWANIE STOŁU W HTML ---
+        document.getElementById('bj-room-name').textContent = `Stół Gracza: ${data.hostName} | Status: ${data.status.toUpperCase()}`;
+        
+        // Krupier (ukrywa drugą kartę w trakcie gry)
+        const hideDealer = data.status === 'playing';
+        document.getElementById('bj-multi-dealer-cards').innerHTML = (data.dealerCards || []).map((c, i) => createCardHTML(c, i === 1 && hideDealer)).join('');
+        document.getElementById('bj-multi-dealer-score').textContent = hideDealer ? '' : `(${getBjScore(data.dealerCards || [])})`;
+        
+        // Gracze
+        const playersContainer = document.getElementById('bj-multi-players');
+        playersContainer.innerHTML = '';
+        for (const [uid, pData] of Object.entries(data.players || {})) {
+            const isMe = uid === currentUserId;
+            const playerDiv = document.createElement('div');
+            playerDiv.style.cssText = `flex: 1; min-width: 150px; background: rgba(255,255,255,0.03); border: 1px solid ${isMe ? 'var(--gold)' : 'var(--border)'}; border-radius: 8px; padding: 10px; text-align: center;`;
+            
+            const cardsHtml = (pData.cards || []).map(c => createCardHTML(c)).join('');
+            const score = getBjScore(pData.cards || []);
+            let statusText = pData.status === 'ready' ? '🟢 Gotowy' : (pData.status === 'finished' || pData.status === 'rewarded' ? '🛑 Czeka' : '⏳ Gra');
+            if (data.status === 'waiting') statusText = 'Oczekuje';
+            
+            playerDiv.innerHTML = `
+                <h4 style="color: ${isMe ? 'var(--gold)' : 'var(--text)'}; margin-bottom: 5px;">${isMe ? '👤 TY' : pData.name}</h4>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Zakład: ${formatujWalute(pData.bet)} <br> ${statusText}
+                </div>
+                <div class="bj-cards-row" style="justify-content: center; min-height: 80px; gap: 4px; transform: scale(0.85);">${cardsHtml}</div>
+                <div style="margin-top: 5px; color: ${score > 21 ? 'var(--red)' : 'var(--gold)'}; font-weight: bold;">Suma: ${score}</div>
+            `;
+            playersContainer.appendChild(playerDiv);
+        }
+
+        // --- 5. PRZEŁĄCZANIE KONTROLEK GRACZA ---
+        const controls = document.getElementById('bj-multi-controls');
+        const betArea = document.getElementById('bj-multi-bet-area');
+        const playArea = document.getElementById('bj-multi-play-area');
+        
+        if (controls && betArea && playArea && myData) {
+            controls.classList.add('hidden'); betArea.classList.add('hidden'); playArea.classList.add('hidden');
+            if (data.status === 'betting' && myData.status === 'waiting') {
+                controls.classList.remove('hidden'); betArea.classList.remove('hidden');
+            } else if (data.status === 'playing' && myData.status === 'playing') {
+                controls.classList.remove('hidden'); playArea.classList.remove('hidden');
+            }
+        }
+    });
+}
+
+// 6. PRZEŁĄCZANIE WIDOKÓW DOM (Kuloodporne)
+function enterRoomUI() {
+    document.getElementById('bj-multi-lobby')?.classList.add('hidden');
+    document.getElementById('bj-multi-room')?.classList.remove('hidden');
+    document.getElementById('bj-multi-controls')?.classList.add('hidden');
+}
+
+function exitRoomUI() {
+    document.getElementById('bj-multi-room')?.classList.add('hidden');
+    document.getElementById('bj-multi-controls')?.classList.add('hidden');
+    document.getElementById('bj-multi-lobby')?.classList.remove('hidden');
+}
