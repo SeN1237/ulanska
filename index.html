@@ -92,12 +92,16 @@
                 <i class="fa-solid fa-coins"></i>
                 <span id="header-cash">0,00 ułan lir</span>
             </div>
-            <div class="header-user">
+		<div class="header-user">
                 <div class="user-badge">
                     <i class="fa-solid fa-user-tie"></i>
                     <span id="username">...</span>
                     <span id="vip-badge"></span>
                 </div>
+                <!-- SKRÓT DO RANKINGU -->
+                <button id="btn-header-ranking" title="Ranking" onclick="switchView('leaderboard')">
+                    <i class="fa-solid fa-trophy" style="color: var(--gold);"></i>
+                </button>
                 <button id="logout-button" title="Wyloguj"><i class="fa-solid fa-power-off"></i></button>
                 <button id="mute-button" title="Dźwięk"><i class="fa-solid fa-volume-high"></i></button>
             </div>
@@ -106,6 +110,7 @@
         <!-- NAV -->
         <nav class="casino-nav">
             <button class="nav-btn active" data-view="lobby"><i class="fa-solid fa-grip"></i> Lobby</button>
+            <button class="nav-btn" data-view="bj_multi"><i class="fa-solid fa-users"></i> BJ Live</button>
             <button class="nav-btn" data-view="roulette"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
             <button class="nav-btn" data-view="blackjack"><i class="fa-solid fa-layer-group"></i> Blackjack</button>
             <button class="nav-btn" data-view="plinko"><i class="fa-solid fa-circle-nodes"></i> Plinko</button>
@@ -210,6 +215,64 @@
                 <h3 class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Ostatnie gry (globalne)</h3>
                 <div id="global-history-feed" class="history-feed"></div>
             </div>
+	
+            <!-- BLACKJACK MULTIPLAYER -->
+<div id="view-bj_multi" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-users"></i> Blackjack Live (Multiplayer)</h2>
+            
+            <!-- WIDOK LOBBY (Lista stołów) -->
+            <div id="bj-multi-lobby" class="glass-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: var(--gold);">Aktywne stoły</h3>
+                    <button id="btn-create-bj-table" class="btn-accent">➕ STWÓRZ STÓŁ</button>
+                </div>
+                <div id="bj-tables-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Tutaj JS będzie wrzucał stoły pobrane z Firebase -->
+                    <p style="color: var(--text-muted); text-align: center;">Ładowanie stołów...</p>
+                </div>
+            </div>
+
+            <!-- WIDOK STOŁU (Po dołączeniu) -->
+            <div id="bj-multi-room" class="glass-panel bj-table hidden">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <span id="bj-room-name" style="color: var(--text-muted); font-weight: bold;">Stół: ...</span>
+                    <div>
+                        <button id="btn-start-multi-game" class="btn-buy hidden" style="padding: 5px 10px; font-size: 0.8rem; margin-right: 10px;">▶ ROZPOCZNIJ GRĘ</button>
+                        <button id="btn-leave-bj-table" class="btn-sell" style="padding: 5px 10px; font-size: 0.8rem;">OPUŚĆ STÓŁ</button>
+                    </div>
+                </div>
+                <!-- KRUPIER -->
+                <div class="bj-dealer-area" style="text-align: center; margin-bottom: 20px;">
+                    <h4 style="color: var(--text-muted); font-family: 'Cinzel', serif;">KRUPIER <span id="bj-multi-dealer-score" class="bj-score"></span></h4>
+                    <div id="bj-multi-dealer-cards" class="bj-cards-row" style="justify-content: center; min-height: 85px;"></div>
+                </div>
+
+                <div class="bj-divider"><span id="bj-multi-status" class="bj-msg">Oczekiwanie na graczy...</span></div>
+
+                <!-- GRACZE (Miejsca przy stole) -->
+                <div id="bj-multi-players" style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 20px;">
+                    <!-- Karty i stawki innych graczy -->
+                </div>
+            </div>
+            
+            <!-- PANEL AKCJI (Gdy jest Twoja kolej) -->
+            <div id="bj-multi-controls" class="glass-panel casino-controls hidden">
+                <div id="bj-multi-bet-area" class="bet-row hidden">
+                    <input type="number" id="bj-multi-amount" class="dark-input" placeholder="Stawka" value="100">
+                    <button id="btn-multi-bet" class="btn-accent" style="flex:1;">POSTAW ZAKŁAD</button>
+                </div>
+                <div id="bj-multi-play-area" class="bet-row hidden">
+                    <button id="btn-multi-hit" class="btn-buy" style="flex:1;">DOBIERZ (Hit)</button>
+                    <button id="btn-multi-stand" class="btn-sell" style="flex:1;">CZEKAJ (Stand)</button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
 
             <!-- ORYGINALNE GRY: ROULETTE -->
             <div id="view-roulette" class="view hidden">
