@@ -965,3 +965,36 @@ function resetRD() {
     renderPokerCard('rd-card-2', null, true);
     renderPokerCard('rd-card-mid', null, true);
 }
+window.switchView = switchView;
+
+window.commitSpin = commitSpin;
+window.selectBetType = selectBetType;
+
+window.revealMine = revealMine;
+window.cashoutMines = cashoutMines;
+
+window.toggleHold = toggleHold;
+
+window.selectDiceChoice = selectDiceChoice;
+
+window.selectKeno = selectKeno;
+
+window.selectWheelSegment = selectWheelSegment;
+
+window.playScratch = playScratch;
+
+window.selectHorse = selectHorse;
+
+window.pickPenaltySide = pickPenaltySide;
+
+window.pickThreeCard = pickThreeCard;
+
+window.makeHiloChoice = makeHiloChoice;
+
+window.placeBaccaratBet = placeBaccaratBet;
+
+window.placeDragonTigerBet = placeDragonTigerBet;
+
+window.placeSicBoBet = placeSicBoBet;
+
+window.selectRouletteNumber = selectRouletteNumber;
