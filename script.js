@@ -541,7 +541,13 @@ async function rollDice() {
 async function playSlots() {
     const amount = parseInt(document.getElementById('slots-amount').value);
     if (!await deductBet(amount)) return;
-    const syms = ['🍒','🍋','🔔','💎','7️⃣'];
+    const syms = [
+    '🍒','🍒','🍒','🍒','🍒','🍒','🍒','🍒',
+    '🍋','🍋','🍋','🍋','🍋',
+    '🔔','🔔','🔔',
+    '💎',
+    '7️⃣'
+];
     const r = () => syms[Math.floor(Math.random()*syms.length)];
     const res = [r(), r(), r()];
     for(let i=0;i<10;i++) { document.getElementById('slot-1').textContent = r(); document.getElementById('slot-2').textContent = r(); document.getElementById('slot-3').textContent = r(); await new Promise(resolve => setTimeout(resolve, 50)); }
