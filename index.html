@@ -212,8 +212,15 @@
                     <div class="game-card" onclick="switchView('reddog')"><div class="game-card-icon">🐕</div><div class="game-card-info"><h4>Red Dog Poker</h4><p>Traf pomiędzy karty</p><span class="game-tag available">Nowość</span></div></div>
                 </div>
 
-                <h3 class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Ostatnie gry (globalne)</h3>
-                <div id="global-history-feed" class="history-feed"></div>
+                <h3 class="section-title"><i class="fa-solid fa-comments"></i> Czat globalny</h3>
+                <div id="chat-container" class="glass-panel" style="display: flex; flex-direction: column; height: 350px; margin-bottom: 20px;">
+                    <div id="chat-messages" style="flex: 1; overflow-y: auto; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
+                        </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="chat-input" class="dark-input" placeholder="Napisz wiadomość..." maxlength="200" style="flex: 1;">
+                        <button id="btn-chat-send" class="btn-accent">WYŚLIJ</button>
+                    </div>
+                </div>
             </div>
 	
             <!-- BLACKJACK MULTIPLAYER -->
