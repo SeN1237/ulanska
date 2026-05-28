@@ -175,10 +175,30 @@
                             <div class="stat-label">Rozegrane gry</div>
                             <div class="stat-val" id="lobby-games">0</div>
                         </div>
+                        <button id="btn-work-system" class="btn-accent" style="width: 100%; margin-top: 20px; padding: 15px; font-size: 1.1rem;">
+    <i class="fa-solid fa-briefcase"></i> IDŹ DO PRACY (60 sekund)
+</button>
                     </div>
                 </div>
 
-                <h3 class="section-title"><i class="fa-solid fa-gamepad"></i> Wybierz grę</h3>
+                <h3 class="section-title" style="margin-top: 10px;"><i class="fa-solid fa-users"></i> Gry Multiplayer (Live)</h3>
+                <div class="game-grid">
+                    <div class="game-card" onclick="document.querySelector('.nav-btn[data-view=\'bj_multi\']').click();">
+                        <div class="game-card-icon">👥</div>
+                        <div class="game-card-info">
+                            <h4>Blackjack Live</h4><p>Graj z innymi przy stole</p><span class="game-tag available">Dostępny</span>
+                        </div>
+                    </div>
+                    
+                    <div class="game-card" onclick="document.querySelector('.nav-btn[data-view=\'horseracing\']').click();">
+                        <div class="game-card-icon">🐎</div>
+                        <div class="game-card-info">
+                            <h4>Wyścigi Konne</h4><p>Obstaw zwycięzcę na żywo</p><span class="game-tag available">Nowość</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-title" style="margin-top: 40px;"><i class="fa-solid fa-user"></i> Gry Singleplayer</h3>
                 <div class="game-grid">
                     <div class="game-card" onclick="switchView('roulette')"><div class="game-card-icon">🎡</div><div class="game-card-info"><h4>Ruletka</h4><p>Europejska • x2 / x36</p><span class="game-tag available">Dostępna</span></div></div>
                     <div class="game-card" onclick="switchView('blackjack')"><div class="game-card-icon">🃏</div><div class="game-card-info"><h4>Blackjack</h4><p>Klasyczny • x2 wygrana</p><span class="game-tag available">Dostępny</span></div></div>
@@ -204,24 +224,12 @@
                     <div class="game-card" onclick="switchView('dragon_tiger')"><div class="game-card-icon">🐉</div><div class="game-card-info"><h4>Dragon Tiger</h4><p>Azjatycka bitwa</p><span class="game-tag available">Dostępny</span></div></div>
                     <div class="game-card" onclick="switchView('jackpot')"><div class="game-card-icon">💰</div><div class="game-card-info"><h4>Mega Jackpot</h4><p>Główna nagroda</p><span class="game-tag available">Dostępny</span></div></div>
                     
-                    <!-- 5 NOWYCH GIER -->
                     <div class="game-card" onclick="switchView('coinflip')"><div class="game-card-icon">🪙</div><div class="game-card-info"><h4>Rzut Monetą</h4><p>Orzeł czy reszka?</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('threecards')"><div class="game-card-icon">🃏</div><div class="game-card-info"><h4>Trzy Karty</h4><p>Znajdź Asa (x2.8)</p><span class="game-tag available">Nowość</span></div></div>
-                    <div class="game-card" onclick="switchView('horseracing')"><div class="game-card-icon">🐎</div><div class="game-card-info"><h4>Wyścigi Konne</h4><p>Obstaw zwycięzcę</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('penalty')"><div class="game-card-icon">⚽</div><div class="game-card-info"><h4>Rzuty Karne</h4><p>Strzel gola bramkarzowi</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('reddog')"><div class="game-card-icon">🐕</div><div class="game-card-info"><h4>Red Dog Poker</h4><p>Traf pomiędzy karty</p><span class="game-tag available">Nowość</span></div></div>
                 </div>
-
-                <h3 class="section-title"><i class="fa-solid fa-comments"></i> Czat globalny</h3>
-                <div id="chat-container" class="glass-panel" style="display: flex; flex-direction: column; height: 350px; margin-bottom: 20px;">
-                    <div id="chat-messages" style="flex: 1; overflow-y: auto; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
-                        </div>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="chat-input" class="dark-input" placeholder="Napisz wiadomość..." maxlength="200" style="flex: 1;">
-                        <button id="btn-chat-send" class="btn-accent">WYŚLIJ</button>
-                    </div>
-                </div>
-            </div>
+           </div>
 	
             <!-- BLACKJACK MULTIPLAYER -->
 <div id="view-bj_multi" class="view hidden">
@@ -959,45 +967,66 @@
 
             <!-- WYŚCIGI KONNE -->
             <div id="view-horseracing" class="view hidden">
-                <div class="game-layout">
-                    <div class="game-panel">
-                        <h2 class="game-title"><i class="fa-solid fa-horse"></i> Wyścigi Konne</h2>
-                        <div class="glass-panel" style="padding:20px;">
-                            <div style="background:#2d4a22; padding:15px; border-radius:8px; border:2px solid var(--border); margin-bottom:20px; overflow:hidden;">
-                                <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
-                                    <span style="width:25px; color:#FF5252; font-weight:bold;">1</span>
-                                    <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="horse-1" style="position:absolute; left:0; font-size:2rem; transition: left 0.2s linear; transform:scaleX(-1);">🐎</div></div>
-                                </div>
-                                <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
-                                    <span style="width:25px; color:#448AFF; font-weight:bold;">2</span>
-                                    <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="horse-2" style="position:absolute; left:0; font-size:2rem; transition: left 0.2s linear; transform:scaleX(-1);">🐎</div></div>
-                                </div>
-                                <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
-                                    <span style="width:25px; color:#69F0AE; font-weight:bold;">3</span>
-                                    <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="horse-3" style="position:absolute; left:0; font-size:2rem; transition: left 0.2s linear; transform:scaleX(-1);">🐎</div></div>
-                                </div>
-                                <div style="display:flex; align-items:center; padding:10px 0;">
-                                    <span style="width:25px; color:#FFD740; font-weight:bold;">4</span>
-                                    <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="horse-4" style="position:absolute; left:0; font-size:2rem; transition: left 0.2s linear; transform:scaleX(-1);">🐎</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="glass-panel casino-controls">
-                            <div class="bet-grid">
-                                <button class="casino-btn btn-black" onclick="setHorseBet(1)" id="btn-horse-1" style="border-color:#FF5252;">Koń #1 (x3.8)</button>
-                                <button class="casino-btn btn-black" onclick="setHorseBet(2)" id="btn-horse-2" style="border-color:#448AFF;">Koń #2 (x3.8)</button>
-                                <button class="casino-btn btn-black" onclick="setHorseBet(3)" id="btn-horse-3" style="border-color:#69F0AE;">Koń #3 (x3.8)</button>
-                                <button class="casino-btn btn-black" onclick="setHorseBet(4)" id="btn-horse-4" style="border-color:#FFD740; grid-column:span 3;">Koń #4 (x3.8)</button>
-                            </div>
-                            <div class="bet-row" style="margin-top:10px;">
-                                <input type="number" id="horse-amount" class="dark-input" placeholder="Stawka" value="50">
-                                <button id="btn-horse-play" class="btn-accent">START WYŚCIGU</button>
-                            </div>
-                            <p id="horse-message" class="game-status"></p>
-                        </div>
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-horse"></i> Wyścigi Konne Live</h2>
+            
+            <!-- LOBBY WYŚCIGÓW -->
+            <div id="horse-multi-lobby" class="glass-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: var(--gold);">Aktywne Tor Wyścigowe</h3>
+                    <button id="btn-create-horse-table" class="btn-accent">➕ STWÓRZ WYŚCIG</button>
+                </div>
+                <div id="horse-tables-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+
+            <!-- TOR WYŚCIGOWY (Pokój) -->
+            <div id="horse-multi-room" class="glass-panel hidden">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <span id="horse-room-name" style="color: var(--text-muted); font-weight: bold;">Tor: ...</span>
+                    <div>
+                        <button id="btn-start-horse-race" class="btn-buy hidden" style="padding: 5px 10px;">▶ START (Host)</button>
+                        <button id="btn-leave-horse-table" class="btn-sell" style="padding: 5px 10px;">WYJDŹ</button>
+                    </div>
+                </div>
+
+                <div style="background:#2d4a22; padding:15px; border-radius:8px; border:2px solid var(--border); margin-bottom:20px; overflow:hidden;">
+                    <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
+                        <span style="width:25px; color:#FF5252; font-weight:bold;">1</span>
+                        <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="multi-horse-1" style="position:absolute; left:0; font-size:2rem; transform:scaleX(-1);">🐎</div></div>
+                    </div>
+                    <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
+                        <span style="width:25px; color:#448AFF; font-weight:bold;">2</span>
+                        <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="multi-horse-2" style="position:absolute; left:0; font-size:2rem; transform:scaleX(-1);">🐎</div></div>
+                    </div>
+                    <div style="display:flex; align-items:center; border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0;">
+                        <span style="width:25px; color:#69F0AE; font-weight:bold;">3</span>
+                        <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="multi-horse-3" style="position:absolute; left:0; font-size:2rem; transform:scaleX(-1);">🐎</div></div>
+                    </div>
+                    <div style="display:flex; align-items:center; padding:10px 0;">
+                        <span style="width:25px; color:#FFD740; font-weight:bold;">4</span>
+                        <div style="flex:1; position:relative; height:35px; border-right:4px solid white;"><div id="multi-horse-4" style="position:absolute; left:0; font-size:2rem; transform:scaleX(-1);">🐎</div></div>
+                    </div>
+                </div>
+
+                <div id="horse-multi-players" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;"></div>
+
+                <div id="horse-multi-controls" class="casino-controls">
+                    <div class="bet-grid">
+                        <button class="casino-btn btn-black" onclick="setMultiHorseBet(1)" id="btn-mhorse-1" style="border-color:#FF5252;">Koń #1 (x3.8)</button>
+                        <button class="casino-btn btn-black" onclick="setMultiHorseBet(2)" id="btn-mhorse-2" style="border-color:#448AFF;">Koń #2 (x3.8)</button>
+                        <button class="casino-btn btn-black" onclick="setMultiHorseBet(3)" id="btn-mhorse-3" style="border-color:#69F0AE;">Koń #3 (x3.8)</button>
+                        <button class="casino-btn btn-black" onclick="setMultiHorseBet(4)" id="btn-mhorse-4" style="border-color:#FFD740; grid-column:span 3;">Koń #4 (x3.8)</button>
+                    </div>
+                    <div class="bet-row" style="margin-top:10px;">
+                        <input type="number" id="horse-multi-amount" class="dark-input" placeholder="Stawka" value="50">
+                        <button id="btn-horse-multi-bet" class="btn-accent">OBSTAW KONIA</button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
 
             <!-- RZUTY KARNE (Penalty) -->
             <div id="view-penalty" class="view hidden">
@@ -1073,6 +1102,22 @@
     <!-- AUDIO -->
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
     <audio id="audio-error" src="error.mp3" preload="auto"></audio>
+    
+    <!-- PŁYWAJĄCY CZAT -->
+<div id="chat-widget-btn" class="chat-widget-btn">
+    <i class="fa-solid fa-comments"></i>
+</div>
+<div id="chat-widget-panel" class="chat-widget-panel hidden glass-panel">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+        <h3 style="color: var(--gold); margin: 0;"><i class="fa-solid fa-comments"></i> Czat</h3>
+        <button id="chat-widget-close" style="background:none; border:none; color:var(--red); font-size:1.2rem; cursor:pointer;">&times;</button>
+    </div>
+    <div id="chat-messages" style="flex: 1; overflow-y: auto; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;"></div>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="chat-input" class="dark-input" placeholder="Napisz wiadomość..." maxlength="200" style="flex: 1;">
+        <button id="btn-chat-send" class="btn-accent"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+</div>
 
 </body>
 </html>
