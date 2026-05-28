@@ -1858,7 +1858,7 @@ function startRmHostLoop() {
             const now = Date.now();
 
             if (data.status === 'waiting' && Object.keys(data.players||{}).length > 0) {
-                await updateDoc(doc(db, 'stoliki_rm', currentRmId), { status: 'betting', phaseEndTime: now + 20000 });
+                await updateDoc(doc(db, 'stoliki_rm', currentRmId), { status: 'betting', phaseEndTime: now + 40000 });
             }
             
             if (data.status === 'betting' && now >= data.phaseEndTime) {
@@ -1872,7 +1872,7 @@ function startRmHostLoop() {
             }
 
             if (data.status === 'resolving' && now >= data.phaseEndTime) {
-                let updates = { status: 'betting', phaseEndTime: now + 20000, winnerNum: null, winnerColor: null };
+                let updates = { status: 'betting', phaseEndTime: now + 40000, winnerNum: null, winnerColor: null };
                 for (const uid of Object.keys(data.players || {})) {
                     updates[`players.${uid}.status`] = 'waiting';
                     updates[`players.${uid}.bets`] = []; 
