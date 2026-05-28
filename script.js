@@ -1692,4 +1692,372 @@ function exitRoomUI() {
     document.getElementById('bj-multi-lobby')?.classList.remove('hidden');
 }
 
+// ============================================
+// ROULETTE MULTIPLAYER (LIVE - Wspólny stół)
+// ============================================
 
+let currentRmId = null;
+let unsubRmLobby = null;
+let unsubRmRoom = null;
+let isRmHost = false;
+let rmClientInterval = null;
+let rmHostLoop = null;
+
+let myRmBets = []; 
+let isRmBettingPhase = false;
+let isRmSpinningAnim = false; // Blokada przed ponownym puszczaniem animacji
+
+// --- GENEROWANIE PLANSZY I KOŁA DLA MULTIPLAYERA ---
+function buildRmRoulette() {
+    const container = document.getElementById('rm-num-buttons-container');
+    const strip = document.getElementById('rm-roulette-strip');
+    if (!container || !strip) return;
+
+    // Przyciski liczb 0-36
+    container.innerHTML = '';
+    for (let i = 0; i <= 36; i++) {
+        const btn = document.createElement('button');
+        let colorClass = i === 0 ? 'num-green' : (RED_NUMBERS.includes(i) ? 'num-red' : 'num-black');
+        btn.className = `num-btn ${colorClass}`;
+        btn.textContent = i;
+        btn.onclick = () => window.placeRmBet('number', i.toString());
+        container.appendChild(btn);
+    }
+
+    // Pasek ruletki
+    const ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+    let html = '';
+    for (let rep = 0; rep < 5; rep++) {
+        ORDER.forEach(n => {
+            let bgClass = n === 0 ? 'green' : (RED_NUMBERS.includes(n) ? 'red' : 'black');
+            html += `<div class="roulette-item ${bgClass}">${n}</div>`;
+        });
+    }
+    strip.innerHTML = html;
+}
+
+// 1. DYNAMICZNE DODAWANIE ŻETONÓW
+window.placeRmBet = async (type, value) => {
+    if (!currentRmId) return showMessage('Nie jesteś przy stole!', 'error');
+    if (!isRmBettingPhase) return showMessage('Zakłady są zamknięte!', 'error');
+    
+    const amount = parseInt(document.getElementById('rm-amount').value);
+    if (!await deductBet(amount)) return; 
+    
+    myRmBets.push({ type, value, amount });
+    
+    await updateDoc(doc(db, 'stoliki_rm', currentRmId), {
+        [`players.${currentUserId}`]: { 
+            name: player.name, 
+            bets: myRmBets, 
+            status: 'ready' 
+        }
+    });
+    
+    playSound('kaching');
+    let displayValue = type === 'number' ? `Liczbę ${value}` : value.toUpperCase();
+    showMessage(`Postawiono ${formatujWalute(amount)} na: ${displayValue}`, 'info');
+};
+
+document.querySelector('.nav-btn[data-view="roulette_multi"]')?.addEventListener('click', () => {
+    buildRmRoulette();
+    listenToRmLobby();
+});
+
+// 2. TWORZENIE STOŁU
+document.getElementById('btn-create-rm-table')?.addEventListener('click', async () => {
+    if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+    try {
+        const ref = await addDoc(collection(db, 'stoliki_rm'), {
+            hostId: currentUserId, hostName: player.name, status: 'waiting',
+            winnerNum: null, winnerColor: null, phaseEndTime: 0, 
+            players: { [currentUserId]: { name: player.name, bets: [], status: 'waiting' } }, 
+            timestamp: serverTimestamp()
+        });
+        isRmHost = true; currentRmId = ref.id;
+        enterRmRoomUI(); listenToRmRoom(); startRmHostLoop();
+    } catch(e) { showMessage(e.message, 'error'); }
+});
+
+// 3. WYJŚCIE ZE STOŁU
+document.getElementById('btn-leave-rm-table')?.addEventListener('click', async () => {
+    if (!currentRmId) return;
+    try {
+        const ref = doc(db, 'stoliki_rm', currentRmId);
+        if (isRmHost) await updateDoc(ref, { status: 'closed' });
+        else await updateDoc(ref, { [`players.${currentUserId}`]: deleteField() });
+    } catch(e) {}
+    
+    currentRmId = null; isRmHost = false; myRmBets = [];
+    if(unsubRmRoom) unsubRmRoom();
+    if(rmClientInterval) clearInterval(rmClientInterval);
+    if(rmHostLoop) clearInterval(rmHostLoop);
+    
+    exitRmRoomUI(); listenToRmLobby();
+});
+
+// 4. LOBBY
+function listenToRmLobby() {
+    const list = document.getElementById('rm-tables-list');
+    if (!list) return;
+    if (unsubRmLobby) unsubRmLobby();
+    
+    unsubRmLobby = onSnapshot(collection(db, 'stoliki_rm'), snap => {
+        if (currentRmId) return; 
+        list.innerHTML = ''; let count = 0;
+        
+        snap.forEach(docSnap => {
+            const d = docSnap.data();
+            if (d.status === 'closed') return;
+            count++;
+            
+            const row = document.createElement('div');
+            row.className = 'history-row';
+            let statusPl = (d.status === 'spinning' || d.status === 'resolving') ? '🔴 Kręcenie' : '🟢 Otwarte';
+            row.innerHTML = `<span class="h-col h-user">Stół: ${d.hostName}</span> <span class="h-col">Graczy: ${Object.keys(d.players||{}).length}</span> <span class="h-col">${statusPl}</span>`;
+            
+            if (d.status === 'waiting' || d.status === 'betting') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-accent'; btn.style.cssText = 'padding: 4px 10px; font-size: 0.8rem;';
+                btn.textContent = 'DOŁĄCZ'; 
+                btn.onclick = () => joinRmTable(docSnap.id);
+                row.appendChild(btn);
+            }
+            list.appendChild(row);
+        });
+        if(count === 0) list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Brak otwartych stołów. Zostań Krupierem!</p>';
+    });
+}
+
+async function joinRmTable(roomId) {
+    if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+    const ref = doc(db, 'stoliki_rm', roomId);
+    const data = (await getDoc(ref)).data();
+    
+    if(data.status !== 'betting' && data.status !== 'waiting') return showMessage('Zaczekaj na nową rundę!', 'error');
+    
+    await updateDoc(ref, {
+        [`players.${currentUserId}`]: { name: player.name, bets: [], status: 'waiting' }
+    });
+
+    isRmHost = false; currentRmId = roomId; myRmBets = [];
+    enterRmRoomUI(); listenToRmRoom();
+}
+
+// 5. SILNIK HOSTA (MÓZG GRY)
+function startRmHostLoop() {
+    if (rmHostLoop) clearInterval(rmHostLoop);
+    
+    rmHostLoop = setInterval(async () => {
+        if (!isRmHost || !currentRmId) return clearInterval(rmHostLoop);
+        
+        try {
+            const snap = await getDoc(doc(db, 'stoliki_rm', currentRmId));
+            if (!snap.exists()) return clearInterval(rmHostLoop);
+            const data = snap.data();
+            const now = Date.now();
+
+            if (data.status === 'waiting' && Object.keys(data.players||{}).length > 0) {
+                await updateDoc(doc(db, 'stoliki_rm', currentRmId), { status: 'betting', phaseEndTime: now + 20000 });
+            }
+            
+            if (data.status === 'betting' && now >= data.phaseEndTime) {
+                const winningNum = Math.floor(Math.random() * 37);
+                let winnerColor = winningNum === 0 ? 'green' : (RED_NUMBERS.includes(winningNum) ? 'red' : 'black');
+                await updateDoc(doc(db, 'stoliki_rm', currentRmId), { status: 'spinning', winnerNum: winningNum, winnerColor: winnerColor, phaseEndTime: now + 6500 });
+            }
+
+            if (data.status === 'spinning' && now >= data.phaseEndTime) {
+                await updateDoc(doc(db, 'stoliki_rm', currentRmId), { status: 'resolving', phaseEndTime: now + 6000 });
+            }
+
+            if (data.status === 'resolving' && now >= data.phaseEndTime) {
+                let updates = { status: 'betting', phaseEndTime: now + 20000, winnerNum: null, winnerColor: null };
+                for (const uid of Object.keys(data.players || {})) {
+                    updates[`players.${uid}.status`] = 'waiting';
+                    updates[`players.${uid}.bets`] = []; 
+                }
+                await updateDoc(doc(db, 'stoliki_rm', currentRmId), updates);
+            }
+        } catch(e) { console.error("Błąd Hosta:", e); }
+    }, 1000);
+}
+
+// 6. SYNCHRONIZACJA WIDOKU GRACZA
+function listenToRmRoom() {
+    if (!currentRmId) return;
+    if (unsubRmRoom) unsubRmRoom();
+    
+    if (rmClientInterval) clearInterval(rmClientInterval);
+    rmClientInterval = setInterval(() => {
+        const timerEl = document.getElementById('rm-timer');
+        if (!timerEl) return;
+        
+        const phaseEndTime = timerEl.dataset.endTime;
+        if (phaseEndTime && phaseEndTime > 0) {
+            const left = Math.max(0, Math.ceil((phaseEndTime - Date.now())/1000));
+            timerEl.textContent = left + 's';
+            if (left <= 5) timerEl.style.color = 'var(--red)';
+            else timerEl.style.color = 'var(--text)';
+        }
+    }, 100);
+
+    unsubRmRoom = onSnapshot(doc(db, 'stoliki_rm', currentRmId), snap => {
+        if (!snap.exists()) return exitRmRoomUI();
+        const data = snap.data();
+        
+        if (data.status === 'closed') { 
+            showMessage('Krupier zamknął stół.', 'info'); 
+            document.getElementById('btn-leave-rm-table').click(); 
+            return; 
+        }
+
+        document.getElementById('rm-room-name').textContent = `Stół Krupiera: ${data.hostName}`;
+        document.getElementById('rm-timer').dataset.endTime = data.phaseEndTime || 0;
+
+        // Renderowanie zakładów Z PODZIAŁEM NA KAŻDY ŻETON
+        const pCont = document.getElementById('rm-players');
+        pCont.innerHTML = '';
+        for (const [uid, pData] of Object.entries(data.players || {})) {
+            if (pData.bets && pData.bets.length > 0) {
+                pData.bets.forEach(b => {
+                    let betLabel = b.type === 'number' ? `Liczba ${b.value}` : b.value.toUpperCase();
+                    
+                    // Dobieranie kolorów ramki żetonu
+                    let colorStyle = '';
+                    if (b.value === 'red' || (b.type === 'number' && RED_NUMBERS.includes(parseInt(b.value)))) colorStyle = 'border-left: 4px solid var(--red); color: #EF9A9A;';
+                    else if (b.value === 'black' || (b.type === 'number' && !RED_NUMBERS.includes(parseInt(b.value)) && parseInt(b.value) !== 0)) colorStyle = 'border-left: 4px solid #888; color: #ccc;';
+                    else if (b.value === 'green' || b.value === '0') colorStyle = 'border-left: 4px solid var(--green); color: var(--green-bright);';
+                    else colorStyle = 'border-left: 4px solid var(--gold); color: var(--gold);';
+
+                    pCont.innerHTML += `<div class="history-chip" style="background: rgba(255,255,255,0.04); ${colorStyle} font-size:0.8rem; padding: 6px 12px; margin-bottom: 4px; flex-grow: 1; text-align: left;">
+                        <strong style="color:var(--text);">${pData.name}</strong> • ${formatujWalute(b.amount)} ➔ <span style="font-weight:900;">${betLabel}</span>
+                    </div>`;
+                });
+            }
+        }
+
+        const statusEl = document.getElementById('rm-status');
+        const controlsEl = document.getElementById('rm-controls');
+        
+        // Elementy koła fortuny
+        const inner = document.getElementById('rm-roulette-inner');
+        const overlay = document.getElementById('rm-data-overlay');
+        const resNum = document.getElementById('rm-result-number');
+        const resBg = document.getElementById('rm-result-bg');
+
+        // MASZYNA STANÓW UI I ROZLICZANIE TABLICY ZAKŁADÓW
+        if (data.status === 'waiting') {
+            isRmBettingPhase = false;
+            isRmSpinningAnim = false;
+            statusEl.textContent = 'Oczekiwanie na graczy...';
+            statusEl.style.color = 'var(--text-muted)';
+            document.getElementById('rm-timer').textContent = '--';
+            controlsEl.classList.add('hidden');
+            
+            // Reset wizualny
+            inner.classList.remove('rest');
+            inner.style.transform = `translateX(0px)`;
+            overlay.classList.remove('reveal');
+        } 
+        else if (data.status === 'betting') {
+            if (!isRmBettingPhase) {
+                isRmBettingPhase = true;
+                myRmBets = []; 
+                isRmSpinningAnim = false;
+            }
+            statusEl.textContent = 'Rzucajcie żetony! Czas ucieka!';
+            statusEl.style.color = 'var(--green-bright)';
+            controlsEl.classList.remove('hidden');
+            
+            // Reset wizualny
+            inner.classList.remove('rest');
+            overlay.classList.remove('reveal');
+        } 
+        else if (data.status === 'spinning') {
+            isRmBettingPhase = false;
+            statusEl.textContent = 'Rien ne va plus! (Koło w ruchu)';
+            statusEl.style.color = 'var(--gold)';
+            controlsEl.classList.add('hidden');
+            document.getElementById('rm-timer').textContent = 'STOP';
+            
+            // ODPALENIE PRAWDZIWEJ ANIMACJI TYLKO RAZ
+            if (!isRmSpinningAnim) {
+                isRmSpinningAnim = true;
+                const ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+                const itemW = 60; 
+                const windowW = document.getElementById('rm-roulette-window').clientWidth;
+                const centerOffset = Math.floor(windowW / 2) - (itemW / 2);
+                
+                inner.classList.remove('rest');
+                overlay.classList.remove('reveal');
+                
+                // Cofa pasek na start (bez animacji)
+                inner.style.transform = `translateX(${-ORDER.length * itemW + centerOffset}px)`;
+                void inner.offsetWidth; // Wymusza przerysowanie DOM (żeby animacja zadziałała od tego momentu)
+                
+                // Uruchamia animację do docelowej wylosowanej liczby
+                setTimeout(() => {
+                    inner.classList.add('rest');
+                    inner.style.transform = `translateX(${-(ORDER.indexOf(data.winnerNum) + ORDER.length * 4) * itemW + centerOffset}px)`;
+                }, 50);
+            }
+        } 
+        else if (data.status === 'resolving') {
+            isRmBettingPhase = false;
+            statusEl.textContent = 'WYNIK LOSOWANIA';
+            statusEl.style.color = 'var(--text)';
+            document.getElementById('rm-timer').textContent = '';
+            
+            // Pokazuje nakładkę ze zwycięską liczbą
+            resNum.textContent = data.winnerNum;
+            let finalColor = data.winnerColor === 'red' ? 'var(--red)' : (data.winnerColor === 'green' ? 'var(--green)' : '#111');
+            resBg.style.backgroundColor = finalColor;
+            overlay.classList.add('reveal');
+
+            // --- INTELIGENTNE ROZLICZANIE ---
+            const myData = data.players?.[currentUserId];
+            if (myData && myData.status === 'ready' && myData.bets && myData.bets.length > 0) {
+                
+                let totalWin = 0;
+                let totalBetAmount = 0;
+                
+                const wNum = data.winnerNum;
+                const wColor = data.winnerColor;
+                const wParity = wNum === 0 ? 'none' : (wNum % 2 === 0 ? 'even' : 'odd');
+                const wHalf = wNum === 0 ? 'none' : (wNum <= 18 ? 'low' : 'high');
+                const wDozen = wNum === 0 ? 'none' : (wNum <= 12 ? '1' : (wNum <= 24 ? '2' : '3'));
+
+                myData.bets.forEach(b => {
+                    totalBetAmount += b.amount;
+                    let won = false;
+                    let multiplier = 0;
+                    
+                    if (b.type === 'color' && b.value === wColor) { won = true; multiplier = (wColor === 'green') ? 36 : 2; }
+                    if (b.type === 'parity' && b.value === wParity) { won = true; multiplier = 2; }
+                    if (b.type === 'half' && b.value === wHalf) { won = true; multiplier = 2; }
+                    if (b.type === 'dozen' && b.value === wDozen) { won = true; multiplier = 3; }
+                    if (b.type === 'number' && parseInt(b.value) === wNum) { won = true; multiplier = 36; }
+                    
+                    if (won) totalWin += b.amount * multiplier;
+                });
+                
+                let msg = totalWin > 0 ? `Trafiono i wygrano ${formatujWalute(totalWin)}!` : 'Wszystkie żetony przegrały.';
+                
+                addWin(totalWin, totalBetAmount, 'Ruletka Live', `Wypadło: ${wNum}. ${msg}`).then(() => {
+                    updateDoc(doc(db, 'stoliki_rm', currentRmId), { [`players.${currentUserId}.status`]: 'rewarded' });
+                });
+            }
+        }
+    });
+}
+
+function enterRmRoomUI() {
+    document.getElementById('rm-lobby').classList.add('hidden');
+    document.getElementById('rm-room').classList.remove('hidden');
+}
+
+function exitRmRoomUI() {
+    document.getElementById('rm-room').classList.add('hidden');
+    document.getElementById('rm-lobby').classList.remove('hidden');
+}
