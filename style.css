@@ -1156,3 +1156,23 @@ select { appearance: none; cursor: pointer; }
     float: right;
     margin-top: 2px;
 }
+
+/* ======== PŁYWAJĄCY CZAT ======== */
+.chat-widget-btn {
+    position: fixed; bottom: 20px; left: 20px; z-index: 9998;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+    color: var(--bg-deep); font-size: 1.8rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 4px 20px rgba(212,175,55,0.4);
+    transition: transform 0.2s;
+}
+.chat-widget-btn:hover { transform: scale(1.1); }
+
+.chat-widget-panel {
+    position: fixed; bottom: 90px; left: 20px; z-index: 9998;
+    width: 320px; height: 400px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    animation: toastIn 0.3s ease;
+}
