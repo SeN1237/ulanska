@@ -780,17 +780,42 @@ async function playWheel() {
 }
 
 async function buyScratch() {
-    const amount = parseInt(document.getElementById('scratch-amount').value); if (!await deductBet(amount)) return;
-    const syms = ['💰','💎','🍒','🍋','🔔','🍀']; let grid = []; for (let i = 0; i < 9; i++) grid.push(syms[Math.floor(Math.random() * syms.length)]);
-    let revealed = 0; document.getElementById('scratch-message').textContent = 'Odkrywaj pola!';
-    for (let i = 0; i < 9; i++) {
-        const el = document.getElementById(`st-${i}`); el.textContent = '❓'; el.style.background = 'var(--bg-panel)';
+    const amount = parseInt(document.getElementById('scratch-amount').value); 
+    if (!await deductBet(amount)) return;
+    
+    const syms = ['💰','💎','🍒','🍋','🔔','🍀']; 
+    let grid = []; 
+    
+    // Zmiana z 9 na 3 generowane symbole
+    for (let i = 0; i < 3; i++) {
+        grid.push(syms[Math.floor(Math.random() * syms.length)]);
+    }
+    
+    let revealed = 0; 
+    document.getElementById('scratch-message').textContent = 'Odkrywaj pola!';
+    
+    // Zmiana z 9 na 3 w przypisywaniu akcji do pól
+    for (let i = 0; i < 3; i++) {
+        const el = document.getElementById(`st-${i}`); 
+        el.textContent = '❓'; 
+        el.style.background = 'var(--bg-panel)';
+        
         el.onclick = async () => {
-            if (el.textContent !== '❓') return; el.textContent = grid[i]; el.style.background = 'rgba(212,175,55,0.2)'; revealed++;
-            if (revealed === 9) {
-                const counts = {}; grid.forEach(s => counts[s] = (counts[s] || 0) + 1); const winSym = Object.keys(counts).find(k => counts[k] >= 3);
+            if (el.textContent !== '❓') return; 
+            el.textContent = grid[i]; 
+            el.style.background = 'rgba(212,175,55,0.2)'; 
+            revealed++;
+            
+            // Zmiana warunku zakończenia zdrapywania z 9 na 3
+            if (revealed === 3) {
+                const counts = {}; 
+                grid.forEach(s => counts[s] = (counts[s] || 0) + 1); 
+                const winSym = Object.keys(counts).find(k => counts[k] >= 3);
+                
                 let mult = winSym ? (winSym === '💎' ? 20 : (winSym === '💰' ? 10 : 5)) : 0;
-                document.getElementById('scratch-message').textContent = winSym ? `Wygrywasz x${mult}!` : 'Spróbuj ponownie.'; await addWin(amount * mult, amount, 'Zdrapki', winSym ? `Wygrana x${mult}!` : null);
+                
+                document.getElementById('scratch-message').textContent = winSym ? `Wygrywasz x${mult}!` : 'Spróbuj ponownie.'; 
+                await addWin(amount * mult, amount, 'Zdrapki', winSym ? `Wygrana x${mult}!` : null);
             }
         };
     }
