@@ -40,9 +40,14 @@ const dom = {}; // DOM REFS
 
 // --- UTILS ---
 function formatujWalute(val) {
-    // Zmień "KRYPTOS" na dowolną nazwę Twojej waluty
     const symbol = "ułan lir"; 
-    const liczba = parseFloat(val || 0).toFixed(2);
+    
+    // Konwertujemy na liczbę, a następnie formatujemy na polski standard (pl-PL)
+    const liczba = parseFloat(val || 0).toLocaleString('pl-PL', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
     return `${liczba} ${symbol}`;
 }
 function getVipLabel(lvl) { const l = ['Nowicjusz', 'Brązowy', 'Srebrny', 'Złoty', 'Platynowy', 'Diamentowy']; return l[Math.min(lvl, l.length - 1)]; }
@@ -183,8 +188,16 @@ window.switchView = function (viewId) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    initWorkSystem(); // <--- O to uciekło! Uruchamia przycisk pracy
     // Cache DOM
     ['header-cash', 'username', 'vip-badge', 'lobby-cash', 'lobby-username', 'lobby-total', 'lobby-profit', 'lobby-level', 'lobby-games', 'lobby-vip', 'auth-message', 'global-history-feed', 'personal-history-feed'].forEach(id => dom[id.replace(/-([a-z])/g, g => g[1].toUpperCase())] = document.getElementById(id));
+    
+    document.getElementById('chat-widget-btn')?.addEventListener('click', () => {
+    document.getElementById('chat-widget-panel').classList.remove('hidden');
+});
+document.getElementById('chat-widget-close')?.addEventListener('click', () => {
+    document.getElementById('chat-widget-panel').classList.add('hidden');
+});
     
     // Podpięcie Blackjack Multiplayer
     document.querySelector('.nav-btn[data-view="bj_multi"]')?.addEventListener('click', () => {
@@ -557,7 +570,7 @@ async function onMinesAction() {
     minesGrid=Array(25).fill('safe'); let placed=0; while(placed<minesCount){const i=Math.floor(Math.random()*25); if(minesGrid[i]==='safe'){minesGrid[i]='bomb';placed++;}}
     buildMinesGrid(); document.getElementById('btn-mines-action').textContent='WYPŁAĆ'; document.getElementById('mines-next-multiplier').textContent='1.00x';
 }
-function revealMine(idx) {
+window.revealMine = function(idx) {
     if(!minesActive) return; const t=document.querySelectorAll('.mine-tile')[idx]; if(t.disabled) return; t.disabled=true;
     if(minesGrid[idx]==='bomb'){ t.textContent='💣'; t.classList.add('revealed-bomb'); endMines(false); }
     else { t.textContent='💎'; t.classList.add('revealed-gem'); minesRevealed++; minesMult*=(25-(minesRevealed-1))/((25-minesCount)-(minesRevealed-1))*0.97; document.getElementById('mines-next-multiplier').textContent=minesMult.toFixed(2)+'x'; document.getElementById('mines-current-win').textContent=formatujWalute(minesBet*minesMult); if(minesRevealed===25-minesCount) endMines(true); }
@@ -943,39 +956,246 @@ window.selectThreeCard = async (idx) => {
     document.getElementById('btn-threecards-play').disabled = false;
 }
 
-// 3. WYŚCIGI KONNE
-let horseBet = null;
-window.setHorseBet = (h) => { horseBet = h; document.querySelectorAll('#view-horseracing .casino-btn').forEach(btn => btn.classList.remove('selected')); document.getElementById(`btn-horse-${h}`).classList.add('selected'); };
-async function playHorse() {
-    if (!horseBet) return showMessage('Obstaw konia!', 'error');
-    const amount = parseInt(document.getElementById('horse-amount').value);
+// ============================================
+// HORSE RACING MULTIPLAYER
+// ============================================
+
+let currentHorseRoomId = null;
+let unsubHorseLobby = null;
+let unsubHorseRoom = null;
+let isHorseHost = false;
+let selectedMultiHorse = null;
+let horseAnimInterval = null;
+let isHorseRacingAnim = false;
+
+window.setMultiHorseBet = (h) => { 
+    selectedMultiHorse = h; 
+    document.querySelectorAll('#view-horseracing .casino-btn').forEach(btn => btn.classList.remove('selected')); 
+    document.getElementById(`btn-mhorse-${h}`).classList.add('selected'); 
+};
+
+// Nawigacja - podpięcie pod przycisk menu
+document.querySelector('.nav-btn[data-view="horseracing"]')?.addEventListener('click', () => {
+    switchView('horseracing');
+    listenToHorseLobby();
+});
+
+document.getElementById('btn-create-horse-table')?.addEventListener('click', async () => {
+    if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+    try {
+        // Usunięto window.addDoc i window.collection
+        const ref = await addDoc(collection(db, 'stoliki_horse'), {
+            hostId: currentUserId, hostName: player.name, status: 'betting', 
+            winner: null, players: {}, timestamp: serverTimestamp() // Usunięto window.serverTimestamp
+        });
+        isHorseHost = true; currentHorseRoomId = ref.id;
+        enterHorseRoomUI(); listenToHorseRoom();
+    } catch (e) { showMessage(e.message, 'error'); }
+});
+
+document.getElementById('btn-leave-horse-table')?.addEventListener('click', async () => {
+    if (!currentHorseRoomId) return;
+    try {
+        // Usunięto window.doc
+        const ref = doc(db, 'stoliki_horse', currentHorseRoomId);
+        if (isHorseHost) await updateDoc(ref, { status: 'closed' }); // Usunięto window.updateDoc
+        else await updateDoc(ref, { [`players.${currentUserId}`]: deleteField() }); // Usunięto window.deleteField
+    } catch(e) {}
+    currentHorseRoomId = null; isHorseHost = false;
+    if(unsubHorseRoom) unsubHorseRoom();
+    exitHorseRoomUI(); listenToHorseLobby();
+});
+
+document.getElementById('btn-horse-multi-bet')?.addEventListener('click', async () => {
+    if (!currentHorseRoomId || !selectedMultiHorse) return showMessage('Wybierz konia!', 'error');
+    const amount = parseInt(document.getElementById('horse-multi-amount').value);
     if (!await deductBet(amount)) return;
     
-    document.getElementById('btn-horse-play').disabled = true;
-    document.getElementById('horse-message').textContent = 'Bramki otwarte! Poszły!';
+    // Usunięto przedrostki window. przy funkcjach Firestore
+    await updateDoc(doc(db, 'stoliki_horse', currentHorseRoomId), {
+        [`players.${currentUserId}`]: { name: player.name, bet: amount, horse: selectedMultiHorse, status: 'ready' }
+    });
+    showMessage(`Obstawiono konia #${selectedMultiHorse}`, 'info');
+});
+
+document.getElementById('btn-start-horse-race')?.addEventListener('click', async () => {
+    if (!isHorseHost || !currentHorseRoomId) return;
+    const winner = Math.floor(Math.random() * 4) + 1; 
+    // Usunięto window.updateDoc i window.doc
+    await updateDoc(doc(db, 'stoliki_horse', currentHorseRoomId), {
+        status: 'racing', winner: winner
+    });
+});
+
+window.joinHorseTable = async (roomId) => {
+    if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+    // Usunięto window.doc i window.getDoc
+    const ref = doc(db, 'stoliki_horse', roomId);
+    const data = (await getDoc(ref)).data();
+    if(data.status !== 'betting') return showMessage('Wyścig już trwa lub zamknięty!', 'error');
     
-    let pos = [0, 0, 0, 0];
-    let interval = setInterval(async () => {
-        let maxPos = 0;
-        let winner = -1;
+    isHorseHost = false; currentHorseRoomId = roomId;
+    enterHorseRoomUI(); listenToHorseRoom();
+};
+
+function listenToHorseLobby() {
+    const list = document.getElementById('horse-tables-list');
+    if (!list) return;
+    if (unsubHorseLobby) unsubHorseLobby();
+    // Zastąpiono zmienną pętli "doc" na "docSnap", aby nie kolidowała z funkcją doc() z Firebase
+    unsubHorseLobby = onSnapshot(collection(db, 'stoliki_horse'), snap => {
+        if (currentHorseRoomId) return; 
+        list.innerHTML = '';
+        snap.forEach(docSnap => {
+            const d = docSnap.data();
+            if (d.status === 'closed') return;
+            const row = document.createElement('div');
+            row.className = 'history-row';
+            row.innerHTML = `<span class="h-col h-user">Wyścig: ${d.hostName}</span> <span class="h-col">${d.status === 'betting' ? '🟢 Obstawianie' : '🔴 W trakcie'}</span>`;
+            if (d.status === 'betting') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-accent'; btn.style.cssText = 'padding: 4px 10px; font-size: 0.8rem;';
+                btn.textContent = 'DOŁĄCZ'; btn.onclick = () => joinHorseTable(docSnap.id);
+                row.appendChild(btn);
+            }
+            list.appendChild(row);
+        });
+    });
+}
+
+function listenToHorseRoom() {
+    if (!currentHorseRoomId) return;
+    if (unsubHorseRoom) unsubHorseRoom();
+    
+    unsubHorseRoom = onSnapshot(doc(db, 'stoliki_horse', currentHorseRoomId), snap => {
+        if (!snap.exists()) return exitHorseRoomUI();
+        const data = snap.data();
         
-        for(let i=0; i<4; i++) {
-            pos[i] += Math.random() * 2.5; // Zmienna prędkość
-            if(pos[i] >= 90) { pos[i] = 90; winner = i + 1; }
-            document.getElementById(`horse-${i+1}`).style.left = `${pos[i]}%`;
+        if (data.status === 'closed') { 
+            showMessage('Wyścig zamknięty.', 'info'); 
+            document.getElementById('btn-leave-horse-table').click(); 
+            return; 
         }
         
-        if (winner !== -1) {
-            clearInterval(interval);
-            let mult = winner === horseBet ? 3.8 : 0;
-            document.getElementById('horse-message').textContent = `Wygrywa koń nr ${winner}! ${mult > 0 ? 'Odbierasz wygraną!' : 'Twój koń przegrał.'}`;
-            await addWin(amount * mult, amount, 'Wyścigi Konne', mult > 0 ? 'Wygrana!' : null);
-            document.getElementById('btn-horse-play').disabled = false;
+        document.getElementById('horse-room-name').textContent = `Tor Gracza: ${data.hostName} | Status: ${data.status.toUpperCase()}`;
+        
+        const startBtn = document.getElementById('btn-start-horse-race');
+        if (isHorseHost && data.status === 'betting') startBtn.classList.remove('hidden');
+        else startBtn.classList.add('hidden');
+        
+        const pCont = document.getElementById('horse-multi-players');
+        pCont.innerHTML = '';
+        for (const [uid, pData] of Object.entries(data.players || {})) {
+            let userStatus = pData.status === 'ready' ? '🟢 Gotowy' : '⏳ Czeka';
+            pCont.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; font-size:0.85rem;">
+                <strong style="color:var(--gold);">${pData.name}</strong><br>
+                Koń: ${pData.horse ? '#' + pData.horse : 'Brak'} | Stawka: ${pData.bet} <br>
+                <span style="font-size:0.75rem; color:var(--text-muted);">${userStatus}</span>
+            </div>`;
+        }
+
+        // ==========================================
+        // 1. ZAKOŃCZENIE ANIMACJI I RESET PRZEZ HOSTA
+        // ==========================================
+        if (data.status === 'racing' && !isHorseRacingAnim) {
+            isHorseRacingAnim = true;
+            document.getElementById('horse-multi-controls').classList.add('hidden');
             
-            // Reset po 3 sekundach
-            setTimeout(() => { for(let i=1; i<=4; i++) document.getElementById(`horse-${i}`).style.left = '0%'; }, 3000);
+            runHorseRaceAnimation(data.winner, () => {
+                isHorseRacingAnim = false;
+                
+                if (isHorseHost) {
+                    // Host daje sygnał do wypłat
+                    updateDoc(doc(db, 'stoliki_horse', currentHorseRoomId), { status: 'resolving' });
+                    
+                    // Host czeka 6 sekund i automatycznie RESETUJE stół do nowej gry!
+                    setTimeout(async () => {
+                        try {
+                            const roomRef = doc(db, 'stoliki_horse', currentHorseRoomId);
+                            const roomSnap = await getDoc(roomRef);
+                            
+                            // Upewniamy się, że pokój nadal jest w fazie resolving
+                            if (roomSnap.exists() && roomSnap.data().status === 'resolving') {
+                                const latestData = roomSnap.data();
+                                let updates = { status: 'betting', winner: null };
+                                
+                                // Czystka statusów graczy z poprzedniej rundy
+                                for (const uid of Object.keys(latestData.players || {})) {
+                                    updates[`players.${uid}.status`] = 'waiting';
+                                    updates[`players.${uid}.horse`] = null;
+                                    updates[`players.${uid}.bet`] = 0;
+                                }
+                                await updateDoc(roomRef, updates);
+                            }
+                        } catch(e) { console.error(e); }
+                    }, 6000);
+                }
+            });
+        }
+        
+        // ==========================================
+        // 2. WYPŁATY ZYSKÓW DLA GRACZY
+        // ==========================================
+        const myData = data.players?.[currentUserId];
+        if (data.status === 'resolving' && myData && myData.status === 'ready') {
+            let winAmt = (myData.horse === data.winner) ? myData.bet * 3.8 : 0;
+            let msg = winAmt > 0 ? 'Wygrana!' : 'Przegrana.';
+            
+            addWin(winAmt, myData.bet, 'Wyścigi Live', `Koń #${data.winner} wygrywa. ${msg}`).then(() => {
+                // Potwierdzenie odebrania nagrody, żeby nie wypłaciło dwa razy
+                updateDoc(doc(db, 'stoliki_horse', currentHorseRoomId), { [`players.${currentUserId}.status`]: 'rewarded' });
+            });
+        }
+
+        // ==========================================
+        // 3. RESETOWANIE PLANSZY DO NOWEJ RUNDY
+        // ==========================================
+        if (data.status === 'betting' && !isHorseRacingAnim) {
+            document.getElementById('horse-multi-controls').classList.remove('hidden');
+            
+            // Odznaczamy przyciski z poprzedniej gry
+            document.querySelectorAll('#view-horseracing .casino-btn').forEach(btn => btn.classList.remove('selected'));
+            selectedMultiHorse = null;
+            
+            // Cofamy konie na linię startu
+            for(let i=1; i<=4; i++) {
+                const el = document.getElementById(`multi-horse-${i}`);
+                if(el) el.style.left = '0%';
+            }
+        }
+    });
+}
+
+function runHorseRaceAnimation(winnerNum, callback) {
+    let pos = [0, 0, 0, 0];
+    if (horseAnimInterval) clearInterval(horseAnimInterval);
+    
+    horseAnimInterval = setInterval(() => {
+        let maxPos = 0;
+        for(let i=0; i<4; i++) {
+            let speedBoost = (i+1 === winnerNum) ? 0.8 : 0;
+            pos[i] += Math.random() * 2.0 + speedBoost; 
+            
+            if (pos[i] >= 90) pos[i] = 90;
+            document.getElementById(`multi-horse-${i+1}`).style.left = `${pos[i]}%`;
+            if (pos[i] > maxPos) maxPos = pos[i];
+        }
+        
+        if (pos[winnerNum-1] >= 90) { 
+            clearInterval(horseAnimInterval);
+            setTimeout(callback, 2000); 
         }
     }, 50);
+}
+
+function enterHorseRoomUI() {
+    document.getElementById('horse-multi-lobby').classList.add('hidden');
+    document.getElementById('horse-multi-room').classList.remove('hidden');
+}
+
+function exitHorseRoomUI() {
+    document.getElementById('horse-multi-room').classList.add('hidden');
+    document.getElementById('horse-multi-lobby').classList.remove('hidden');
 }
 
 // 4. RZUTY KARNE
@@ -1096,6 +1316,40 @@ function resetRD() {
     renderPokerCard('rd-card-2', null, true);
     renderPokerCard('rd-card-mid', null, true);
 }
+
+
+let workEndTime = 0;
+let workInterval = null;
+
+function initWorkSystem() {
+    const workBtn = document.getElementById('btn-work-system');
+    if (!workBtn) return;
+
+    workBtn.addEventListener('click', async () => {
+        if (!currentUserId) return showMessage('Zaloguj się!', 'error');
+        if (Date.now() < workEndTime) return showMessage('Jesteś jeszcze zmęczony!', 'error');
+
+        workBtn.disabled = true;
+        let timeLeft = 60; // Czas pracy w sekundach
+        workEndTime = Date.now() + (timeLeft * 1000);
+
+        workInterval = setInterval(async () => {
+            timeLeft--;
+            workBtn.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Praca w toku... (${timeLeft}s)`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(workInterval);
+                workBtn.disabled = false;
+                workBtn.innerHTML = `<i class="fa-solid fa-briefcase"></i> IDŹ DO PRACY (60 sekund)`;
+                
+                // Dodajemy wypłatę (np. 500 ułan lirów)
+                const wyplata = 500;
+                await addWin(wyplata, 0, 'Praca', `Otrzymano wypłatę: ${wyplata} ułan lir`);
+            }
+        }, 1000);
+    });
+}
+
 // ============================================
 // BLACKJACK MULTIPLAYER (Live)
 // ============================================
@@ -1118,8 +1372,14 @@ function listenToMultiLobby() {
         if (!currentRoomId) { // Odświeżamy listę tylko jeśli nie jesteśmy przy stole
             list.innerHTML = '';
             let count = 0;
+            
             snap.forEach(docSnap => {
                 const data = docSnap.data();
+                
+                // === TA LINIJKA NAPRAWIA PROBLEM ===
+                // Pomijamy stoły, które zostały zamknięte przez Hosta
+                if (data.status === 'closed') return; 
+                
                 count++;
                 
                 const row = document.createElement('div');
@@ -1132,12 +1392,11 @@ function listenToMultiLobby() {
                     <span class="h-col h-val">${data.status === 'waiting' ? '🟢 Otwarte' : '🔴 W Grze'}</span>
                 `;
                 
-                // --- KULOODPORNE TWORZENIE PRZYCISKU ---
+                // KULOODPORNE TWORZENIE PRZYCISKU
                 const joinBtn = document.createElement('button');
                 joinBtn.className = 'btn-accent';
                 joinBtn.style.cssText = 'padding: 4px 10px; font-size: 0.8rem;';
                 joinBtn.textContent = 'DOŁĄCZ';
-                // Przypinamy funkcję bezpośrednio do obiektu przycisku (nie potrzebuje window.!)
                 joinBtn.addEventListener('click', () => {
                     joinMultiTable(docSnap.id);
                 });
@@ -1146,6 +1405,7 @@ function listenToMultiLobby() {
                 row.appendChild(joinBtn);
                 list.appendChild(row);
             });
+            
             if (count === 0) {
                 list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Brak otwartych stołów. Stwórz własny!</p>';
             }
@@ -1432,38 +1692,4 @@ function exitRoomUI() {
     document.getElementById('bj-multi-lobby')?.classList.remove('hidden');
 }
 
-window.switchView = switchView;
 
-window.commitSpin = commitSpin;
-window.selectBetType = selectBetType;
-
-window.revealMine = revealMine;
-window.cashoutMines = cashoutMines;
-window.joinMultiTable = joinMultiTable;
-window.toggleHold = toggleHold;
-
-window.selectDiceChoice = selectDiceChoice;
-
-window.selectKeno = selectKeno;
-
-window.selectWheelSegment = selectWheelSegment;
-
-window.playScratch = playScratch;
-
-window.selectHorse = selectHorse;
-
-window.pickPenaltySide = pickPenaltySide;
-
-window.pickThreeCard = pickThreeCard;
-
-window.makeHiloChoice = makeHiloChoice;
-
-window.placeBaccaratBet = placeBaccaratBet;
-
-window.placeDragonTigerBet = placeDragonTigerBet;
-
-window.placeSicBoBet = placeSicBoBet;
-
-window.selectRouletteNumber = selectRouletteNumber;
-window.joinMultiTable = joinMultiTable;
-window.leaveMultiTable = leaveMultiTable;
