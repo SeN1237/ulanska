@@ -113,6 +113,23 @@ async function deductBet(amount) {
 }
 
 async function addWin(winAmount, betAmount, gameName, winMsg) {
+    // --- BONUS VIP DO WYGRANYCH (5% czystego zysku za każdą gwiazdkę) ---
+    let vipBonus = 0;
+    if (winAmount > betAmount && (player.prestigeLevel || 0) > 0) {
+        const czystyZysk = winAmount - betAmount;
+        // Obliczamy bonus (5% zysku pomnożone przez poziom VIP)
+        vipBonus = Math.floor(czystyZysk * (player.prestigeLevel * 0.05));
+        
+        // Dodajemy bonus VIP do całkowitej puli wygranej
+        winAmount += vipBonus; 
+        
+        // Aktualizujemy powiadomienie, aby gracz wiedział, że dostał bonus
+        if (winMsg) {
+            winMsg += ` (+${formatujWalute(vipBonus)} VIP)`;
+        }
+    }
+    // ---------------------------------------------------------------------
+
     const profit = winAmount - betAmount;
     let didPrestige = false; // flaga informująca, czy gracz właśnie awansował
     
@@ -124,10 +141,13 @@ async function addWin(winAmount, betAmount, gameName, winMsg) {
             let finalCash = d.cash + winAmount;
             let finalPrestige = d.prestigeLevel || 0;
             
-            // --- SYSTEM PRESTIŻU (AWANS PRZY 250 000) ---
-            if (finalCash >= 250000) {
+            // --- SYSTEM PRESTIŻU (PROGRESYWNY AWANS) ---
+            // Każdy kolejny poziom wymaga o 500 000 więcej niż poprzedni
+            const costForNextLevel = 500000 * ((d.prestigeLevel || 0) + 1);
+            
+            if (finalCash >= costForNextLevel) {
                 finalPrestige += 1;
-                finalCash = 10000;
+                finalCash = 10000; // Reset salda (lub zmień na: finalCash -= costForNextLevel;)
                 didPrestige = true;
             }
             // ---------------------------------------------
@@ -146,7 +166,7 @@ async function addWin(winAmount, betAmount, gameName, winMsg) {
         
         // Specjalne powiadomienie w przypadku awansu
         if (didPrestige) {
-            showNotification(`🚀 AWANS! Osiągnąłeś poziom ${player.prestigeLevel}! Twoje saldo zresetowano do 10 000 ułan lir.`, 'news', 'positive');
+            showNotification(`🚀 AWANS! Osiągnąłeś poziom VIP ${player.prestigeLevel}! Twoje saldo zresetowano, ale Twoje bonusy do wygranych właśnie wzrosły.`, 'news', 'positive');
             playSound('win');
         } else if (winAmount > 0) { 
             if(winMsg) showNotification(`${gameName}: ${winMsg}`, 'news', 'positive'); 
