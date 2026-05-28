@@ -111,6 +111,7 @@
         <nav class="casino-nav">
             <button class="nav-btn active" data-view="lobby"><i class="fa-solid fa-grip"></i> Lobby</button>
             <button class="nav-btn" data-view="bj_multi"><i class="fa-solid fa-users"></i> BJ Live</button>
+            <button class="nav-btn" data-view="roulette_multi"><i class="fa-solid fa-users-viewfinder"></i> Ruletka Live</button>
             <button class="nav-btn" data-view="roulette"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
             <button class="nav-btn" data-view="blackjack"><i class="fa-solid fa-layer-group"></i> Blackjack</button>
             <button class="nav-btn" data-view="plinko"><i class="fa-solid fa-circle-nodes"></i> Plinko</button>
@@ -196,6 +197,12 @@
                             <h4>Wyścigi Konne</h4><p>Obstaw zwycięzcę na żywo</p><span class="game-tag available">Nowość</span>
                         </div>
                     </div>
+                    <div class="game-card" onclick="document.querySelector('.nav-btn[data-view=\'roulette_multi\']').click();">
+    <div class="game-card-icon">🎡</div>
+    <div class="game-card-info">
+        <h4>Ruletka Live</h4><p>Wspólny stół dla graczy</p><span class="game-tag available">Nowość</span>
+    </div>
+</div>
                 </div>
 
                 <h3 class="section-title" style="margin-top: 40px;"><i class="fa-solid fa-user"></i> Gry Singleplayer</h3>
@@ -1027,6 +1034,95 @@
         </div>
     </div>
 </div>
+
+<!-- ruletka online -->
+<div id="view-roulette_multi" class="view hidden">
+                <div class="game-layout">
+                    <div class="game-panel">
+                        <h2 class="game-title"><i class="fa-solid fa-users-viewfinder"></i> Ruletka Live</h2>
+                        
+                        <div id="rm-lobby" class="glass-panel">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h3 style="color: var(--gold);">Aktywne Stoły Ruletki</h3>
+                                <button id="btn-create-rm-table" class="btn-accent">➕ OTWÓRZ STÓŁ</button>
+                            </div>
+                            <div id="rm-tables-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                        </div>
+
+                        <!-- STÓŁ RULETKI (PRAWIDŁOWA GRA) -->
+                        <div id="rm-room" class="glass-panel hidden">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                                <span id="rm-room-name" style="color: var(--text-muted); font-weight: bold;">Stół: ...</span>
+                                <button id="btn-leave-rm-table" class="btn-sell" style="padding: 5px 10px;">WYJDŹ</button>
+                            </div>
+
+                            <!-- WIZUALIZACJA KOŁA I CZASU -->
+                            <div style="text-align: center; padding: 20px 0; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
+                                <div id="rm-status" style="font-size: 1.1rem; color: var(--gold); margin-bottom: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">Oczekiwanie na graczy...</div>
+                                <div id="rm-timer" style="font-size: 2.5rem; font-weight: bold; color: var(--text-muted); font-family: 'Cinzel', serif;">--</div>
+                                
+                                <!-- NOWA ANIMACJA KOŁA (Taka sama jak w Singleplayer) -->
+                                <div class="roulette-outer" style="max-width: 500px; margin: 15px auto;">
+                                    <div class="roulette-window" id="rm-roulette-window">
+                                        <div class="roulette-marker"></div>
+                                        <div class="inner" id="rm-roulette-inner">
+                                            <div class="data" id="rm-data-overlay">
+                                                <div class="result" id="rm-result-bg">
+                                                    <div class="result-number" id="rm-result-number">--</div>
+                                                </div>
+                                            </div>
+                                            <div class="roulette-strip" id="rm-roulette-strip"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ZAKŁADY GRACZY (Każdy oddzielnie) -->
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: var(--text-muted); border-bottom: 1px dashed var(--border); padding-bottom: 5px; margin-bottom: 10px; font-size: 0.9rem;">OBSTAWIENIA GRACZY:</h4>
+                                <div id="rm-players" style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; align-items: flex-start;">
+                                    <!-- Tu pojawią się oddzielne żetony -->
+                                </div>
+                            </div>
+
+                            <!-- PANEL OBSTAWIANIA -->
+                            <div id="rm-controls" class="casino-controls">
+                                <div class="bet-row" style="margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px dashed var(--border);">
+                                    <input type="number" id="rm-amount" class="dark-input" placeholder="Wartość żetonu" value="100" style="max-width: 150px;">
+                                    <span style="color:var(--text-muted); font-size:0.9rem;">Wpisz stawkę żetonu i klikaj pola poniżej, aby je obstawić!</span>
+                                </div>
+                                
+                                <!-- Siatka Tuzinów -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('dozen', '1')">1st 12 (1-12) x3</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('dozen', '2')">2nd 12 (13-24) x3</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('dozen', '3')">3rd 12 (25-36) x3</button>
+                                </div>
+                                
+                                <!-- Siatka Połówek i Parzystości -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('half', 'low')">1 do 18</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('parity', 'even')">PARZYSTE</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('parity', 'odd')">NIEPARZYSTE</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('half', 'high')">19 do 36</button>
+                                </div>
+                                
+                                <!-- Siatka Kolorów -->
+                                <div class="bet-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                                    <button class="casino-btn btn-red" onclick="placeRmBet('color', 'red')">🔴 CZERWONE (x2)</button>
+                                    <button class="casino-btn btn-green" onclick="placeRmBet('color', 'green')">🟢 ZERO (x36)</button>
+                                    <button class="casino-btn btn-black" onclick="placeRmBet('color', 'black')">⚫ CZARNE (x2)</button>
+                                </div>
+
+                                <!-- Siatka Konkretnych Liczb (Zostanie wygenerowana przez JS) -->
+                                <div class="num-grid">
+                                    <div id="rm-num-buttons-container" style="display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- RZUTY KARNE (Penalty) -->
             <div id="view-penalty" class="view hidden">
