@@ -140,6 +140,26 @@
             <button class="nav-btn" data-view="horseracing"><i class="fa-solid fa-horse"></i> Wyścigi</button>
             <button class="nav-btn" data-view="penalty"><i class="fa-solid fa-futbol"></i> Karne</button>
             <button class="nav-btn" data-view="reddog"><i class="fa-solid fa-dog"></i> Red Dog</button>
+            <button class="nav-btn" data-view="thimbles"><i class="fa-solid fa-glass-water"></i> Kubki</button>
+            <button class="nav-btn" data-view="limbo"><i class="fa-solid fa-chart-line"></i> Limbo</button>
+            <button class="nav-btn" data-view="rps"><i class="fa-solid fa-hand-scissors"></i> KPN</button>
+            <button class="nav-btn" data-view="colorwheel"><i class="fa-solid fa-circle-notch"></i> Mini Koło</button>
+            <button class="nav-btn" data-view="safes"><i class="fa-solid fa-vault"></i> Sejfy</button>
+            <button class="nav-btn" data-view="tower"><i class="fa-solid fa-layer-group"></i> Wieża</button>
+             <button class="nav-btn" data-view="barrel"><i class="fa-solid fa-bomb"></i> Beczka</button>
+<button class="nav-btn" data-view="darts"><i class="fa-solid fa-bullseye"></i> Rzutki</button>
+<button class="nav-btn" data-view="striker"><i class="fa-solid fa-hammer"></i> Siłomierz</button>
+<button class="nav-btn" data-view="snails"><i class="fa-solid fa-snail"></i> Ślimaki</button>
+<button class="nav-btn" data-view="basketball"><i class="fa-solid fa-basketball"></i> Koszykówka</button>
+<button class="nav-btn" data-view="shooting"><i class="fa-solid fa-crosshairs"></i> Strzelnica</button>
+<button class="nav-btn" data-view="fishing"><i class="fa-solid fa-fish"></i> Wędkarz</button>
+<button class="nav-btn" data-view="horseshoe"><i class="fa-solid fa-magnet"></i> Podkowa</button>
+<button class="nav-btn" data-view="goldminer"><i class="fa-solid fa-gem"></i> Kopalnia</button>
+<button class="nav-btn" data-view="bowling"><i class="fa-solid fa-bowling-ball"></i> Kręgle</button>
+<button class="nav-btn" data-view="billiards"><i class="fa-solid fa-circle-play"></i> Bilard</button>
+<button class="nav-btn" data-view="train"><i class="fa-solid fa-train"></i> Pociąg</button>
+<button class="nav-btn" data-view="chest"><i class="fa-solid fa-box-open"></i> Skrzynie</button>
+<button class="nav-btn" data-view="ringtoss"><i class="fa-solid fa-bullseye"></i> Obręcze</button>
             
             <button class="nav-btn" data-view="leaderboard"><i class="fa-solid fa-trophy"></i> Ranking</button>
         </nav>
@@ -176,9 +196,14 @@
                             <div class="stat-label">Rozegrane gry</div>
                             <div class="stat-val" id="lobby-games">0</div>
                         </div>
-                        <button id="btn-work-system" class="btn-accent" style="width: 100%; margin-top: 20px; padding: 15px; font-size: 1.1rem;">
-    <i class="fa-solid fa-briefcase"></i> IDŹ DO PRACY (60 sekund)
-</button>
+                        <div style="display: flex; gap: 10px; margin-top: 20px; width: 100%;">
+    <button id="btn-work-30m" class="btn-accent" style="flex: 1; padding: 15px; font-size: 1rem;">
+        <i class="fa-solid fa-briefcase"></i> Praca 30 min (100k)
+    </button>
+    <button id="btn-work-1h" class="btn-accent" style="flex: 1; padding: 15px; font-size: 1rem;">
+        <i class="fa-solid fa-briefcase"></i> Praca 1h (200k)
+    </button>
+</div>
                     </div>
                 </div>
 
@@ -231,10 +256,30 @@
                     <div class="game-card" onclick="switchView('dragon_tiger')"><div class="game-card-icon">🐉</div><div class="game-card-info"><h4>Dragon Tiger</h4><p>Azjatycka bitwa</p><span class="game-tag available">Dostępny</span></div></div>
                     <div class="game-card" onclick="switchView('jackpot')"><div class="game-card-icon">💰</div><div class="game-card-info"><h4>Mega Jackpot</h4><p>Główna nagroda</p><span class="game-tag available">Dostępny</span></div></div>
                     
+                    <div class="game-card" onclick="switchView('tower')"><div class="game-card-icon">🧱</div><div class="game-card-info"><h4>Wieża</h4><p>Wspinaj się po wyższy mnożnik</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('barrel')"><div class="game-card-icon">🛢️</div><div class="game-card-info"><h4>Beczka Pirata</h4><p>Wbijaj miecze, unikaj bomby</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('darts')"><div class="game-card-icon">🎯</div><div class="game-card-info"><h4>Rzutki</h4><p>Traf w sam środek tarczy</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('striker')"><div class="game-card-icon">🔨</div><div class="game-card-info"><h4>Siłomierz</h4><p>Uderz młotem z całej siły</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('snails')"><div class="game-card-icon">🐌</div><div class="game-card-info"><h4>Wyścig Ślimaków</h4><p>Powolne, ale zyskowne wyścigi</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('basketball')"><div class="game-card-icon">🏀</div><div class="game-card-info"><h4>Koszykówka</h4><p>Rzuty wolne za mnożnik</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('shooting')"><div class="game-card-icon">🦆</div><div class="game-card-info"><h4>Strzelnica</h4><p>Ustrzel kaczkę z nagrodą</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('fishing')"><div class="game-card-icon">🎣</div><div class="game-card-info"><h4>Wędkarz</h4><p>Zarzuć wędkę po wygraną</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('horseshoe')"><div class="game-card-icon">🧲</div><div class="game-card-info"><h4>Rzut Podkową</h4><p>Traf na palik (do x5)</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('goldminer')"><div class="game-card-icon">⛏️</div><div class="game-card-info"><h4>Kopalnia Złota</h4><p>Rozbij głaz i szukaj diamentów</p><span class="game-tag available">Nowość</span></div></div>
+                    <div class="game-card" onclick="switchView('bowling')"><div class="game-card-icon">🎳</div><div class="game-card-info"><h4>Kręgle</h4><p>Traf Strike po mnożnik x5!</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('billiards')"><div class="game-card-icon">🎱</div><div class="game-card-info"><h4>Bilard</h4><p>Wbij czarną bilę (x3)</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('train')"><div class="game-card-icon">🚂</div><div class="game-card-info"><h4>Złoty Pociąg</h4><p>Wybierz właściwy tor</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('chest')"><div class="game-card-icon">🧰</div><div class="game-card-info"><h4>Skrzynie Skarbów</h4><p>Otwórz skrzynię z nagrodą</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('ringtoss')"><div class="game-card-icon">⭕</div><div class="game-card-info"><h4>Rzut Obręczą</h4><p>Celuj w wygrywający palik</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('coinflip')"><div class="game-card-icon">🪙</div><div class="game-card-info"><h4>Rzut Monetą</h4><p>Orzeł czy reszka?</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('threecards')"><div class="game-card-icon">🃏</div><div class="game-card-info"><h4>Trzy Karty</h4><p>Znajdź Asa (x2.8)</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('penalty')"><div class="game-card-icon">⚽</div><div class="game-card-info"><h4>Rzuty Karne</h4><p>Strzel gola bramkarzowi</p><span class="game-tag available">Nowość</span></div></div>
                     <div class="game-card" onclick="switchView('reddog')"><div class="game-card-icon">🐕</div><div class="game-card-info"><h4>Red Dog Poker</h4><p>Traf pomiędzy karty</p><span class="game-tag available">Nowość</span></div></div>
+                    <div class="game-card" onclick="switchView('thimbles')"><div class="game-card-icon">🥛</div><div class="game-card-info"><h4>Trzy Kubki</h4><p>Gdzie jest kulka? x2.8</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('limbo')"><div class="game-card-icon">📈</div><div class="game-card-info"><h4>Limbo</h4><p>Ustaw swój mnożnik</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('rps')"><div class="game-card-icon">✌️</div><div class="game-card-info"><h4>Kamień, Papier...</h4><p>Klasyk z krupierem</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('colorwheel')"><div class="game-card-icon">🎯</div><div class="game-card-info"><h4>Mini Koło</h4><p>Szybka ruletka 3-kolorowa</p><span class="game-tag available">Nowość</span></div></div>
+<div class="game-card" onclick="switchView('safes')"><div class="game-card-icon">🧰</div><div class="game-card-info"><h4>Sejfy</h4><p>Otwórz i zgarnij łup</p><span class="game-tag available">Nowość</span></div></div>
                 </div>
            </div>
 	
@@ -916,6 +961,151 @@
                 </div>
             </div>
 
+
+            
+            <!-- WIEŻA -->
+<div id="view-tower" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-layer-group"></i> Wspinaczka na Wieżę</h2>
+            <div class="glass-panel" style="text-align:center; padding: 30px 20px;">
+                <div id="tower-visual" style="display:flex; flex-direction:column-reverse; gap:5px; max-width:300px; margin:0 auto;">
+                    <div class="tower-step" id="t-step-1" style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid var(--border);">Poziom 1 (x1.5)</div>
+                    <div class="tower-step" id="t-step-2" style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid var(--border);">Poziom 2 (x2.0)</div>
+                    <div class="tower-step" id="t-step-3" style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid var(--border);">Poziom 3 (x3.0)</div>
+                    <div class="tower-step" id="t-step-4" style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid var(--border);">Poziom 4 (x5.0)</div>
+                    <div class="tower-step" id="t-step-5" style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid var(--border);">Poziom 5 (x10.0)</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row" id="tower-bet-controls">
+                    <input type="number" id="tower-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="startTower()">ROZPOCZNIJ WSPINACZKĘ</button>
+                </div>
+                <div class="bet-row hidden" id="tower-play-controls">
+                    <button class="btn-buy" onclick="climbTower()" style="flex:1;">⬆️ WEJDŹ WYŻEJ</button>
+                    <button class="btn-accent" onclick="cashoutTower()" style="flex:1;">💰 WYPŁAĆ ZYSK</button>
+                </div>
+                <p id="tower-message" class="game-status">Zaryzykujesz upadek, czy zabierzesz pewny zysk?</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BECZKA PIRATA -->
+<div id="view-barrel" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-bomb"></i> Beczka Pirata</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div style="font-size:5rem; margin-bottom:20px;" id="barrel-icon">🛢️</div>
+                <p style="color:var(--text-muted); margin-bottom:20px;">Jeden z 6 otworów wysadzi beczkę! Reszta zwiększa Twój mnożnik.</p>
+                <div id="barrel-slots" style="display:flex; justify-content:center; gap:10px;">
+                    <button class="casino-btn btn-black" id="bslot-0" onclick="insertSword(0)" style="font-size:1.5rem;">🗡️</button>
+                    <button class="casino-btn btn-black" id="bslot-1" onclick="insertSword(1)" style="font-size:1.5rem;">🗡️</button>
+                    <button class="casino-btn btn-black" id="bslot-2" onclick="insertSword(2)" style="font-size:1.5rem;">🗡️</button>
+                    <button class="casino-btn btn-black" id="bslot-3" onclick="insertSword(3)" style="font-size:1.5rem;">🗡️</button>
+                    <button class="casino-btn btn-black" id="bslot-4" onclick="insertSword(4)" style="font-size:1.5rem;">🗡️</button>
+                    <button class="casino-btn btn-black" id="bslot-5" onclick="insertSword(5)" style="font-size:1.5rem;">🗡️</button>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row" id="barrel-bet-controls">
+                    <input type="number" id="barrel-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="startBarrel()">ZAGRAJ</button>
+                </div>
+                <div class="bet-row hidden" id="barrel-play-controls">
+                    <button class="btn-accent" onclick="cashoutBarrel()" style="width:100%;">WYPŁAĆ (<span id="barrel-mult">1.0</span>x)</button>
+                </div>
+                <p id="barrel-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RZUTKI -->
+<div id="view-darts" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-bullseye"></i> Rzutki</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <div id="darts-visual" style="font-size:6rem; position:relative; display:inline-block;">
+                    🎯
+                    <div id="dart-projectile" style="position:absolute; top:20px; left:-100px; font-size:3rem; opacity:0; transition:all 0.5s cubic-bezier(0.1, 0.7, 1.0, 0.1);">🏹</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-grid">
+                    <button class="casino-btn btn-black" onclick="setDartsBet('zielone')" id="dart-btn-zielone">ZIELONE x2</button>
+                    <button class="casino-btn btn-black" onclick="setDartsBet('czerwone')" id="dart-btn-czerwone">CZERWONE x2</button>
+                    <button class="casino-btn btn-black" onclick="setDartsBet('bullseye')" id="dart-btn-bullseye" style="border-color:var(--gold); color:var(--gold);">BULLSEYE x10</button>
+                </div>
+                <div class="bet-row" style="margin-top:10px;">
+                    <input type="number" id="darts-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playDarts()">RZUT!</button>
+                </div>
+                <p id="darts-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SIŁOMIERZ -->
+<div id="view-striker" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-hammer"></i> Siłomierz</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div style="height:300px; width:40px; background:#111; margin:0 auto; border:2px solid var(--border); border-radius:20px; position:relative; overflow:hidden;">
+                    <div id="striker-bar" style="position:absolute; bottom:0; width:100%; height:0%; background:linear-gradient(to top, var(--green-bright), var(--gold), var(--red)); transition:height 0.8s cubic-bezier(0.1, 0.9, 0.2, 1);"></div>
+                </div>
+                <div style="font-size:3rem; margin-top:10px; cursor:pointer;" id="striker-hammer" onclick="playStriker()">🔨</div>
+                <p style="color:var(--text-muted); margin-top:10px;">Kliknij młot! <br>>70 mocy = x2 | >95 mocy = x10</p>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="striker-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="striker-message" class="game-status">Siła uderzenia: <span id="striker-score">0</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ŚLIMAKI -->
+<div id="view-snails" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-snail"></i> Wyścig Ślimaków</h2>
+            <div class="glass-panel" style="padding: 30px 20px; background:#2d4a22;">
+                <div style="border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0; position:relative; height:50px;">
+                    <span style="position:absolute; left:0; color:#FF5252; font-weight:bold;">A</span>
+                    <div id="snail-1" style="position:absolute; left:20px; font-size:2rem; transition:left 0.2s;">🐌</div>
+                </div>
+                <div style="border-bottom:1px dashed rgba(255,255,255,0.2); padding:10px 0; position:relative; height:50px;">
+                    <span style="position:absolute; left:0; color:#448AFF; font-weight:bold;">B</span>
+                    <div id="snail-2" style="position:absolute; left:20px; font-size:2rem; transition:left 0.2s;">🐌</div>
+                </div>
+                <div style="padding:10px 0; position:relative; height:50px;">
+                    <span style="position:absolute; left:0; color:#69F0AE; font-weight:bold;">C</span>
+                    <div id="snail-3" style="position:absolute; left:20px; font-size:2rem; transition:left 0.2s;">🐌</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-grid">
+                    <button class="casino-btn btn-black" onclick="setSnailBet(1)" id="snail-btn-1" style="border-color:#FF5252;">ŚLIMAK A (x2.8)</button>
+                    <button class="casino-btn btn-black" onclick="setSnailBet(2)" id="snail-btn-2" style="border-color:#448AFF;">ŚLIMAK B (x2.8)</button>
+                    <button class="casino-btn btn-black" onclick="setSnailBet(3)" id="snail-btn-3" style="border-color:#69F0AE;">ŚLIMAK C (x2.8)</button>
+                </div>
+                <div class="bet-row" style="margin-top:10px;">
+                    <input type="number" id="snails-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playSnails()">ROZPOCZNIJ WYŚCIG</button>
+                </div>
+                <p id="snails-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
             <!-- 5 CAŁKOWICIE NOWYCH GIER -->
 
             <!-- COIN FLIP -->
@@ -1174,6 +1364,350 @@
                     </div>
                 </div>
             </div>
+
+
+            <!-- TRZY KUBKI -->
+<div id="view-thimbles" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-glass-water"></i> Trzy Kubki</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 50px 20px;">
+                <p style="color:var(--text-muted); margin-bottom:30px;">Zgadnij, pod którym kubkiem ukryto złotą kulkę (x2.85)</p>
+                <div style="display:flex; justify-content:center; gap:30px; font-size:4rem;">
+                    <div id="cup-0" style="cursor:pointer; transition:transform 0.2s;" onclick="playThimbles(0)">🥛</div>
+                    <div id="cup-1" style="cursor:pointer; transition:transform 0.2s;" onclick="playThimbles(1)">🥛</div>
+                    <div id="cup-2" style="cursor:pointer; transition:transform 0.2s;" onclick="playThimbles(2)">🥛</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="thimbles-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="thimbles-message" class="game-status">Kliknij kubek, aby zagrać!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LIMBO -->
+<div id="view-limbo" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-chart-line"></i> Limbo</h2>
+            <div class="glass-panel" style="text-align:center; padding: 50px 20px;">
+                <div id="limbo-result" style="font-size:5rem; color:var(--text-muted); font-weight:bold; font-family:'Cinzel', serif;">1.00x</div>
+                <p style="color:var(--text-muted); margin-top:10px;">Celowy mnożnik decyduje o szansy na wygraną.</p>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="limbo-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <input type="number" id="limbo-target" class="dark-input" placeholder="Cel (np. 2.50)" value="2.00" step="0.1" min="1.01">
+                    <button id="btn-limbo-play" class="btn-accent" onclick="playLimbo()">GRAJ</button>
+                </div>
+                <p id="limbo-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RPS (Kamień, Papier, Nożyce) -->
+<div id="view-rps" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-hand-scissors"></i> Kamień, Papier, Nożyce</h2>
+            <div class="glass-panel bj-table" style="display:flex; justify-content:space-around; align-items:center; min-height:220px; padding:30px 10px;">
+                <div style="text-align:center;">
+                    <h3 style="color:var(--text-muted); margin-bottom:15px; font-family:'Cinzel',serif;">TY</h3>
+                    <div id="rps-player" style="font-size:4rem;">❓</div>
+                </div>
+                <div style="font-size:2rem; color:var(--gold);">VS</div>
+                <div style="text-align:center;">
+                    <h3 style="color:var(--text-muted); margin-bottom:15px; font-family:'Cinzel',serif;">KRUPIER</h3>
+                    <div id="rps-dealer" style="font-size:4rem;">❓</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-grid">
+                    <button class="casino-btn btn-black" onclick="playRPS('kamien')">🪨 KAMIEŃ</button>
+                    <button class="casino-btn btn-black" onclick="playRPS('papier')">📄 PAPIER</button>
+                    <button class="casino-btn btn-black" onclick="playRPS('nozyce')">✂️ NOŻYCE</button>
+                </div>
+                <div class="bet-row" style="margin-top:10px;">
+                    <input type="number" id="rps-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="rps-message" class="game-status">Wybierz symbol, by zagrać! Wygrana x1.95</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MINI KOŁO -->
+<div id="view-colorwheel" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-circle-notch"></i> Mini Koło Kolorów</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div id="miniwheel-visual" style="font-size:5rem; transition: transform 2s cubic-bezier(0.1, 0.7, 0.1, 1);">🎯</div>
+                <div style="margin-top:20px; padding:15px; background:rgba(0,0,0,0.5); border-radius:8px;">
+                    Wylosowano: <strong id="miniwheel-result" style="font-size:1.5rem; color:var(--text-muted);">---</strong>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-grid">
+                    <button class="casino-btn btn-black" onclick="setMiniWheelBet('szary')" id="mw-btn-szary">⚪ SZARY x2</button>
+                    <button class="casino-btn btn-red" onclick="setMiniWheelBet('czerwony')" id="mw-btn-czerwony">🔴 CZERWONY x3</button>
+                    <button class="casino-btn btn-green" onclick="setMiniWheelBet('zielony')" id="mw-btn-zielony" style="border-color:var(--gold); color:var(--gold);">🟡 ZŁOTY x5</button>
+                </div>
+                <div class="bet-row" style="margin-top:10px;">
+                    <input type="number" id="miniwheel-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playMiniWheel()">KRĘĆ</button>
+                </div>
+                <p id="miniwheel-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SEJFY -->
+<div id="view-safes" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-vault"></i> Sejfy</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz jeden sejf. Uważaj, niektóre są puste, inne kryją wielkie łupy!</p>
+                <div style="display:flex; justify-content:center; gap:20px; font-size:4rem;">
+                    <div id="safe-0" style="cursor:pointer;" onclick="playSafes(0)">🧰</div>
+                    <div id="safe-1" style="cursor:pointer;" onclick="playSafes(1)">🧰</div>
+                    <div id="safe-2" style="cursor:pointer;" onclick="playSafes(2)">🧰</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="safes-amount" class="dark-input" placeholder="Stawka" value="100">
+                </div>
+                <p id="safes-message" class="game-status">Kliknij sejf, by go otworzyć!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KOSZYKÓWKA -->
+<div id="view-basketball" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-basketball"></i> Koszykówka</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div id="basket-hoop" style="font-size:5rem; margin-bottom:10px;">🧺</div>
+                <div id="basket-ball" style="font-size:3rem; transition:all 0.5s ease-out; transform:translateY(0px);">🏀</div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="basket-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playBasketball()">RZUCAM!</button>
+                </div>
+                <p id="basket-message" class="game-status">Trafienie czyste (Czysty wpad: x2.5), Od tablicy (x1.5)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STRZELNICA -->
+<div id="view-shooting" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-crosshairs"></i> Strzelnica</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz jeden z celów i strzelaj!</p>
+                <div style="display:flex; justify-content:center; gap:20px; font-size:4rem;">
+                    <div id="duck-0" style="cursor:crosshair;" onclick="playShooting(0)">🦆</div>
+                    <div id="duck-1" style="cursor:crosshair;" onclick="playShooting(1)">🦆</div>
+                    <div id="duck-2" style="cursor:crosshair;" onclick="playShooting(2)">🦆</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="shooting-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="shooting-message" class="game-status">Kliknij na kaczkę, by oddać strzał.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WĘDKARZ -->
+<div id="view-fishing" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-fish"></i> Wędkarz</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px; background:linear-gradient(to bottom, var(--bg-panel), #0a2e3f);">
+                <div id="fishing-bobber" style="font-size:4rem; animation: float 2s infinite ease-in-out;">🎣</div>
+                <div id="fishing-catch" style="font-size:3rem; margin-top:20px; opacity:0; transition:opacity 0.5s;">🐟</div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="fishing-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playFishing()">ZARZUĆ WĘDKĘ</button>
+                </div>
+                <p id="fishing-message" class="game-status">Poczekaj na branie... Możesz wyłowić skarb (x10)!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RZUT PODKOWĄ -->
+<div id="view-horseshoe" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-magnet"></i> Rzut Podkową</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div id="horseshoe-peg" style="font-size:5rem; position:relative;">
+                    🪵
+                    <div id="horseshoe-shoe" style="position:absolute; top:50px; left:50%; transform:translateX(-50%) scale(2); opacity:0; font-size:3rem; transition:all 0.6s ease-in;">🧲</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="horseshoe-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playHorseshoe()">RZUT!</button>
+                </div>
+                <p id="horseshoe-message" class="game-status">Idealne trafienie to x5!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KOPALNIA ZŁOTA -->
+<div id="view-goldminer" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-gem"></i> Kopalnia Złota</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz jeden głaz do rozbicia.</p>
+                <div style="display:flex; justify-content:center; gap:20px; font-size:4rem;">
+                    <div id="rock-0" style="cursor:pointer;" onclick="playGoldMiner(0)">🪨</div>
+                    <div id="rock-1" style="cursor:pointer;" onclick="playGoldMiner(1)">🪨</div>
+                    <div id="rock-2" style="cursor:pointer;" onclick="playGoldMiner(2)">🪨</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="goldminer-amount" class="dark-input" placeholder="Stawka" value="100">
+                </div>
+                <p id="goldminer-message" class="game-status">Kliknij głaz kilofem!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KRĘGLE -->
+<div id="view-bowling" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-bowling-ball"></i> Kręgle</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div id="bowling-pins" style="font-size:5rem; margin-bottom:10px;">🎳</div>
+                <div id="bowling-ball" style="font-size:3rem; transition:all 0.6s ease-in; transform:translateY(0px);">⚫</div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="bowling-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playBowling()">RZUĆ KULĄ</button>
+                </div>
+                <p id="bowling-message" class="game-status">Strike (x5), Spare (x2), Rynna (x0)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BILARD -->
+<div id="view-billiards" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-circle-play"></i> Bilard (8-Ball)</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px; background:radial-gradient(ellipse at center, #1b5e20 0%, var(--bg-panel) 100%);">
+                <div id="billiards-hole" style="font-size:5rem; position:relative; margin:0 auto; width:100px; height:100px;">
+                    🕳️
+                    <div id="billiards-ball" style="position:absolute; top:80px; left:50%; transform:translateX(-50%); font-size:3rem; opacity:1; transition:all 0.5s ease-out;">🎱</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="billiards-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playBilliards()">UDERZ KIJEM</button>
+                </div>
+                <p id="billiards-message" class="game-status">Wbij czarną bilę, by wygrać (x3)!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ZŁOTY POCIĄG -->
+<div id="view-train" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-train"></i> Złoty Pociąg</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <div id="train-visual" style="font-size:5rem; margin-bottom:20px; transition:transform 1s ease-in-out;">🚂</div>
+                <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz tor! Jeden prowadzi do złota (x3), jeden to zwrot (x1), a trzeci to ślepy zaułek.</p>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-grid">
+                    <button class="casino-btn btn-black" onclick="playTrain(0)">⬅️ LEWY TOR</button>
+                    <button class="casino-btn btn-black" onclick="playTrain(1)">⬆️ ŚRODEK</button>
+                    <button class="casino-btn btn-black" onclick="playTrain(2)">➡️ PRAWY TOR</button>
+                </div>
+                <div class="bet-row" style="margin-top:10px;">
+                    <input type="number" id="train-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="train-message" class="game-status"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SKRZYNIE SKARBÓW -->
+<div id="view-chest" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-box-open"></i> Skrzynie Skarbów</h2>
+            <div class="glass-panel bj-table" style="text-align:center; padding: 40px 20px;">
+                <div style="display:flex; justify-content:center; gap:20px; font-size:4rem;">
+                    <div id="chest-0" style="cursor:pointer;" onclick="playChest(0)">🧰</div>
+                    <div id="chest-1" style="cursor:pointer;" onclick="playChest(1)">🧰</div>
+                    <div id="chest-2" style="cursor:pointer;" onclick="playChest(2)">🧰</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="chest-amount" class="dark-input" placeholder="Stawka" value="50">
+                </div>
+                <p id="chest-message" class="game-status">Wybierz skrzynię! (Pusta: x0, Srebro: x2, Złoto: x4)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RZUT OBRĘCZĄ -->
+<div id="view-ringtoss" class="view hidden">
+    <div class="game-layout">
+        <div class="game-panel">
+            <h2 class="game-title"><i class="fa-solid fa-bullseye"></i> Rzut Obręczą</h2>
+            <div class="glass-panel" style="text-align:center; padding: 40px 20px;">
+                <div id="ringtoss-pegs" style="font-size:5rem; position:relative; margin:0 auto;">
+                    🍾
+                    <div id="ringtoss-ring" style="position:absolute; top:80px; left:50%; transform:translateX(-50%) scale(2); opacity:0; font-size:3rem; transition:all 0.5s ease-out;">⭕</div>
+                </div>
+            </div>
+            <div class="glass-panel casino-controls">
+                <div class="bet-row">
+                    <input type="number" id="ringtoss-amount" class="dark-input" placeholder="Stawka" value="50">
+                    <button class="btn-accent" onclick="playRingToss()">RZUĆ OBRĘCZ!</button>
+                </div>
+                <p id="ringtoss-message" class="game-status">Trafienie (x3), Odbicie (x0)</p>
+            </div>
+        </div>
+    </div>
+</div>
 
             <!-- LEADERBOARD -->
             <div id="view-leaderboard" class="view hidden">
