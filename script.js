@@ -51,7 +51,7 @@ function formatujWalute(val) {
     return `${liczba} ${symbol}`;
 }
 function getVipLabel(lvl) { const l = ['Nowicjusz', 'Brązowy', 'Srebrny', 'Złoty', 'Platynowy', 'Diamentowy']; return l[Math.min(lvl, l.length - 1)]; }
-function getVipBadge(lvl) { return lvl ? '⭐'.repeat(Math.min(lvl, 5)) : ''; }
+function getVipBadge(lvl) { return lvl ? `[Poziom ${lvl}]` : ''; }
 
 function showNotification(message, type = 'news', sentiment = null) {
     const container = document.getElementById('notification-container');
@@ -1367,33 +1367,886 @@ let workEndTime = 0;
 let workInterval = null;
 
 function initWorkSystem() {
-    const workBtn = document.getElementById('btn-work-system');
-    if (!workBtn) return;
+    const btn30m = document.getElementById('btn-work-30m');
+    const btn1h = document.getElementById('btn-work-1h');
+    
+    if (!btn30m || !btn1h) return;
 
-    workBtn.addEventListener('click', async () => {
+    const startWork = async (btn, minutes, payout) => {
         if (!currentUserId) return showMessage('Zaloguj się!', 'error');
-        if (Date.now() < workEndTime) return showMessage('Jesteś jeszcze zmęczony!', 'error');
+        if (Date.now() < workEndTime) return showMessage('Jesteś wciąż zmęczony, poczekaj do końca zmiany!', 'error');
 
-        workBtn.disabled = true;
-        let timeLeft = 60; // Czas pracy w sekundach
-        workEndTime = Date.now() + (timeLeft * 1000);
+        // Zablokuj oba przyciski po kliknięciu
+        btn30m.disabled = true;
+        btn1h.disabled = true;
+        
+        let timeLeftSeconds = minutes * 60; // Obliczenie czasu w sekundach
+        workEndTime = Date.now() + (timeLeftSeconds * 1000);
 
         workInterval = setInterval(async () => {
-            timeLeft--;
-            workBtn.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Praca w toku... (${timeLeft}s)`;
+            let currentLeft = Math.ceil((workEndTime - Date.now()) / 1000);
             
-            if (timeLeft <= 0) {
+            if (currentLeft <= 0) {
                 clearInterval(workInterval);
-                workBtn.disabled = false;
-                workBtn.innerHTML = `<i class="fa-solid fa-briefcase"></i> IDŹ DO PRACY (60 sekund)`;
+                // Przywracanie przycisków
+                btn30m.disabled = false;
+                btn1h.disabled = false;
+                btn30m.innerHTML = `<i class="fa-solid fa-briefcase"></i> Praca 30 min (100k)`;
+                btn1h.innerHTML = `<i class="fa-solid fa-briefcase"></i> Praca 1h (200k)`;
                 
-                // Dodajemy wypłatę (np. 500 ułan lirów)
-                const wyplata = 500;
-                await addWin(wyplata, 0, 'Praca', `Otrzymano wypłatę: ${wyplata} ułan lir`);
+                // Dodanie pieniędzy (0 stawki, bo praca nic nie kosztuje)
+                await addWin(payout, 0, 'Praca', `Otrzymano wypłatę: ${formatujWalute(payout)}`);
+            } else {
+                // Wyliczanie pozostałych minut i sekund
+                let m = Math.floor(currentLeft / 60);
+                let s = currentLeft % 60;
+                // Dodajemy zero wiodące do sekund dla lepszego efektu wizualnego
+                let sDisplay = s < 10 ? `0${s}` : s; 
+                
+                btn.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Praca w toku... (${m}:${sDisplay})`;
             }
         }, 1000);
-    });
+    };
+
+    // Podpięcie zdarzeń do nowych przycisków (czas w minutach, wygrana w walucie)
+    btn30m.addEventListener('click', () => startWork(btn30m, 30, 100000));
+    btn1h.addEventListener('click', () => startWork(btn1h, 60, 200000));
 }
+
+// ============================================
+// PACZKA 4 - SINGLEPLAYER (Gry 16-20)
+// ============================================
+
+// 16. KRĘGLE
+let bowlingActive = false;
+window.playBowling = async () => {
+    if (bowlingActive) return;
+    const amount = parseInt(document.getElementById('bowling-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    bowlingActive = true;
+    const ball = document.getElementById('bowling-ball');
+    const pins = document.getElementById('bowling-pins');
+    
+    // Animacja rzutu
+    ball.style.transform = 'translateY(-80px) scale(0.5)';
+    document.getElementById('bowling-message').textContent = 'Kula się toczy...';
+    
+    await new Promise(r => setTimeout(r, 600));
+    
+    const rand = Math.random();
+    let result = ''; 
+    let mult = 0;
+    
+    if (rand < 0.15) { result = 'strike'; mult = 5; }         // 15% Strike
+    else if (rand < 0.45) { result = 'spare'; mult = 2; }     // 30% Spare
+    else { result = 'gutter'; mult = 0; }                     // 55% Rynna/Pudło
+    
+    if (result === 'strike') pins.textContent = '💥';
+    else if (result === 'spare') pins.textContent = '🎳💥';
+    else pins.textContent = '🎳'; // Bez zmian
+    
+    let msg = result === 'strike' ? 'STRIKE! x5' : (result === 'spare' ? 'SPARE! x2' : 'Rynna! Pudło.');
+    document.getElementById('bowling-message').textContent = msg;
+    
+    await addWin(amount * mult, amount, 'Kręgle', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        ball.style.transform = 'translateY(0px) scale(1)';
+        pins.textContent = '🎳';
+        bowlingActive = false; 
+    }, 2000);
+};
+
+// 17. BILARD (8-Ball)
+let billiardsActive = false;
+window.playBilliards = async () => {
+    if (billiardsActive) return;
+    const amount = parseInt(document.getElementById('billiards-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    billiardsActive = true;
+    const ball = document.getElementById('billiards-ball');
+    document.getElementById('billiards-message').textContent = 'Uderzenie!';
+    
+    await new Promise(r => setTimeout(r, 100));
+    
+    const isWin = Math.random() < 0.33; // ~33% szans na trafienie
+    
+    if (isWin) {
+        ball.style.top = '-20px';
+        ball.style.opacity = '0';
+        ball.style.transform = 'translateX(-50%) scale(0.5)';
+    } else {
+        // Pudło (odbija się od bandy)
+        ball.style.top = '10px';
+        ball.style.transform = 'translateX(50px) rotate(90deg)';
+    }
+    
+    await new Promise(r => setTimeout(r, 600));
+    
+    const mult = isWin ? 3 : 0;
+    document.getElementById('billiards-message').textContent = isWin ? 'Wbita! Wygrana x3' : 'Pudło! Bila odbiła się od bandy.';
+    await addWin(amount * mult, amount, 'Bilard', isWin ? 'Wygrana x3!' : null);
+    
+    setTimeout(() => { 
+        ball.style.transition = 'none';
+        ball.style.top = '80px';
+        ball.style.opacity = '1';
+        ball.style.transform = 'translateX(-50%) scale(1) rotate(0deg)';
+        setTimeout(() => { ball.style.transition = 'all 0.5s ease-out'; }, 50);
+        billiardsActive = false; 
+    }, 2000);
+};
+
+// 18. ZŁOTY POCIĄG
+let trainActive = false;
+window.playTrain = async (trackIdx) => {
+    if (trainActive) return;
+    const amount = parseInt(document.getElementById('train-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    trainActive = true;
+    const train = document.getElementById('train-visual');
+    train.style.transform = 'translateX(150px)';
+    document.getElementById('train-message').textContent = 'Pociąg ruszył...';
+    
+    await new Promise(r => setTimeout(r, 800));
+    
+    const prizes = [0, 1, 3].sort(() => Math.random() - 0.5); // Ślepy (x0), Zwrot (x1), Złoto (x3)
+    const mult = prizes[trackIdx];
+    
+    if (mult === 3) train.textContent = '🚂💰';
+    else if (mult === 0) train.textContent = '🚂💥';
+    else train.textContent = '🚂🪙';
+    
+    let msg = mult === 3 ? 'Złoty Tor! Wygrywasz x3' : (mult === 1 ? 'Bezpieczny tor, zwrot stawki (x1).' : 'Ślepy zaułek! Wypadek.');
+    document.getElementById('train-message').textContent = msg;
+    
+    await addWin(amount * mult, amount, 'Złoty Pociąg', mult > 1 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        train.textContent = '🚂';
+        train.style.transform = 'translateX(0px)';
+        trainActive = false; 
+    }, 2500);
+};
+
+// 19. SKRZYNIE SKARBÓW
+let chestActive = false;
+window.playChest = async (idx) => {
+    if (chestActive) return;
+    const amount = parseInt(document.getElementById('chest-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    chestActive = true;
+    for(let i=0; i<3; i++) document.getElementById(`chest-${i}`).textContent = '🧰';
+    
+    await new Promise(r => setTimeout(r, 400));
+    
+    // Szanse: Pusta (x0), Srebro (x2), Złoto (x4)
+    const prizes = [0, 2, 4].sort(() => Math.random() - 0.5);
+    
+    for(let i=0; i<3; i++) {
+        let icon = prizes[i] === 0 ? '🕸️' : (prizes[i] === 2 ? '🥈' : '👑');
+        document.getElementById(`chest-${i}`).textContent = icon;
+    }
+    
+    const mult = prizes[idx];
+    let msg = mult === 0 ? 'Skrzynia była pusta...' : (mult === 2 ? 'Znalazłeś Srebro! x2' : 'ZŁOTY SKARB! x4!');
+    
+    document.getElementById('chest-message').textContent = msg;
+    await addWin(amount * mult, amount, 'Skrzynie', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        for(let i=0; i<3; i++) document.getElementById(`chest-${i}`).textContent = '🧰';
+        chestActive = false; 
+    }, 2500);
+};
+
+// 20. RZUT OBRĘCZĄ
+let ringtossActive = false;
+window.playRingToss = async () => {
+    if (ringtossActive) return;
+    const amount = parseInt(document.getElementById('ringtoss-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    ringtossActive = true;
+    const ring = document.getElementById('ringtoss-ring');
+    
+    ring.style.opacity = '1';
+    ring.style.top = '-20px';
+    document.getElementById('ringtoss-message').textContent = 'Obręcz leci...';
+    
+    await new Promise(r => setTimeout(r, 500));
+    
+    const isWin = Math.random() < 0.30; // 30% szans
+    
+    if (isWin) {
+        ring.style.top = '15px';
+        ring.style.transform = 'translateX(-50%) scale(1)';
+    } else {
+        ring.style.top = '40px';
+        ring.style.transform = 'translateX(20px) scale(1.5) rotate(45deg)';
+    }
+    
+    const mult = isWin ? 3 : 0;
+    document.getElementById('ringtoss-message').textContent = isWin ? 'Trafienie! Wygrywasz x3' : 'Obręcz się odbiła. Pudło!';
+    
+    await addWin(amount * mult, amount, 'Rzut Obręczą', isWin ? 'Wygrana x3' : null);
+    
+    setTimeout(() => { 
+        ring.style.opacity = '0';
+        ring.style.top = '80px';
+        ring.style.transform = 'translateX(-50%) scale(2) rotate(0deg)';
+        ringtossActive = false; 
+    }, 2000);
+};
+
+// ============================================
+// PACZKA 3 - SINGLEPLAYER (Gry 11-15)
+// ============================================
+
+// 11. KOSZYKÓWKA
+let basketActive = false;
+window.playBasketball = async () => {
+    if (basketActive) return;
+    const amount = parseInt(document.getElementById('basket-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    basketActive = true;
+    const ball = document.getElementById('basket-ball');
+    
+    // Animacja lotu piłki
+    ball.style.transform = 'translateY(-100px) scale(0.6) rotate(360deg)';
+    document.getElementById('basket-message').textContent = 'Lot piłki...';
+    
+    await new Promise(r => setTimeout(r, 600));
+    
+    const rand = Math.random();
+    let result = ''; // swish, rim, miss
+    
+    if (rand < 0.30) result = 'swish';      // 30% na x2.5
+    else if (rand < 0.70) result = 'rim';   // 40% na x1.5
+    else result = 'miss';                   // 30% na pudło
+    
+    let mult = 0;
+    if (result === 'swish') { mult = 2.5; ball.innerHTML = '🔥'; }
+    else if (result === 'rim') { mult = 1.5; ball.innerHTML = '✅'; }
+    else { mult = 0; ball.innerHTML = '❌'; ball.style.transform = 'translateY(50px) scale(1)'; }
+    
+    let msg = result === 'swish' ? 'CZYSTY WPAD! x2.5' : (result === 'rim' ? 'OD TABLICY! x1.5' : 'PUDŁO!');
+    document.getElementById('basket-message').textContent = msg;
+    
+    await addWin(amount * mult, amount, 'Koszykówka', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        ball.innerHTML = '🏀';
+        ball.style.transform = 'translateY(0px) scale(1) rotate(0deg)';
+        basketActive = false; 
+    }, 2000);
+};
+
+// 12. STRZELNICA
+let shootingActive = false;
+window.playShooting = async (idx) => {
+    if (shootingActive) return;
+    const amount = parseInt(document.getElementById('shooting-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    shootingActive = true;
+    for(let i=0; i<3; i++) document.getElementById(`duck-${i}`).textContent = '🦆';
+    
+    playSound('win'); // Możesz podmienić na dźwięk strzału, jeśli masz
+    
+    // Mnożniki: Pudło (x0), Trafienie (x2), Headshot (x5)
+    const prizes = [0, 2, 5].sort(() => Math.random() - 0.5);
+    
+    await new Promise(r => setTimeout(r, 400));
+    
+    for(let i=0; i<3; i++) {
+        let icon = prizes[i] === 0 ? '💨' : (prizes[i] === 2 ? '🎯' : '💥');
+        document.getElementById(`duck-${i}`).textContent = icon;
+    }
+    
+    const mult = prizes[idx];
+    let msg = mult === 0 ? 'Pudło!' : (mult === 2 ? 'Trafiony (x2)!' : 'IDEALNY STRZAŁ (x5)!');
+    
+    document.getElementById('shooting-message').textContent = msg;
+    await addWin(amount * mult, amount, 'Strzelnica', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        for(let i=0; i<3; i++) document.getElementById(`duck-${i}`).textContent = '🦆';
+        shootingActive = false; 
+    }, 2000);
+};
+
+// 13. WĘDKARZ
+let fishingActive = false;
+window.playFishing = async () => {
+    if (fishingActive) return;
+    const amount = parseInt(document.getElementById('fishing-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    fishingActive = true;
+    const catchEl = document.getElementById('fishing-catch');
+    catchEl.style.opacity = '0';
+    document.getElementById('fishing-message').textContent = 'Ryba bierze... Czekaj...';
+    
+    // Czas wędkowania
+    await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+    
+    const rand = Math.random();
+    let result = '';
+    let mult = 0;
+    
+    if (rand < 0.40) { result = 'boot'; mult = 0; }         // 40% But
+    else if (rand < 0.75) { result = 'small'; mult = 1.5; } // 35% Mała ryba
+    else if (rand < 0.95) { result = 'big'; mult = 3.0; }   // 20% Duża ryba
+    else { result = 'treasure'; mult = 10.0; }              // 5% Skarb
+    
+    const icons = { 'boot': '🥾', 'small': '🐟', 'big': '🦈', 'treasure': '👑' };
+    
+    catchEl.textContent = icons[result];
+    catchEl.style.opacity = '1';
+    
+    let msg = result === 'boot' ? 'Wyłowiłeś stary but...' : `Niezły połów! Wygrana x${mult}`;
+    if(result === 'treasure') msg = 'ZNALAZŁEŚ ZATOPIONY SKARB! x10';
+    
+    document.getElementById('fishing-message').textContent = msg;
+    await addWin(amount * mult, amount, 'Wędkarz', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { fishingActive = false; }, 2000);
+};
+
+// 14. RZUT PODKOWĄ
+let horseshoeActive = false;
+window.playHorseshoe = async () => {
+    if (horseshoeActive) return;
+    const amount = parseInt(document.getElementById('horseshoe-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    horseshoeActive = true;
+    const shoe = document.getElementById('horseshoe-shoe');
+    
+    shoe.style.opacity = '1';
+    shoe.style.top = '-100px';
+    shoe.style.transform = 'translateX(-50%) scale(1) rotate(360deg)';
+    document.getElementById('horseshoe-message').textContent = 'Rzut...';
+    
+    await new Promise(r => setTimeout(r, 600));
+    
+    const rand = Math.random();
+    let result = ''; // miss, close, perfect
+    
+    if (rand < 0.45) result = 'miss';        // 45% Pudło (x0)
+    else if (rand < 0.85) result = 'close';  // 40% Blisko (x2)
+    else result = 'perfect';                 // 15% Idealnie (x5)
+    
+    let mult = 0;
+    if (result === 'perfect') { mult = 5; shoe.style.top = '10px'; } // Bezpośrednio na paliku
+    else if (result === 'close') { mult = 2; shoe.style.top = '30px'; shoe.style.left = '30%'; } // Obok palika
+    else { mult = 0; shoe.style.top = '80px'; shoe.style.left = '10%'; shoe.style.transform += ' rotate(90deg)'; } // Pudło
+    
+    let msg = result === 'perfect' ? 'IDEALNE TRAFIENIE! x5' : (result === 'close' ? 'PRAWIE! x2' : 'Pudło.');
+    document.getElementById('horseshoe-message').textContent = msg;
+    
+    await addWin(amount * mult, amount, 'Rzut Podkową', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        shoe.style.opacity = '0';
+        shoe.style.top = '50px';
+        shoe.style.left = '50%';
+        shoe.style.transform = 'translateX(-50%) scale(2) rotate(0deg)';
+        horseshoeActive = false; 
+    }, 2000);
+};
+
+// 15. KOPALNIA ZŁOTA
+let goldminerActive = false;
+window.playGoldMiner = async (idx) => {
+    if (goldminerActive) return;
+    const amount = parseInt(document.getElementById('goldminer-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    goldminerActive = true;
+    for(let i=0; i<3; i++) document.getElementById(`rock-${i}`).textContent = '🪨';
+    document.getElementById('goldminer-message').textContent = 'Rozbijanie...';
+    
+    await new Promise(r => setTimeout(r, 400));
+    
+    // Szanse: Kamień (x0), Złoto (x2), Diament (x5)
+    const prizes = [0, 2, 5].sort(() => Math.random() - 0.5);
+    
+    for(let i=0; i<3; i++) {
+        let icon = prizes[i] === 0 ? '🪨' : (prizes[i] === 2 ? '🥇' : '💎');
+        document.getElementById(`rock-${i}`).textContent = icon;
+    }
+    
+    const mult = prizes[idx];
+    let msg = mult === 0 ? 'Tylko zwykły kamień...' : (mult === 2 ? 'Znalazłeś Złoto! x2' : 'DIAMENTY! x5!');
+    
+    document.getElementById('goldminer-message').textContent = msg;
+    await addWin(amount * mult, amount, 'Kopalnia Złota', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        for(let i=0; i<3; i++) document.getElementById(`rock-${i}`).textContent = '🪨';
+        goldminerActive = false; 
+    }, 2500);
+};
+
+// ============================================
+// PACZKA 2 - SINGLEPLAYER (Gry 6-10)
+// ============================================
+
+// 6. WIEŻA (Tower Climb)
+let towerState = { active: false, amount: 0, level: 0, mults: [1.5, 2.0, 3.0, 5.0, 10.0] };
+
+window.startTower = async () => {
+    if (towerState.active) return;
+    const amount = parseInt(document.getElementById('tower-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    towerState = { active: true, amount: amount, level: 0, mults: [1.5, 2.0, 3.0, 5.0, 10.0] };
+    
+    // Reset stylów
+    for(let i=1; i<=5; i++) {
+        document.getElementById(`t-step-${i}`).style.background = 'rgba(255,255,255,0.05)';
+        document.getElementById(`t-step-${i}`).style.borderColor = 'var(--border)';
+    }
+    
+    document.getElementById('tower-bet-controls').classList.add('hidden');
+    document.getElementById('tower-play-controls').classList.remove('hidden');
+    document.getElementById('tower-message').textContent = 'Gotowy do wspinaczki! Kliknij "Wejdź wyżej".';
+};
+
+window.climbTower = async () => {
+    if (!towerState.active) return;
+    
+    // 80% szans na sukces na każdym kroku
+    const success = Math.random() < 0.80;
+    const currentStepIndex = towerState.level + 1;
+    
+    if (success) {
+        towerState.level++;
+        document.getElementById(`t-step-${currentStepIndex}`).style.background = 'rgba(67,160,71,0.3)';
+        document.getElementById(`t-step-${currentStepIndex}`).style.borderColor = 'var(--green-bright)';
+        document.getElementById('tower-message').textContent = `Udało się! Twój obecny mnożnik: x${towerState.mults[towerState.level - 1]}`;
+        
+        // Jeśli wszedł na sam szczyt
+        if (towerState.level === 5) {
+            await cashoutTower();
+        }
+    } else {
+        document.getElementById(`t-step-${currentStepIndex}`).style.background = 'rgba(229,57,53,0.3)';
+        document.getElementById(`t-step-${currentStepIndex}`).style.borderColor = 'var(--red)';
+        document.getElementById('tower-message').textContent = 'Spadłeś z wieży! Przegrana.';
+        await addWin(0, towerState.amount, 'Wieża', null);
+        resetTowerUI();
+    }
+};
+
+window.cashoutTower = async () => {
+    if (!towerState.active || towerState.level === 0) return;
+    
+    const mult = towerState.mults[towerState.level - 1];
+    const winAmt = towerState.amount * mult;
+    
+    document.getElementById('tower-message').textContent = `Wypłacono zysk! Wygrywasz x${mult}`;
+    await addWin(winAmt, towerState.amount, 'Wieża', `Wygrana x${mult}`);
+    resetTowerUI();
+};
+
+function resetTowerUI() {
+    towerState.active = false;
+    setTimeout(() => {
+        document.getElementById('tower-bet-controls').classList.remove('hidden');
+        document.getElementById('tower-play-controls').classList.add('hidden');
+    }, 2000);
+}
+
+// 7. BECZKA PIRATA
+let barrelState = { active: false, amount: 0, mult: 1.0, safeSlots: 5, totalSlots: 6, slotsClicked: [] };
+
+window.startBarrel = async () => {
+    if (barrelState.active) return;
+    const amount = parseInt(document.getElementById('barrel-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    barrelState = { active: true, amount: amount, mult: 1.0, safeSlots: 5, totalSlots: 6, slotsClicked: [] };
+    
+    // Ustawienie miny pod losowym indeksem
+    barrelState.bombIndex = Math.floor(Math.random() * 6);
+    
+    for(let i=0; i<6; i++) {
+        const btn = document.getElementById(`bslot-${i}`);
+        btn.disabled = false;
+        btn.innerHTML = '🗡️';
+        btn.style.borderColor = 'transparent';
+    }
+    
+    document.getElementById('barrel-icon').textContent = '🛢️';
+    document.getElementById('barrel-bet-controls').classList.add('hidden');
+    document.getElementById('barrel-play-controls').classList.remove('hidden');
+    document.getElementById('barrel-mult').textContent = '1.0';
+    document.getElementById('barrel-message').textContent = 'Wbij miecz, by zwiększyć mnożnik!';
+};
+
+window.insertSword = async (idx) => {
+    if (!barrelState.active || barrelState.slotsClicked.includes(idx)) return;
+    
+    const btn = document.getElementById(`bslot-${idx}`);
+    btn.disabled = true;
+    barrelState.slotsClicked.push(idx);
+    
+    if (idx === barrelState.bombIndex) {
+        // Porażka
+        btn.innerHTML = '💥';
+        document.getElementById('barrel-icon').textContent = '☠️';
+        document.getElementById('barrel-message').textContent = 'BUM! Beczka wybuchła. Przegrana.';
+        await addWin(0, barrelState.amount, 'Beczka Pirata', null);
+        resetBarrelUI();
+    } else {
+        // Sukces
+        btn.innerHTML = '✅';
+        btn.style.borderColor = 'var(--green-bright)';
+        // Wzrost mnożnika w zależności od pozostałych otworów
+        barrelState.mult += 0.4;
+        document.getElementById('barrel-mult').textContent = barrelState.mult.toFixed(2);
+        document.getElementById('barrel-message').textContent = 'Udało się! Zysk rośnie.';
+        
+        if (barrelState.slotsClicked.length === 5) {
+            // Wbito wszystkie bezpieczne miecze
+            document.getElementById('barrel-message').textContent = 'Wbiłeś wszystkie bezpieczne miecze!';
+            await cashoutBarrel();
+        }
+    }
+};
+
+window.cashoutBarrel = async () => {
+    if (!barrelState.active || barrelState.slotsClicked.length === 0) return;
+    const winAmt = barrelState.amount * barrelState.mult;
+    document.getElementById('barrel-message').textContent = `Wypłacono x${barrelState.mult.toFixed(2)}`;
+    await addWin(winAmt, barrelState.amount, 'Beczka Pirata', `Wygrana x${barrelState.mult.toFixed(2)}`);
+    resetBarrelUI();
+};
+
+function resetBarrelUI() {
+    barrelState.active = false;
+    setTimeout(() => {
+        document.getElementById('barrel-bet-controls').classList.remove('hidden');
+        document.getElementById('barrel-play-controls').classList.add('hidden');
+    }, 2000);
+}
+
+// 8. RZUTKI (Darts)
+let dartBet = null;
+window.setDartsBet = (type) => {
+    dartBet = type;
+    document.querySelectorAll('#view-darts .casino-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById(`dart-btn-${type}`).classList.add('selected');
+};
+
+window.playDarts = async () => {
+    if (!dartBet) return showMessage('Wybierz cel!', 'error');
+    const amount = parseInt(document.getElementById('darts-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    const dart = document.getElementById('dart-projectile');
+    dart.style.opacity = '1';
+    dart.style.left = '-100px';
+    dart.style.top = '20px';
+    
+    // Krótki timeout żeby zresetować CSS transition
+    await new Promise(r => setTimeout(r, 50));
+    
+    const rand = Math.random();
+    let hitResult = ''; // 'bullseye', 'czerwone', 'zielone'
+    
+    if (rand < 0.10) { hitResult = 'bullseye'; dart.style.left = '45px'; dart.style.top = '10px'; } // 10%
+    else if (rand < 0.55) { hitResult = 'czerwone'; dart.style.left = '15px'; dart.style.top = '10px'; } // 45%
+    else { hitResult = 'zielone'; dart.style.left = '75px'; dart.style.top = '10px'; } // 45%
+    
+    await new Promise(r => setTimeout(r, 500)); // Czas lotu rzutki
+    
+    let mult = 0;
+    if (hitResult === dartBet) {
+        mult = hitResult === 'bullseye' ? 10 : 2;
+    }
+    
+    document.getElementById('darts-message').textContent = mult > 0 ? `Trafiono w ${hitResult.toUpperCase()}! Wygrana x${mult}` : `Trafiono w ${hitResult.toUpperCase()}. Przegrana.`;
+    await addWin(amount * mult, amount, 'Rzutki', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { dart.style.opacity = '0'; }, 2000);
+};
+
+// 9. SIŁOMIERZ (High Striker)
+let strikerActive = false;
+window.playStriker = async () => {
+    if (strikerActive) return;
+    const amount = parseInt(document.getElementById('striker-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    strikerActive = true;
+    const bar = document.getElementById('striker-bar');
+    const scoreEl = document.getElementById('striker-score');
+    
+    // Animacja zamachu
+    document.getElementById('striker-hammer').style.transform = 'rotate(-45deg)';
+    await new Promise(r => setTimeout(r, 200));
+    document.getElementById('striker-hammer').style.transform = 'rotate(0deg)';
+    
+    // Losowa moc uderzenia (1 - 100)
+    const power = Math.floor(Math.random() * 100) + 1;
+    bar.style.height = `${power}%`;
+    
+    // Animacja cyferek
+    let currentScore = 0;
+    const interval = setInterval(() => {
+        currentScore += 5;
+        if (currentScore >= power) {
+            currentScore = power;
+            clearInterval(interval);
+        }
+        scoreEl.textContent = currentScore;
+    }, 30);
+    
+    await new Promise(r => setTimeout(r, 1000)); // Czekanie na koniec paska
+    
+    let mult = 0;
+    if (power >= 95) mult = 10;
+    else if (power >= 70) mult = 2;
+    
+    document.getElementById('striker-message').textContent = mult > 0 ? `Moc ${power}! Wygrywasz x${mult}` : `Moc ${power}. Za słabo...`;
+    await addWin(amount * mult, amount, 'Siłomierz', mult > 0 ? `Wygrana x${mult}` : null);
+    
+    setTimeout(() => { 
+        bar.style.height = '0%'; 
+        scoreEl.textContent = '0';
+        strikerActive = false; 
+    }, 2500);
+};
+
+// 10. WYŚCIGI ŚLIMAKÓW
+let snailBet = null;
+let snailsRacing = false;
+window.setSnailBet = (num) => {
+    snailBet = num;
+    document.querySelectorAll('#view-snails .casino-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById(`snail-btn-${num}`).classList.add('selected');
+};
+
+window.playSnails = async () => {
+    if (!snailBet) return showMessage('Wybierz swojego ślimaka!', 'error');
+    if (snailsRacing) return;
+    
+    const amount = parseInt(document.getElementById('snails-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    snailsRacing = true;
+    document.getElementById('snails-message').textContent = 'Ślimaki ruszyły...!';
+    
+    const positions = [20, 20, 20];
+    const elements = [
+        document.getElementById('snail-1'),
+        document.getElementById('snail-2'),
+        document.getElementById('snail-3')
+    ];
+    
+    elements.forEach(el => el.style.left = '20px');
+    
+    const raceInterval = setInterval(async () => {
+        let isFinished = false;
+        let winnerIndex = -1;
+        
+        for(let i=0; i<3; i++) {
+            positions[i] += Math.random() * 15;
+            elements[i].style.left = `${positions[i]}px`;
+            
+            // Zakładamy, że tor ma ok. 250px (dopasowane do UI)
+            if (positions[i] >= 250) {
+                isFinished = true;
+                winnerIndex = i + 1;
+            }
+        }
+        
+        if (isFinished) {
+            clearInterval(raceInterval);
+            
+            let win = snailBet === winnerIndex;
+            let mult = win ? 2.8 : 0;
+            
+            document.getElementById('snails-message').textContent = win ? `Mój Ślimak wygrywa! Wypłata x2.8` : `Ślimak ${['A','B','C'][winnerIndex-1]} był szybszy.`;
+            await addWin(amount * mult, amount, 'Ślimaki', win ? 'Wygrana!' : null);
+            
+            setTimeout(() => { snailsRacing = false; }, 2000);
+        }
+    }, 150);
+};
+
+// ============================================
+// NOWA PACZKA 5 GIER (Singleplayer Bez Kart)
+// ============================================
+
+// 1. TRZY KUBKI
+let thimblesActive = false;
+window.playThimbles = async (idx) => {
+    if (thimblesActive) return;
+    const amount = parseInt(document.getElementById('thimbles-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    thimblesActive = true;
+    for(let i=0; i<3; i++) document.getElementById(`cup-${i}`).textContent = '🥛';
+    document.getElementById('thimbles-message').textContent = 'Szukam kulki...';
+    
+    await new Promise(r => setTimeout(r, 1000)); // Animacja opóźnienia
+    
+    const winningCup = Math.floor(Math.random() * 3);
+    for(let i=0; i<3; i++) {
+        document.getElementById(`cup-${i}`).textContent = i === winningCup ? '🟡' : '❌';
+    }
+    
+    const win = idx === winningCup;
+    const mult = win ? 2.85 : 0;
+    
+    document.getElementById('thimbles-message').textContent = win ? 'Trafiony! Wygrana x2.85' : 'Pudło!';
+    await addWin(amount * mult, amount, 'Trzy Kubki', win ? 'Wygrana!' : null);
+    
+    setTimeout(() => { 
+        for(let i=0; i<3; i++) document.getElementById(`cup-${i}`).textContent = '🥛';
+        thimblesActive = false; 
+    }, 2000);
+};
+
+// 2. LIMBO
+window.playLimbo = async () => {
+    const amount = parseInt(document.getElementById('limbo-amount').value);
+    const target = parseFloat(document.getElementById('limbo-target').value);
+    if (target < 1.01) return showMessage('Cel musi być większy niż 1.01x', 'error');
+    
+    if (!await deductBet(amount)) return;
+    document.getElementById('limbo-result').style.color = 'var(--text-muted)';
+    document.getElementById('limbo-result').textContent = 'Liczę...';
+    
+    await new Promise(r => setTimeout(r, 800));
+    
+    // Algorytm crypto-limbo (99% RTP)
+    const random = Math.random() * 100;
+    let resultMult = (99 / random).toFixed(2);
+    if (resultMult > 1000) resultMult = 1000.00; // Cap
+    if (resultMult < 1.00) resultMult = 1.00;
+
+    document.getElementById('limbo-result').textContent = resultMult + 'x';
+    
+    const win = parseFloat(resultMult) >= target;
+    document.getElementById('limbo-result').style.color = win ? 'var(--green-bright)' : 'var(--red)';
+    document.getElementById('limbo-message').textContent = win ? `Wygrywasz! Otrzymujesz x${target.toFixed(2)}` : 'Mnożnik zbyt mały. Przegrana.';
+    
+    await addWin(win ? amount * target : 0, amount, 'Limbo', win ? `Wygrana x${target}` : null);
+};
+
+// 3. KAMIEŃ, PAPIER, NOŻYCE
+window.playRPS = async (playerChoice) => {
+    const amount = parseInt(document.getElementById('rps-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    const icons = { 'kamien': '🪨', 'papier': '📄', 'nozyce': '✂️' };
+    const choices = ['kamien', 'papier', 'nozyce'];
+    
+    document.getElementById('rps-player').textContent = icons[playerChoice];
+    document.getElementById('rps-dealer').textContent = '🔄';
+    
+    await new Promise(r => setTimeout(r, 800));
+    
+    const dealerChoice = choices[Math.floor(Math.random() * 3)];
+    document.getElementById('rps-dealer').textContent = icons[dealerChoice];
+    
+    let result = ''; // 'win', 'lose', 'tie'
+    if (playerChoice === dealerChoice) result = 'tie';
+    else if (
+        (playerChoice === 'kamien' && dealerChoice === 'nozyce') ||
+        (playerChoice === 'papier' && dealerChoice === 'kamien') ||
+        (playerChoice === 'nozyce' && dealerChoice === 'papier')
+    ) result = 'win';
+    else result = 'lose';
+    
+    let mult = result === 'win' ? 1.95 : (result === 'tie' ? 1.0 : 0);
+    
+    let msg = result === 'win' ? 'Wygrywasz!' : (result === 'tie' ? 'Remis (zwrot stawki)' : 'Przegrywasz!');
+    document.getElementById('rps-message').textContent = msg;
+    await addWin(amount * mult, amount, 'RPS', result === 'win' ? 'Wygrana!' : null);
+};
+
+// 4. MINI KOŁO
+let mwBet = null;
+window.setMiniWheelBet = (color) => {
+    mwBet = color;
+    document.querySelectorAll('#view-colorwheel .casino-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById(`mw-btn-${color}`).classList.add('selected');
+};
+window.playMiniWheel = async () => {
+    if (!mwBet) return showMessage('Wybierz kolor!', 'error');
+    const amount = parseInt(document.getElementById('miniwheel-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    const wheel = document.getElementById('miniwheel-visual');
+    wheel.style.transform = `rotate(${Math.floor(Math.random() * 360) + 1440}deg)`;
+    document.getElementById('miniwheel-result').textContent = 'Kręcę...';
+    
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // Szanse: Szary (50%), Czerwony (33.3%), Złoty (16.7%)
+    const rand = Math.random();
+    let resultColor = '';
+    let resultText = '';
+    
+    if (rand < 0.50) { resultColor = 'szary'; resultText = '⚪ SZARY'; }
+    else if (rand < 0.833) { resultColor = 'czerwony'; resultText = '🔴 CZERWONY'; }
+    else { resultColor = 'zielony'; resultText = '🟡 ZŁOTY'; }
+    
+    document.getElementById('miniwheel-result').textContent = resultText;
+    
+    let mult = 0;
+    if (resultColor === mwBet) {
+        mult = resultColor === 'szary' ? 2 : (resultColor === 'czerwony' ? 3 : 5);
+    }
+    
+    document.getElementById('miniwheel-message').textContent = mult > 0 ? `Wygrana x${mult}!` : 'Przegrana.';
+    await addWin(amount * mult, amount, 'Mini Koło', mult > 0 ? `Wygrana x${mult}` : null);
+};
+
+// 5. SEJFY
+let safesActive = false;
+window.playSafes = async (idx) => {
+    if (safesActive) return;
+    const amount = parseInt(document.getElementById('safes-amount').value);
+    if (!await deductBet(amount)) return;
+    
+    safesActive = true;
+    for(let i=0; i<3; i++) document.getElementById(`safe-${i}`).textContent = '🧰';
+    
+    await new Promise(r => setTimeout(r, 600));
+    
+    // Rozkład nagród: Pusty (x0), Zwrot (x1), Wygrana (x2.5)
+    const prizes = [0, 1, 2.5].sort(() => Math.random() - 0.5);
+    
+    for(let i=0; i<3; i++) {
+        let icon = prizes[i] === 0 ? '🕷️' : (prizes[i] === 1 ? '🪙' : '💰');
+        document.getElementById(`safe-${i}`).textContent = icon;
+    }
+    
+    const mult = prizes[idx];
+    let msg = mult === 0 ? 'Pusto! (Pająk)' : (mult === 1 ? 'Znaleziono kilka monet (Zwrot stawki)' : 'GŁÓWNY ŁUP! Wygrana x2.5');
+    
+    document.getElementById('safes-message').textContent = msg;
+    await addWin(amount * mult, amount, 'Sejfy', mult > 1 ? 'Wygrana x2.5!' : null);
+    
+    setTimeout(() => { 
+        for(let i=0; i<3; i++) document.getElementById(`safe-${i}`).textContent = '🧰';
+        safesActive = false; 
+    }, 2500);
+};
+
 
 // ============================================
 // BLACKJACK MULTIPLAYER (Live)
