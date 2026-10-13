@@ -135,6 +135,15 @@
             animation: blink 1s infinite;
         }
 
+        .countdown-box {
+            font-size: 1.3rem;
+            text-align: center;
+            margin-top: 20px;
+            letter-spacing: 3px;
+            display: none;
+            text-shadow: 0 0 10px var(--theme-color);
+        }
+
         /* --- STANY ZATRZYMANIA / BŁĘDU --- */
         body.error-state {
             --theme-color: #ff003c; /* Zmiana na czerwień */
@@ -157,6 +166,7 @@
             h1 { font-size: 1.5rem; }
             .percentage { font-size: 2.5rem; }
             .sys-info { flex-direction: column; }
+            .countdown-box { font-size: 1rem; }
         }
     </style>
 </head>
@@ -181,31 +191,38 @@
             <div class="status-blinker" id="statusText">ŁADOWANIE DANYCH_</div>
             <div class="percentage" id="percentageText">00%</div>
         </div>
+
+        <!-- Kontener na odliczanie -->
+        <div class="countdown-box" id="countdownBox">
+            ETA // WYLICZANIE...
+        </div>
     </div>
 
     <script>
-        const targetProgress = 54;
+        // Zmiana progu zatrzymania na 90%
+        const targetProgress = 90;
         let currentProgress = 0;
         
         const progressBar = document.getElementById('progressBar');
         const percentageText = document.getElementById('percentageText');
         const terminal = document.getElementById('terminal');
         const statusText = document.getElementById('statusText');
+        const countdownBox = document.getElementById('countdownBox');
         const body = document.body;
 
-        // Futurystyczne logi ładujące się w tle
         const bootLogs = [
             "> Ładowanie modułów CSS/JS...",
             "> Dekryptowanie bazy danych...",
             "> Łączenie z serwerem głównym...",
             "> Weryfikacja certyfikatów bezpieczeństwa...",
             "> Optymalizacja zasobów wizualnych...",
-            "> Budowanie interfejsu użytkownika..."
+            "> Budowanie interfejsu użytkownika...",
+            "> Kalibracja systemów podtrzymywania...",
+            "> Synchronizacja węzłów sieciowych..."
         ];
 
         let logIndex = 0;
 
-        // Dodawanie tekstu do terminala
         function addLog(text) {
             const newLog = document.createElement('div');
             newLog.textContent = text;
@@ -215,41 +232,66 @@
             }
         }
 
+        // Funkcja obsługująca odliczanie
+        function startCountdown() {
+            // Data docelowa: 14.10.2026 14:00:00
+            const countDownDate = new Date("Oct 14, 2026 14:00:00").getTime();
+
+            const updateTimer = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = countDownDate - now;
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                const format = (num) => num < 10 ? '0' + num : num;
+
+                if (distance < 0) {
+                    clearInterval(updateTimer);
+                    countdownBox.innerHTML = "SYSTEM ODBLOKOWANY // PROSZĘ ODŚWIEŻYĆ";
+                } else {
+                    countdownBox.innerHTML = `ETA // ${format(days)}D : ${format(hours)}H : ${format(minutes)}M : ${format(seconds)}S`;
+                }
+            }, 1000);
+        }
+
         // Główna pętla ładowania
         const loadingInterval = setInterval(() => {
             currentProgress++;
             
-            // Formatowanie z zerem z przodu (np. 05%, 09%)
             let displayPercent = currentProgress < 10 ? '0' + currentProgress : currentProgress;
             
             progressBar.style.width = currentProgress + '%';
             percentageText.textContent = displayPercent + '%';
 
-            // Co 10% dodaj nowy log do terminala
             if (currentProgress % 10 === 0 && logIndex < bootLogs.length) {
                 addLog(bootLogs[logIndex]);
                 logIndex++;
             }
 
-            // CRITICAL STOP w 54%
+            // CRITICAL STOP w 90%
             if (currentProgress >= targetProgress) {
                 clearInterval(loadingInterval);
                 
                 setTimeout(() => {
-                    // Włączenie trybu błędu
                     body.classList.add('error-state');
                     
-                    // Zmiana tekstów
                     addLog("> [FATAL ERROR] Dostęp zablokowany.");
-                    addLog("> Środowisko deweloperskie w budowie.");
-                    statusText.textContent = "SYSTEM_HALTED // W_PRODUKCJI";
+                    addLog("> Oczekiwanie na premierę systemu...");
+                    statusText.textContent = "SYSTEM_LOCKED // ODLICZANIE";
                     
-                    // Nadpisanie nagłówka terminala
                     document.querySelector('.sys-info').innerHTML = 
                         '<span style="color: #ff003c;">ERR: DEV_LOCK</span><span>DOSTĘP ODRZUCONY</span>';
+                    
+                    // Pokazanie i uruchomienie odliczania
+                    countdownBox.style.display = 'block';
+                    startCountdown();
+
                 }, 300);
             }
-        }, 80); // Czas trwania pojedynczego procenta (80ms)
+        }, 80);
     </script>
 
 </body>
