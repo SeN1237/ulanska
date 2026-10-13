@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WIG UŁAŃSKA - Next Gen</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2026-10-13-join-call">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script type="module" src="script.js"></script>
+    <script type="module" src="script.js?v=2026-10-13-join-call"></script>
     <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
@@ -931,6 +931,24 @@
                         <p>Nie klikaj wielokrotnie przycisków podczas trwającej rundy. Poczekaj na zakończenie animacji i komunikat o wyniku, aby uniknąć nieprawidłowego rozliczenia gry.</p>
                     </div>
                 </section>
+
+                <section id="voice-chat-panel" class="glass-panel">
+                    <div class="panel-head">
+                        <h2><i class="fa-solid fa-video"></i> Voice &amp; Video Chat</h2>
+                    </div>
+                    <p class="jitsi-intro">Dołącz do pokoju live i rozmawiaj z inwestorami w czasie rzeczywistym.</p>
+                    <div class="jitsi-wrapper">
+                        <iframe
+                            id="jitsi-iframe"
+                            title="Jitsi Meeting"
+                            src="https://meet.jit.si/ulanska-investors?config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.SHOW_WATERMARK=false"
+                            allow="camera;microphone;fullscreen;display-capture;clipboard-write">
+                        </iframe>
+                    </div>
+                    <div class="jitsi-actions">
+                        <a href="https://meet.jit.si/ulanska-investors" target="_blank" rel="noopener noreferrer" class="btn-primary jitsi-open-link">Otwórz pokój na pełnym ekranie</a>
+                    </div>
+                </section>
              </div>
         </div>
 
@@ -978,6 +996,11 @@
         <span id="chat-badge" class="hidden">!</span>
     </button>
 
+    <button id="jitsi-fab" class="jitsi-fab" type="button" aria-label="Dołącz do czatu video">
+        <i class="fa-solid fa-video"></i>
+        <span>Join call</span>
+    </button>
+
     <div id="floating-chat-window" class="glass-panel hidden">
         <div class="chat-header-floating">
             <h3>Globalny Czat</h3>
@@ -992,6 +1015,23 @@
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
         </form>
+    </div>
+
+    <div id="jitsi-floating-window" class="glass-panel hidden">
+        <div class="chat-header-floating jitsi-header-floating">
+            <h3>Investor Live</h3>
+            <button id="close-jitsi-btn" type="button" aria-label="Zamknij czat video">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="jitsi-widget-body">
+            <iframe
+                id="jitsi-widget-iframe"
+                title="Jitsi Meeting"
+                src="https://meet.jit.si/ulanska-investors?config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.SHOW_WATERMARK=false"
+                allow="camera;microphone;fullscreen;display-capture;clipboard-write">
+            </iframe>
+        </div>
     </div>
 
 </body>

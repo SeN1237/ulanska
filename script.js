@@ -1093,7 +1093,12 @@ document.getElementById("minigolf-aim").addEventListener("input", updateMiniGolf
     const chatBadge = document.getElementById("chat-badge");
     const chatFeedRef = document.getElementById("chat-feed");
 
-    function toggleChat() {
+    const jitsiFab = document.getElementById("jitsi-fab");
+    const jitsiWindow = document.getElementById("jitsi-floating-window");
+    const closeJitsiBtn = document.getElementById("close-jitsi-btn");
+
+    function toggleChat(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
         if(!chatWindow) return;
         chatWindow.classList.toggle("hidden");
         if (!chatWindow.classList.contains("hidden")) {
@@ -1104,15 +1109,27 @@ document.getElementById("minigolf-aim").addEventListener("input", updateMiniGolf
         }
     }
 
+    function toggleJitsi(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (!jitsiWindow) return;
+        jitsiWindow.classList.toggle("hidden");
+    }
+
     if (chatFab) chatFab.addEventListener("click", toggleChat);
     if (closeChatBtn) closeChatBtn.addEventListener("click", toggleChat);
+    if (jitsiFab) jitsiFab.addEventListener("click", toggleJitsi);
+    if (closeJitsiBtn) closeJitsiBtn.addEventListener("click", toggleJitsi);
 
     document.addEventListener("click", (e) => {
+        const clickTarget = e.target;
+        const clickedChatFab = chatFab && (clickTarget === chatFab || chatFab.contains(clickTarget));
+
         if (chatWindow && !chatWindow.classList.contains("hidden") &&
-            !chatWindow.contains(e.target) &&
-            !chatFab.contains(e.target)) {
+            !chatWindow.contains(clickTarget) &&
+            !clickedChatFab) {
             chatWindow.classList.add("hidden");
         }
+
     });
     startAuthListener();
 });

@@ -470,11 +470,57 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
 .clean-list li { margin: 5px 0; }
 .prizes { display: flex; justify-content: center; gap: 20px; font-size: 1.2rem; font-weight: bold; margin-top: 10px; }
 
+#voice-chat-panel {
+    grid-column: 1 / -1;
+}
+
+.jitsi-intro {
+    margin: 0 0 16px;
+    color: var(--text-muted);
+}
+
+.jitsi-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 440px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    background: rgba(5, 11, 17, 0.75);
+}
+
+#jitsi-iframe {
+    display: block;
+    width: 100%;
+    min-height: 440px;
+    height: 100%;
+    border: 0;
+    background: rgba(5, 11, 17, 0.75);
+}
+
+.jitsi-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+.jitsi-open-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 260px;
+    padding: 12px 18px;
+    border-radius: 12px;
+}
+
 /* --- RESPANSYWNOŚĆ --- */
 @media (max-width: 900px) {
     .dashboard-grid, .entertainment-grid, .info-grid { grid-template-columns: 1fr; }
     .main-nav { overflow-x: auto; justify-content: flex-start; }
     .nav-btn { white-space: nowrap; }
+    .jitsi-wrapper, #jitsi-iframe { min-height: 360px; }
 }
 
 /* --- LOGOWANIE --- */
@@ -1419,8 +1465,52 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.jitsi-fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9992;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 20px;
+    height: 56px;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 238, 212, 0.2);
+    background: linear-gradient(135deg, rgba(99, 238, 212, 0.18), rgba(83, 207, 229, 0.18));
+    color: var(--text-main);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(30, 63, 84, 0.36);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.jitsi-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(30, 63, 84, 0.45);
+}
+
+#jitsi-floating-window {
+    position: fixed;
+    right: 20px;
+    bottom: 90px;
+    width: min(420px, calc(100vw - 32px));
+    height: min(560px, calc(100vh - 110px));
+    display: flex;
+    flex-direction: column;
+    z-index: 9993;
+    padding: 0;
+    overflow: hidden;
+    transform-origin: bottom right;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
 /* Ukrywanie */
-#floating-chat-window.hidden {
+#floating-chat-window.hidden,
+#jitsi-floating-window.hidden {
     display: none !important;
 }
 
@@ -1440,14 +1530,16 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     color: var(--accent-color);
 }
 
-#close-chat-btn {
+#close-chat-btn,
+#close-jitsi-btn {
     background: transparent;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
     font-size: 1.2rem;
 }
-#close-chat-btn:hover { color: var(--red); }
+#close-chat-btn:hover,
+#close-jitsi-btn:hover { color: var(--red); }
 
 /* Wnętrze czatu */
 .floating-feed {
@@ -1455,6 +1547,20 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     padding: 10px;
     height: auto !important; /* Nadpisanie starego stylu */
     background: rgba(0,0,0,0.2);
+}
+
+.jitsi-widget-body {
+    flex: 1;
+    min-height: 0;
+    background: rgba(6, 12, 18, 0.9);
+}
+
+#jitsi-widget-iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    border: 0;
+    background: rgba(6, 12, 18, 0.9);
 }
 
 .floating-form {
@@ -1490,6 +1596,13 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     #floating-chat-window {
         width: calc(100% - 40px);
         height: 50vh;
+    }
+
+    .jitsi-fab {
+        right: 14px;
+        left: 14px;
+        width: auto;
+        justify-content: center;
     }
 }
 
