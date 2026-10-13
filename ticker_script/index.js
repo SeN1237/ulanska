@@ -55,14 +55,38 @@ try {
   const historyRef = db.collection("historia_transakcji");
   const pendingTipsRef = db.collection("pending_tips");
   const activeBondsRef = db.collection("active_bonds");
+  const marketEventRef = cenyDocRef;
+
+  function getMissionPeriods(date = new Date()) {
+      const day = date.toISOString().slice(0, 10);
+      const thursday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      const weekday = thursday.getUTCDay() || 7;
+      thursday.setUTCDate(thursday.getUTCDate() + 4 - weekday);
+      const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+      const week = Math.ceil((((thursday - yearStart) / 86400000) + 1) / 7);
+      return { day, week: `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}` };
+  }
+
+  function advanceMissionProgress(progress) {
+      const periods = getMissionPeriods();
+      const daily = progress?.daily?.period === periods.day
+          ? progress.daily
+          : { period: periods.day, trades: 0, claimed: false };
+      const weekly = progress?.weekly?.period === periods.week
+          ? progress.weekly
+          : { period: periods.week, trades: 0, claimed: false };
+      return {
+          daily: { ...daily, trades: daily.trades + 1 },
+          weekly: { ...weekly, trades: weekly.trades + 1 }
+      };
+  }
   
   // --- HELPERY ---
   function calculateTotalValue(cash, shares, currentPrices) {
     let sharesValue = 0;
     for (const companyId in shares) {
-        if (currentPrices[companyId]) {
-            sharesValue += (shares[companyId] || 0) * currentPrices[companyId];
-        }
+        const price = currentPrices[companyId] || (companyId === "nicorp" ? currentPrices.bartcoin : 0);
+        sharesValue += (shares[companyId] || 0) * (price || 0);
     }
     return cash + sharesValue;
   }
@@ -121,6 +145,7 @@ try {
           shares: newShares, 
           totalValue: newTotalValue, 
           zysk: newZysk,
+          missionProgress: advanceMissionProgress(userData.missionProgress),
           'stats.totalTrades': admin.firestore.FieldValue.increment(1)
       });
 
@@ -192,6 +217,152 @@ try {
               });
           } catch (e) { console.error("Błąd obligacji:", e); }
       }
+  }
+
+  async function processDividends(currentPrices, now) {
+      const stateRef = db.doc("global/dividend_processing");
+      const stateDoc = await stateRef.get();
+      if (!stateDoc.exists || stateDoc.data().initialized !== true) {
+          const usersSnapshot = await usersRef.get();
+          const firstDividendDueAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
+          let batch = db.batch();
+          let batchSize = 0;
+
+          for (const userDoc of usersSnapshot.docs) {
+              if (userDoc.data().dividendDueAt) continue;
+              batch.update(userDoc.ref, { dividendDueAt: firstDividendDueAt });
+              batchSize++;
+              if (batchSize === 450) {
+                  await batch.commit();
+                  batch = db.batch();
+                  batchSize = 0;
+              }
+          }
+
+          batch.set(stateRef, { initialized: true, initializedAt: now }, { merge: true });
+          await batch.commit();
+      }
+
+      const dueUsers = await usersRef
+          .where("dividendDueAt", "<=", now)
+          .limit(100)
+          .get();
+
+      for (const dueUser of dueUsers.docs) {
+          await db.runTransaction(async transaction => {
+              const userSnapshot = await transaction.get(dueUser.ref);
+              if (!userSnapshot.exists) return;
+
+              const user = userSnapshot.data();
+              const dueAt = user.dividendDueAt;
+              if (!dueAt || dueAt.toMillis() > now.toMillis()) return;
+
+              const shares = user.shares || {};
+              const stockIds = ["ulanska", "rychbud", "brzozair", "cosmosanit"];
+              const stockValue = stockIds.reduce((total, companyId) =>
+                  total + (shares[companyId] || 0) * (currentPrices[companyId] || 0), 0);
+              const payout = Math.floor(stockValue * 0.0005 * 100) / 100;
+              const nextDueAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
+
+              if (payout <= 0) {
+                  transaction.update(dueUser.ref, { dividendDueAt: nextDueAt });
+                  return;
+              }
+
+              const newCash = (user.cash || 0) + payout;
+              const totalValue = calculateTotalValue(newCash, shares, currentPrices);
+              transaction.update(dueUser.ref, {
+                  cash: newCash,
+                  totalValue,
+                  zysk: totalValue - (user.startValue || 0),
+                  lastDividendAt: now,
+                  dividendDueAt: nextDueAt,
+                  dividendCount: admin.firestore.FieldValue.increment(1)
+              });
+              transaction.set(historyRef.doc(), {
+                  userId: dueUser.id,
+                  userName: user.name || "Inwestor",
+                  prestigeLevel: user.prestigeLevel || 0,
+                  type: "DYWIDENDA",
+                  companyId: "market",
+                  companyName: "Dywidenda dzienna",
+                  amount: 1,
+                  pricePerShare: 0,
+                  totalValue: payout,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                  status: "executed"
+              });
+          });
+      }
+  }
+
+  async function getActiveMarketEvent(now, storedEvent) {
+      const event = storedEvent || null;
+      if (event?.endAt && event.endAt.toMillis() > now.toMillis()) {
+          return { event, needsImpact: event.applied !== true };
+      }
+
+      const companies = [
+          { id: "ulanska", name: "Ułańska Dev" },
+          { id: "rychbud", name: "RychBud" },
+          { id: "brzozair", name: "BrzozAir" },
+          { id: "cosmosanit", name: "Cosmosanit" }
+      ];
+      const company = companies[Math.floor(Math.random() * companies.length)];
+      const positive = Math.random() >= 0.5;
+      const impactPercent = (0.025 + Math.random() * 0.035) * (positive ? 1 : -1);
+      const nextEvent = {
+          title: positive ? "Nowy kontrakt napędza wzrost" : "Zakłócenia w łańcuchu dostaw",
+          description: positive
+              ? `Rynek pozytywnie reaguje na doniesienia z firmy ${company.name}.`
+              : `Analitycy ostrzegają przed krótkoterminowymi problemami w firmie ${company.name}.`,
+          companyId: company.id,
+          impactPercent,
+          startAt: now,
+          endAt: admin.firestore.Timestamp.fromMillis(now.toMillis() + 3 * 60 * 60 * 1000),
+          applied: false
+      };
+      await marketEventRef.update({ marketEvent: nextEvent });
+      return { event: nextEvent, needsImpact: true };
+  }
+
+  async function publishDailyCompanyReports(currentPrices, newPrices, now, assetIds) {
+      const dayKey = now.toDate().toISOString().slice(0, 10);
+      const globalData = currentPrices;
+      const state = globalData.companyReportState || {};
+      if (state.reportDay === dayKey) return;
+
+      const companyNames = {
+          ulanska: "Ułańska Dev",
+          rychbud: "RychBud",
+          brzozair: "BrzozAir",
+          cosmosanit: "Cosmosanit",
+          bartcoin: "Nicorp",
+          igirium: "Igirium"
+      };
+      const reports = Array.isArray(globalData.companyReports) ? globalData.companyReports : [];
+      const dailyReports = [];
+      for (const companyId of assetIds) {
+          const referencePrice = state.prices?.[companyId] || currentPrices[companyId] || 0;
+          const latestPrice = newPrices[companyId] || currentPrices[companyId] || 0;
+          const changePercent = referencePrice > 0 ? ((latestPrice - referencePrice) / referencePrice) * 100 : 0;
+          const direction = changePercent > 0 ? "wzrost" : changePercent < 0 ? "spadek" : "stabilizację";
+          const summary = state.reportDay
+              ? `Raport dzienny: kurs od poprzedniego raportu zanotował ${direction} o ${Math.abs(changePercent).toFixed(2)}%.`
+              : `Raport otwarcia: kurs wynosi ${latestPrice.toFixed(2)} zł.`;
+          dailyReports.push({
+              id: `${dayKey}_${companyId}`,
+              companyId,
+              companyName: companyNames[companyId] || companyId,
+              summary,
+              changePercent: Number(changePercent.toFixed(2)),
+              generatedAt: now
+          });
+      }
+      await cenyDocRef.update({
+          companyReports: [...reports, ...dailyReports].slice(-36),
+          companyReportState: { reportDay: dayKey, prices: newPrices, updatedAt: now }
+      });
   }
 
   // ==========================================================
@@ -294,6 +465,7 @@ try {
         ulanska: 1860.00, brzozair: 2350.00, rychbud: 870.00, cosmosanit: 2000.00,
         bartcoin: 4000.00, igirium: 2000.00
     };
+    const { event: marketEvent, needsImpact: applyMarketEvent } = await getActiveMarketEvent(now, currentPrices.marketEvent);
     
     // Wpływ plotek
     const thirtySecondsAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 1000);
@@ -325,6 +497,10 @@ try {
       
       // Dodaj wpływ plotek
       if (rumorImpacts[companyId]) change += price * rumorImpacts[companyId];
+
+      if (applyMarketEvent && marketEvent.companyId === companyId) {
+          change += price * marketEvent.impactPercent;
+      }
 
       // Obsługa Newsów (Losowe lub Wymuszone)
       const forcedEvent = forcedNews[companyId];
@@ -362,6 +538,12 @@ try {
 
     // Zapis cen
     await cenyDocRef.set(newPrices, { merge: true });
+    if (applyMarketEvent) {
+        await marketEventRef.update({
+            marketEvent: { ...marketEvent, applied: true, appliedAt: now }
+        });
+    }
+    await publishDailyCompanyReports(currentPrices, newPrices, now, allAssets);
 
     // --- WYWOŁANIE FUNKCJI ZAKŁADÓW ---
     await manageMatches(db);
@@ -369,6 +551,7 @@ try {
 
     // --- WYWOŁANIE FUNKCJI OBLIGACJI ---
     await processBonds(newPrices);
+    await processDividends(newPrices, now);
     await manageCrossyLobbies(db); // <--- DODAJ TO TUTAJ
     
     // --- REALIZACJA ZLECEŃ LIMIT ---
