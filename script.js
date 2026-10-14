@@ -121,7 +121,11 @@ let unsubscribePersonalHistory = null;
 let unsubscribeLimitOrders = null;
 let unsubscribePvP = null;
 let presenceHeartbeatInterval = null;
-const PLAYERS_ONLINE_TIMEOUT_MS = 90 * 1000;
+let presenceStatusRefreshInterval = null;
+let onlinePlayers = [];
+let playersOnlineError = null;
+let presenceWriteError = false;
+const PLAYERS_ONLINE_TIMEOUT_MS = 2 * 60 * 1000;
 let unsubscribeSportsbookMatches = null;
 let unsubscribeSportsbookBets = null;
 let sportsbookMatches = [];
@@ -780,7 +784,7 @@ async function onRegister(e) {
                 missionProgress: normalizeMissionProgress(null),
                 dividendDueAt: Timestamp.fromDate(new Date()),
                 joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0,
-                lastSeenAt: Date.now()
+                lastSeenAt: serverTimestamp()
             });
         }
     } catch (err) { showAuthMessage(err.message, "error"); }
@@ -1126,6 +1130,13 @@ document.getElementById("minigolf-aim").addEventListener("input", updateMiniGolf
     if (jitsiFab) jitsiFab.addEventListener("click", toggleJitsi);
     if (closeJitsiBtn) closeJitsiBtn.addEventListener("click", toggleJitsi);
 
+    window.addEventListener("focus", () => {
+        if (currentUserId) void updateCurrentUserPresence();
+    });
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && currentUserId) void updateCurrentUserPresence();
+    });
+
     document.addEventListener("click", (e) => {
         const clickTarget = e.target;
         const clickedChatFab = chatFab && (clickTarget === chatFab || chatFab.contains(clickTarget));
@@ -1183,7 +1194,8 @@ function getPlayerOnlineState(userData = {}) {
 function renderPlayersOnline(players = []) {
     const tableBody = document.querySelector("#players-online-table tbody");
     const countLabel = document.getElementById("players-online-count");
-    if (!tableBody || !countLabel) return;
+    const message = document.getElementById("players-online-message");
+    if (!tableBody || !countLabel || !message) return;
 
     const normalized = players
         .filter(player => player && typeof player.name === "string" && player.name.trim())
@@ -1193,20 +1205,28 @@ function renderPlayersOnline(players = []) {
             totalValue: Number.isFinite(Number(player.totalValue)) ? Number(player.totalValue) : (Number(player.cash) || 0),
             ...getPlayerOnlineState(player)
         }))
-        .sort((a, b) => b.totalValue - a.totalValue);
+        .sort((a, b) => Number(b.isOnline) - Number(a.isOnline) || b.totalValue - a.totalValue);
 
     const onlineCount = normalized.filter(player => player.isOnline).length;
     countLabel.textContent = String(onlineCount);
+    message.textContent = playersOnlineError
+        ? "Nie udało się pobrać listy graczy. Spróbuj ponownie później."
+        : presenceWriteError
+            ? "Nie udało się zapisać Twojego statusu online. Sprawdź połączenie lub uprawnienia Firestore."
+            : "";
     tableBody.replaceChildren();
 
     if (!normalized.length) {
         const emptyRow = document.createElement("tr");
-        emptyRow.innerHTML = `<td colspan="3" style="color: var(--text-muted);">Brak graczy do wyświetlenia.</td>`;
+        const emptyCell = document.createElement("td");
+        emptyCell.colSpan = 3;
+        emptyCell.textContent = playersOnlineError ? "Lista graczy jest chwilowo niedostępna." : "Brak graczy do wyświetlenia.";
+        emptyRow.appendChild(emptyCell);
         tableBody.appendChild(emptyRow);
         return;
     }
 
-    normalized.slice(0, 12).forEach(player => {
+    normalized.forEach(player => {
         const row = document.createElement("tr");
         const isCurrentUser = currentUserId && player.id === currentUserId;
         const nameCell = document.createElement("td");
@@ -1219,6 +1239,7 @@ function renderPlayersOnline(players = []) {
         nameCell.appendChild(nameWrap);
 
         valueCell.textContent = formatujWalute(player.totalValue);
+        valueCell.dataset.label = "Portfel";
 
         const status = document.createElement("span");
         status.className = `player-status-pill ${player.label}`;
@@ -1235,14 +1256,16 @@ function renderPlayersOnline(players = []) {
 function listenToPlayersOnline() {
     if (unsubscribePlayersOnline) unsubscribePlayersOnline();
     unsubscribePlayersOnline = onSnapshot(
-        query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(12)),
+        query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(50)),
         (snapshot) => {
-            const players = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-            renderPlayersOnline(players);
+            playersOnlineError = null;
+            onlinePlayers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+            renderPlayersOnline(onlinePlayers);
         },
         (error) => {
             console.error("Błąd pobierania graczy online:", error);
-            renderPlayersOnline([]);
+            playersOnlineError = error;
+            renderPlayersOnline(onlinePlayers);
         }
     );
 }
@@ -1250,20 +1273,22 @@ function listenToPlayersOnline() {
 async function updateCurrentUserPresence() {
     if (!currentUserId) return;
     try {
-        await updateDoc(doc(db, "uzytkownicy", currentUserId), { lastSeenAt: Date.now() });
+        await updateDoc(doc(db, "uzytkownicy", currentUserId), { lastSeenAt: serverTimestamp() });
+        presenceWriteError = false;
     } catch (error) {
-        console.warn("Nie udało się zaktualizować statusu online:", error);
+        presenceWriteError = true;
+        console.error("Nie udało się zaktualizować statusu online:", error);
     }
+    renderPlayersOnline(onlinePlayers);
 }
 
 function startPresenceHeartbeat() {
     if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+    if (presenceStatusRefreshInterval) clearInterval(presenceStatusRefreshInterval);
     if (!currentUserId) return;
     updateCurrentUserPresence();
-    presenceHeartbeatInterval = setInterval(() => {
-        if (!currentUserId) return;
-        updateCurrentUserPresence();
-    }, 30000);
+    presenceHeartbeatInterval = setInterval(updateCurrentUserPresence, 30000);
+    presenceStatusRefreshInterval = setInterval(() => renderPlayersOnline(onlinePlayers), 15000);
 }
 
 // --- ANIMOWANA AKTUALIZACJA PORTFELA ---
@@ -1536,7 +1561,9 @@ function startAuthListener() {
             if (unsubscribeSportsbookMatches) unsubscribeSportsbookMatches();
             if (unsubscribeSportsbookBets) unsubscribeSportsbookBets();
             if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+            if (presenceStatusRefreshInterval) clearInterval(presenceStatusRefreshInterval);
             presenceHeartbeatInterval = null;
+            presenceStatusRefreshInterval = null;
             unsubscribePlayersOnline = null;
             unsubscribeSportsbookMatches = null;
             unsubscribeSportsbookBets = null;
@@ -1544,6 +1571,9 @@ function startAuthListener() {
             selectedSportsbookBet = null;
             sportsbookMatchesError = null;
             sportsbookBetsError = null;
+            onlinePlayers = [];
+            playersOnlineError = null;
+            presenceWriteError = false;
             renderPlayersOnline([]);
             renderSportsbook();
             priceAlertDocs = [];

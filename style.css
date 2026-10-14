@@ -411,12 +411,20 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     background: rgba(255,255,255,0.02);
 }
 
+.players-online-table td {
+    min-width: 0;
+}
+
 .players-online-table .player-name {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     font-weight: 700;
     color: var(--text-main);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .players-online-table .player-name.is-me {
@@ -461,6 +469,65 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
     background: rgba(255, 102, 127, 0.08);
     border-color: rgba(255, 102, 127, 0.22);
     color: #ffc1cf;
+}
+
+.players-online-message {
+    margin: 10px 0 0;
+    color: var(--red);
+    font-size: 0.78rem;
+}
+
+.players-online-message:empty {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .players-online-table,
+    .players-online-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .players-online-table thead {
+        display: none;
+    }
+
+    .players-online-table tbody tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 2px 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .players-online-table td {
+        padding: 2px 0;
+        border: 0;
+    }
+
+    .players-online-table td:first-child {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .players-online-table td:nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .players-online-table td:nth-child(2)::before {
+        content: "Portfel: ";
+        color: var(--text-dim);
+    }
+
+    .players-online-table td:last-child {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        justify-self: end;
+    }
 }
 
 /* --- ZAKŁADKI I HISTORIA (NOWY GRID) --- */
