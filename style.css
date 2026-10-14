@@ -360,6 +360,109 @@ input:focus, select:focus { border-color: rgba(99, 238, 212, 0.65); box-shadow: 
 #leaderboard-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .highlight-me { color: var(--accent-color); font-weight: bold; }
 
+.players-online-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.players-online-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-main);
+    background: rgba(99, 238, 212, 0.12);
+    border: 1px solid rgba(99, 238, 212, 0.24);
+}
+
+.online-table-wrap {
+    overflow: auto;
+}
+
+.players-online-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.players-online-table th,
+.players-online-table td {
+    text-align: left;
+    padding: 9px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    vertical-align: middle;
+}
+
+.players-online-table th {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.players-online-table tbody tr:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+.players-online-table .player-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.players-online-table .player-name.is-me {
+    color: var(--accent-color);
+}
+
+.player-status-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px rgba(255, 102, 127, 0.55);
+}
+
+.player-status-dot.online {
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(57, 213, 157, 0.6);
+}
+
+.player-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    color: var(--text-main);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.player-status-pill.online {
+    background: rgba(57, 213, 157, 0.12);
+    border-color: rgba(57, 213, 157, 0.26);
+    color: #b8f7dc;
+}
+
+.player-status-pill.offline {
+    background: rgba(255, 102, 127, 0.08);
+    border-color: rgba(255, 102, 127, 0.22);
+    color: #ffc1cf;
+}
+
 /* --- ZAKŁADKI I HISTORIA (NOWY GRID) --- */
 
 /* Style zakładek (przyciski) */

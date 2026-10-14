@@ -114,11 +114,14 @@ let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
 let unsubscribeNews = null;
 let unsubscribeLeaderboard = null;
+let unsubscribePlayersOnline = null;
 let unsubscribeChat = null;
 let unsubscribeGlobalHistory = null;
 let unsubscribePersonalHistory = null;
 let unsubscribeLimitOrders = null;
 let unsubscribePvP = null;
+let presenceHeartbeatInterval = null;
+const PLAYERS_ONLINE_TIMEOUT_MS = 90 * 1000;
 let unsubscribeSportsbookMatches = null;
 let unsubscribeSportsbookBets = null;
 let sportsbookMatches = [];
@@ -776,7 +779,8 @@ async function onRegister(e) {
                 startValue: 10000.00, zysk: 0.00, totalValue: 10000.00,
                 missionProgress: normalizeMissionProgress(null),
                 dividendDueAt: Timestamp.fromDate(new Date()),
-                joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0
+                joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0,
+                lastSeenAt: Date.now()
             });
         }
     } catch (err) { showAuthMessage(err.message, "error"); }
@@ -902,6 +906,8 @@ document.addEventListener("DOMContentLoaded", () => {
         rumorsFeed: document.getElementById("rumors-feed"),
         newsFeed: document.getElementById("news-feed"),
         leaderboardList: document.getElementById("leaderboard-list"),
+        playersOnlineTable: document.getElementById("players-online-table"),
+        playersOnlineCount: document.getElementById("players-online-count"),
 
         // Chat
         chatForm: document.getElementById("chat-form"),
@@ -1164,6 +1170,102 @@ function listenToPortfolioData(userId) {
     });
 }
 
+function getPlayerOnlineState(userData = {}) {
+    const lastSeen = getTimestampMillis(userData.lastSeenAt);
+    const isOnline = Number.isFinite(lastSeen) && Date.now() - lastSeen < PLAYERS_ONLINE_TIMEOUT_MS;
+    return {
+        isOnline,
+        label: isOnline ? "online" : "offline",
+        text: isOnline ? "ONLINE" : "OFFLINE"
+    };
+}
+
+function renderPlayersOnline(players = []) {
+    const tableBody = document.querySelector("#players-online-table tbody");
+    const countLabel = document.getElementById("players-online-count");
+    if (!tableBody || !countLabel) return;
+
+    const normalized = players
+        .filter(player => player && typeof player.name === "string" && player.name.trim())
+        .map(player => ({
+            id: player.id || player.uid || "",
+            name: player.name.trim(),
+            totalValue: Number.isFinite(Number(player.totalValue)) ? Number(player.totalValue) : (Number(player.cash) || 0),
+            ...getPlayerOnlineState(player)
+        }))
+        .sort((a, b) => b.totalValue - a.totalValue);
+
+    const onlineCount = normalized.filter(player => player.isOnline).length;
+    countLabel.textContent = String(onlineCount);
+    tableBody.replaceChildren();
+
+    if (!normalized.length) {
+        const emptyRow = document.createElement("tr");
+        emptyRow.innerHTML = `<td colspan="3" style="color: var(--text-muted);">Brak graczy do wyświetlenia.</td>`;
+        tableBody.appendChild(emptyRow);
+        return;
+    }
+
+    normalized.slice(0, 12).forEach(player => {
+        const row = document.createElement("tr");
+        const isCurrentUser = currentUserId && player.id === currentUserId;
+        const nameCell = document.createElement("td");
+        const valueCell = document.createElement("td");
+        const statusCell = document.createElement("td");
+
+        const nameWrap = document.createElement("span");
+        nameWrap.className = `player-name${isCurrentUser ? " is-me" : ""}`;
+        nameWrap.textContent = player.name;
+        nameCell.appendChild(nameWrap);
+
+        valueCell.textContent = formatujWalute(player.totalValue);
+
+        const status = document.createElement("span");
+        status.className = `player-status-pill ${player.label}`;
+        status.innerHTML = `<span class="player-status-dot ${player.label === "online" ? "online" : ""}"></span>${player.text}`;
+        statusCell.appendChild(status);
+
+        row.appendChild(nameCell);
+        row.appendChild(valueCell);
+        row.appendChild(statusCell);
+        tableBody.appendChild(row);
+    });
+}
+
+function listenToPlayersOnline() {
+    if (unsubscribePlayersOnline) unsubscribePlayersOnline();
+    unsubscribePlayersOnline = onSnapshot(
+        query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(12)),
+        (snapshot) => {
+            const players = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+            renderPlayersOnline(players);
+        },
+        (error) => {
+            console.error("Błąd pobierania graczy online:", error);
+            renderPlayersOnline([]);
+        }
+    );
+}
+
+async function updateCurrentUserPresence() {
+    if (!currentUserId) return;
+    try {
+        await updateDoc(doc(db, "uzytkownicy", currentUserId), { lastSeenAt: Date.now() });
+    } catch (error) {
+        console.warn("Nie udało się zaktualizować statusu online:", error);
+    }
+}
+
+function startPresenceHeartbeat() {
+    if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+    if (!currentUserId) return;
+    updateCurrentUserPresence();
+    presenceHeartbeatInterval = setInterval(() => {
+        if (!currentUserId) return;
+        updateCurrentUserPresence();
+    }, 30000);
+}
+
 // --- ANIMOWANA AKTUALIZACJA PORTFELA ---
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
@@ -1413,12 +1515,14 @@ function startAuthListener() {
             listenToRumors();
             listenToMarketNews();
             listenToLeaderboard();
+            listenToPlayersOnline();
             listenToChat();
             listenToGlobalHistory();
             listenToPersonalHistory(currentUserId);
             listenToLimitOrders(currentUserId);
             listenToPvP();
             listenToSportsbook(currentUserId);
+            startPresenceHeartbeat();
 
             dom.navButtons[0].click();
         } else {
@@ -1428,14 +1532,19 @@ function startAuthListener() {
             dom.authContainer.classList.remove("show-register");
 
             if (unsubscribePortfolio) unsubscribePortfolio();
+            if (unsubscribePlayersOnline) unsubscribePlayersOnline();
             if (unsubscribeSportsbookMatches) unsubscribeSportsbookMatches();
             if (unsubscribeSportsbookBets) unsubscribeSportsbookBets();
+            if (presenceHeartbeatInterval) clearInterval(presenceHeartbeatInterval);
+            presenceHeartbeatInterval = null;
+            unsubscribePlayersOnline = null;
             unsubscribeSportsbookMatches = null;
             unsubscribeSportsbookBets = null;
             sportsbookMatches = [];
             selectedSportsbookBet = null;
             sportsbookMatchesError = null;
             sportsbookBetsError = null;
+            renderPlayersOnline([]);
             renderSportsbook();
             priceAlertDocs = [];
             pendingPriceAlerts.clear();
